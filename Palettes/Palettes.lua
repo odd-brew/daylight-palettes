@@ -1701,7 +1701,7 @@ local function buildCustomEditor(row)
             if askBg.SetColorTexture then askBg:SetColorTexture(0.09, 0.06, 0.05, 0.97) end
         end
         line(ask, "Reset Custom to Ember?", "TOPLEFT", ask, "TOPLEFT", 14, -12)
-        local askBody = line(ask, "This replaces your current custom colors with Ember's base and accent. Custom stays selected. After you Save, Undo can step back to the colors you had.", "TOPLEFT", ask, "TOPLEFT", 14, -32)
+        local askBody = line(ask, "This replaces your current custom colors with Ember's base and accent. Custom stays selected.", "TOPLEFT", ask, "TOPLEFT", 14, -32)
         if type(askBody) == "table" then
             if askBody.SetWidth then askBody:SetWidth(300) end
             if askBody.SetWordWrap then askBody:SetWordWrap(true) end
