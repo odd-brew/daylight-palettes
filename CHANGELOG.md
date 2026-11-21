@@ -1,6 +1,10 @@
 # Changelog
 
-## [0.1.0] - RELEASE-DATE
+## [0.1.1] - RELEASE-DATE
+
+Removed: Accent from setting.
+
+## [0.1.0] - 2026-11-20
 
 First public release.
 

@@ -11,7 +11,6 @@ Made for World of Warcraft: Forever.
   - **Class themes (9):** Warrior, Mage, Paladin, Priest, Hunter, Rogue, Shaman, Warlock, Druid
   - **Realm themes (11):** Keepstone, Ironbanner, Sapphire Crown, Crownwall, Deepforge, Starshade, Cogspark, Rustbrand, Gravelight, Plainsong, Junglefire
 - **Accent follows class:** tints the window accent to a shade of your class color, adjusted just enough to stay readable.
-- **Accent from:** borrow another palette's accent for the one you're using. Only accents with enough contrast are listed.
 - **One palette or per character:** keep a palette on one character, or use it on all of them.
 - **Restore anytime:** one button, or `/palettes off`, puts DaylightUI's own colors back.
 
@@ -19,7 +18,7 @@ Sightline uses slate blue and amber, chosen with color-blind players in mind.
 
 ## Requirements
 
-- DaylightUI installed and enabled. Palettes is a plugin and does nothing on its own.
+- DaylightUI ([DAYLIGHTUI-LINK]) installed and enabled. Palettes is a plugin and does nothing on its own.
 
 ## Install
 
@@ -42,8 +41,7 @@ On **Plugins > Palettes**:
 | Setting | What it does |
 | --- | --- |
 | Accent follows class | Uses a shade of your class color as the window accent. Names, chat and unit frames keep the game's class colors. |
-| Accent from | Uses another palette's accent with your current palette. Greyed out while Accent follows class is on. |
-| Use this palette on every character | Off keeps the palette on this character, in your active DaylightUI profile. On uses one palette everywhere. Class accent and Accent from stay per character. |
+| Use this palette on every character | Off keeps the palette on this character, in your active DaylightUI profile. On uses one palette everywhere. Class accent stays per character. |
 | Restore Daylight colors | Switches Palettes off and puts DaylightUI's own colors back. |
 
 ## Known limits

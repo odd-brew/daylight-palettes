@@ -25,9 +25,7 @@
 -- the hue. Lightness stays between 0.30 and 0.88, and chroma stays at least
 -- 0.08. A color that already clears 3:1 is kept. One that does not is
 -- lightened until it does. Names, chat, and unit frames stay the game's
--- class color. Mix and match is used when class accent is off, and only
--- when that highlight clears 3:1. Accent from is greyed out while class
--- accent is on, and the saved mix is kept.
+-- class color.
 --
 -- v3 adds the class themes and the realm themes on that same path.
 -- While a palette is on, three Daylight surfaces follow it and there is no
@@ -555,31 +553,20 @@ local function playerClassColor()
 end
 
 -- Class accent wins while it is on. The shade is always a class color: the
--- shifted one, or the precomputed shade for that class. Mix and match is
--- used only when class accent is off. Game text is not recolored.
+-- shifted one, or the precomputed shade for that class. Game text is not recolored.
 local function accentChoice(frame)
     if type(frame) ~= "table" or type(ns.accentPasses) ~= "function" then return nil, nil, nil end
     local d = dui()
     if type(d) ~= "table" or type(d.Get) ~= "function" then return nil, nil, nil end
-    if d:Get("Palettes", "classAccent") == true then
-        local color, row = playerClassColor()
-        local name = row and row.name or "Class"
-        local token = row and row.id
-        local shade
-        if type(ns.classShade) == "function" then
-            shade = ns.classShade(color, frame, token)
-        end
-        -- Accent from has no effect while class accent is on. The saved mix stays.
-        if shade then return shade, name, nil end
-        return nil, nil, nil
+    if d:Get("Palettes", "classAccent") ~= true then return nil, nil, nil end
+    local color, row = playerClassColor()
+    local name = row and row.name or "Class"
+    local token = row and row.id
+    local shade
+    if type(ns.classShade) == "function" then
+        shade = ns.classShade(color, frame, token)
     end
-    local mixId = d:Get("Palettes", "mixAccent")
-    if type(mixId) == "string" and mixId ~= "same" and mixId ~= frame.id then
-        local accent = ns.byId[mixId]
-        if type(accent) == "table" and type(accent.c2) == "table" and ns.accentPasses(accent.c2, frame) then
-            return accent.c2, accent.name, accent
-        end
-    end
+    if shade then return shade, name, nil end
     return nil, nil, nil
 end
 
@@ -901,19 +888,6 @@ local function apply(id, fromQueue)
         warnMissing()
         return
     end
-    local d = dui()
-    if type(d) == "table" and type(d.Get) == "function" and type(d.Set) == "function"
-        and d:Get("Palettes", "classAccent") ~= true then
-        -- A mix that fails on this frame is not a choice, so it does not linger in the menu.
-        -- Class accent leaves the saved Accent from choice alone.
-        local mixId = d:Get("Palettes", "mixAccent")
-        if type(mixId) == "string" and mixId ~= "same" and mixId ~= p.id then
-            local accent = ns.byId[mixId]
-            if type(accent) ~= "table" or type(ns.accentPasses) ~= "function" or not ns.accentPasses(accent.c2, p) then
-                d:Set("Palettes", "mixAccent", "same")
-            end
-        end
-    end
     local map = resolvedMap(p)
     writeMap(map, 3)
     override("accent", "customGradient")
@@ -980,7 +954,7 @@ local function onSetting(scope, path)
         onEvery(d:Get("Palettes", "everyCharacter") == true)
         return
     end
-    if scope == "Palettes" and (path == "classAccent" or path == "mixAccent") then
+    if scope == "Palettes" and path == "classAccent" then
         local id = d:Get("Palettes", "palette")
         if known(id) and id ~= "off" then apply(id) end
         return
@@ -1288,6 +1262,8 @@ local function onEnable(_, db)
     if type(PalettesAccount.palette) == "string" and not known(PalettesAccount.palette) then
         PalettesAccount.palette = "ember"
     end
+    -- A saved choice from the removed setting is dropped, so the palette accent is its own.
+    if type(db) == "table" then db.mixAccent = nil end
     local d = dui()
     if type(d) ~= "table" or type(d.Set) ~= "function" then return end
     applying = true
@@ -1329,7 +1305,7 @@ local function boot()
     d:RegisterModule("Palettes", {
         label = "Palettes",
         plugin = "Palettes",
-        defaults = { palette = "off", own = "off", everyCharacter = false, classAccent = false, mixAccent = "same" },
+        defaults = { palette = "off", own = "off", everyCharacter = false, classAccent = false },
         OnEnable = onEnable,
         options = {
             pages = {
@@ -1346,31 +1322,8 @@ local function boot()
                                 end, height = function(row) return row.palettesHeight or 430 end },
                                 { type = "toggle", key = "classAccent", label = "Accent follows class",
                                     desc = "Uses your class color as the chrome accent. The shade keeps the class hue and moves only as far as it needs to clear 3:1 on this frame. Names, chat, and unit frames stay the game's colors." },
-                                { type = "dropdown", key = "mixAccent", label = "Accent from",
-                                    desc = "Another palette's accent on this frame. Only accents that pass the contrast check are listed.",
-                                    -- Daylight greys a row whose disabled(get) is true, and ignores clicks.
-                                    disabled = function(get) return get("classAccent") == true end,
-                                    choices = function()
-                                        local frameId = currentId()
-                                        local frame = ns.byId[frameId]
-                                        local values, order = { same = "Same as frame" }, { "same" }
-                                        if type(frame) ~= "table" or type(ns.accentPasses) ~= "function" then return values, order end
-                                        for g = 1, #ns.groups do
-                                            local group = ns.groups[g]
-                                            for i = 1, #group.ids do
-                                                local id = group.ids[i]
-                                                local accent = ns.byId[id]
-                                                if id ~= frameId and type(accent) == "table" and ns.accentPasses(accent.c2, frame) then
-                                                    values[id] = accent.name
-                                                    order[#order + 1] = id
-                                                end
-                                            end
-                                        end
-                                        return values, order
-                                    end },
-                                { type = "text", label = "Accent from is used only when class accent is off. It only lists accents that clear 3:1. Game text is not recolored." },
                                 { type = "toggle", key = "everyCharacter", label = "Use this palette on every character",
-                                    desc = "Off keeps the choice on this character, in the active Daylight profile. On uses one palette for every character. Class accent and mix stay on this character." },
+                                    desc = "Off keeps the choice on this character, in the active Daylight profile. On uses one palette for every character. Class accent stays on this character." },
                                 { type = "button", label = "Restore Daylight colors", text = "Restore", func = function()
                                     if type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
                                         DaylightUI:Set("Palettes", "palette", "off")

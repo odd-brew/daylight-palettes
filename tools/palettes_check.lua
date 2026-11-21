@@ -301,17 +301,15 @@ end
 if main:find("Live sample", 1, true) then
     fail("the live sample bar should be gone")
 end
-if not main:find("classAccent", 1, true) or not main:find("mixAccent", 1, true) then
-    fail("class accent and mix controls are missing")
+if not main:find("classAccent", 1, true) then
+    fail("class accent control is missing")
 end
-if not main:find('disabled = function(get) return get("classAccent") == true end', 1, true) then
-    fail("Accent from must be disabled while class accent is on")
+local _, mixCount = main:gsub("mixAccent", "mixAccent")
+if mixCount ~= 1 or not main:find("db.mixAccent = nil", 1, true) then
+    fail("mixAccent remains")
 end
-if not main:find("Accent from is used only when class accent is off.", 1, true) then
-    fail("missing Accent from help")
-end
-if not main:find('d:Get("Palettes", "classAccent") ~= true', 1, true) then
-    fail("class accent must leave the saved Accent from choice alone")
+if main:find("Accent from", 1, true) then
+    fail("Accent from remains")
 end
 if not main:find("ns.classShade(color, frame, token)", 1, true) then
     fail("class accent must shade every palette, light and dark")
