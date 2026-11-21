@@ -55,11 +55,12 @@ local function hex(id, key)
 end
 
 check(type(ns.byId), "table", "byId")
-check(ns.order and #ns.order or 0, 33, "palette count")
+check(ns.order and #ns.order or 0, 35, "palette count")
 
 local ids = {
     "ember", "tide", "dusk", "ash", "pine",
     "forgeglow", "nightglass", "vesper", "carmine-night", "gilded", "phosphor", "ink", "sightline",
+    "vanilla", "forever",
     "warrior", "mage", "paladin", "priest",
     "hunter", "rogue", "shaman", "warlock", "druid",
     "keepstone", "ironbanner", "sapphire-crown", "crownwall", "deepforge",
@@ -98,8 +99,8 @@ local v2 = {
     ["carmine-night"] = { group = "dark", window = "#100A0C", background = "#140E10", border = "#080506",
         band = "#2A161A", bandLit = "#4A242C", c1 = "#D4283C", c2 = "#E03040", c3 = "#E07080",
         title = "#FFF2F2", text = "#F0DEDE", label = "#D0B0B0", off = "#9A7878" },
-    gilded = { group = "dark", window = "#0A0907", background = "#0E0D0A", border = "#050403",
-        band = "#242018", bandLit = "#3A3428", c1 = "#B89020", c2 = "#D4AF37", c3 = "#F0D878",
+    gilded = { group = "dark", window = "#070706", background = "#0B0B08", border = "#050403",
+        band = "#18180F", bandLit = "#2C2C1C", c1 = "#B89020", c2 = "#D4AF37", c3 = "#F0D878",
         title = "#FFF8E8", text = "#F0E6C8", label = "#D4C498", off = "#A09070" },
     phosphor = { group = "dark", window = "#070806", background = "#0A0C09", border = "#030403",
         band = "#162014", bandLit = "#2A3A26", c1 = "#7AC400", c2 = "#B8FF00", c3 = "#E8FF8A",
@@ -110,6 +111,12 @@ local v2 = {
     sightline = { group = "dark", window = "#0E141A", background = "#121820", border = "#06080C",
         band = "#1C2836", bandLit = "#2E3E50", c1 = "#C48410", c2 = "#E8A020", c3 = "#F3C86A",
         title = "#F4F7FB", text = "#E2E8F0", label = "#B8C4D2", off = "#7E8C9A" },
+    vanilla = { group = "dark", window = "#241208", background = "#32180A", border = "#100804",
+        band = "#4A2814", bandLit = "#6E3E1C", c1 = "#C4C0B8", c2 = "#E8E4DC", c3 = "#F8F6F0",
+        title = "#FFF8EE", text = "#F3E6D0", label = "#C8B080", off = "#9A8460" },
+    forever = { group = "dark", window = "#080706", background = "#0C0908", border = "#050403",
+        band = "#321C10", bandLit = "#523824", c1 = "#B07A50", c2 = "#DCA77F", c3 = "#F0D0B0",
+        title = "#F7F6F2", text = "#EAE8E0", label = "#C8B49A", off = "#9A846C" },
 }
 
 local v2Keys = { "window", "background", "border", "band", "bandLit", "c1", "c2", "c3", "title", "text", "label", "off" }
@@ -129,7 +136,7 @@ for id, want in pairs(v2) do
     end
 end
 
-for i = 1, 13 do
+for i = 1, 15 do
     local p = ns.byId[ids[i]]
     if p.group ~= "dark" then fail(ids[i] .. " should be a dark palette") end
     if p.windowAlpha ~= nil then fail(ids[i] .. " should not force window opacity") end
@@ -150,7 +157,7 @@ end
 
 check(ns.groups and #ns.groups, 3, "palette groups")
 check(ns.groups and ns.groups[1].label, "Dark", "dark group")
-check(ns.groups and #ns.groups[1].ids, 13, "dark count")
+check(ns.groups and #ns.groups[1].ids, 15, "dark count")
 check(ns.groups and ns.groups[2].label, "Class themes", "class group")
 check(ns.groups and #ns.groups[2].ids, 9, "class theme count")
 check(ns.groups and ns.groups[3].label, "Realm themes", "realm group")
@@ -162,7 +169,7 @@ check(ns.off and ns.off.name, "Daylight (off)", "restore name")
 -- on its own panel and its own band.
 local v3 = {
     warrior = { group = "class", window = "#121110", background = "#171614", border = "#070605",
-        band = "#2A2823", bandLit = "#424038", c1 = "#A88858", c2 = "#D4B07A", c3 = "#EEDCC0",
+        band = "#2A2823", bandLit = "#424038", c1 = "#A89060", c2 = "#D0B888", c3 = "#F0E4C8",
         title = "#F9F8F6", text = "#EDE9E3", label = "#A28B6A", off = "#A08C6E" },
     mage = { group = "class", window = "#0B111A", background = "#0F1622", border = "#04070B",
         band = "#172437", bandLit = "#273D5A", c1 = "#2E8EC4", c2 = "#56BEEA", c3 = "#B4E2F6",
@@ -177,7 +184,7 @@ local v3 = {
         band = "#2A2418", bandLit = "#403828", c1 = "#7A8830", c2 = "#A8B44A", c3 = "#D8E090",
         title = "#F8F8F6", text = "#EBECE4", label = "#8B9062", off = "#8A8F66" },
     rogue = { group = "class", window = "#10110B", background = "#15160F", border = "#060604",
-        band = "#28291C", bandLit = "#3E3F2A", c1 = "#9A9A28", c2 = "#D0D040", c3 = "#ECEC90",
+        band = "#28291C", bandLit = "#3E3F2A", c1 = "#B0B024", c2 = "#E0DC30", c3 = "#F2F08A",
         title = "#F9F9F6", text = "#EDEDE3", label = "#929254", off = "#929259" },
     shaman = { group = "class", window = "#0F1116", background = "#14161C", border = "#05060A",
         band = "#222830", bandLit = "#384456", c1 = "#3E6ECF", c2 = "#4A82E0", c3 = "#A8C8F4",
@@ -197,11 +204,11 @@ local v3 = {
     ["sapphire-crown"] = { group = "realm", window = "#0A0D1A", background = "#0D1222", border = "#04050B",
         band = "#18214A", bandLit = "#283770", c1 = "#B89A48", c2 = "#E0C676", c3 = "#F4E6B8",
         title = "#F9F8F6", text = "#EEEBE3", label = "#9B8A57", off = "#998A5C" },
-    crownwall = { group = "realm", window = "#101216", background = "#15181D", border = "#06070A",
-        band = "#252A33", bandLit = "#3A414E", c1 = "#5A82BE", c2 = "#7FA6DC", c3 = "#C8D8F0",
-        title = "#F6F7F9", text = "#E3E7ED", label = "#7C92B1", off = "#7E93AF" },
+    crownwall = { group = "realm", window = "#1A1810", background = "#2A281C", border = "#06070A",
+        band = "#444230", bandLit = "#4A4732", c1 = "#2E6CB8", c2 = "#4A98EA", c3 = "#B8D6FA",
+        title = "#F6F7F9", text = "#E3E7ED", label = "#B8B4A0", off = "#7E93AF" },
     deepforge = { group = "realm", window = "#111213", background = "#17181A", border = "#060607",
-        band = "#28292C", bandLit = "#404247", c1 = "#B65734", c2 = "#D07048", c3 = "#E8B090",
+        band = "#28292C", bandLit = "#404247", c1 = "#C06820", c2 = "#E08A38", c3 = "#F0C090",
         title = "#F9F7F6", text = "#EDE6E3", label = "#AF8776", off = "#AD8879" },
     starshade = { group = "realm", window = "#0C0C18", background = "#101020", border = "#05050C",
         band = "#1C1C3A", bandLit = "#2D2D58", c1 = "#8A78D4", c2 = "#B8A8F0", c3 = "#E0D8FA",
@@ -213,7 +220,7 @@ local v3 = {
         band = "#28281A", bandLit = "#424129", c1 = "#A86818", c2 = "#C98420", c3 = "#F0C48A",
         title = "#F9F7F6", text = "#EEE6E3", label = "#AF8471", off = "#AC8574" },
     gravelight = { group = "realm", window = "#0E100F", background = "#131614", border = "#050605",
-        band = "#212622", bandLit = "#363E38", c1 = "#82A06A", c2 = "#A9C38C", c3 = "#D8E6C8",
+        band = "#212622", bandLit = "#363E38", c1 = "#98A880", c2 = "#D0D8B0", c3 = "#EEF0D8",
         title = "#F7F8F7", text = "#E8EBE5", label = "#80926D", off = "#829171" },
     plainsong = { group = "realm", window = "#14110D", background = "#1B1712", border = "#070605",
         band = "#2C251C", bandLit = "#463B2D", c1 = "#2A7EAA", c2 = "#3AA4D4", c3 = "#A8D8F0",
@@ -236,6 +243,51 @@ for id, want in pairs(v3) do
         if not ns.accentPasses(p.c2, p) then fail(id .. " accent is under 3:1 on its own panel or band") end
         if p.windowAlpha ~= nil then fail(id .. " should not force window opacity") end
         if p.tip ~= nil or p.chatPlate ~= nil then fail(id .. " should not add a tooltip or chat plate") end
+    end
+end
+
+check(ns.byId.vanilla and ns.byId.vanilla.mood, "Dark oak and pewter chrome.", "vanilla mood")
+check(ns.byId.forever and ns.byId.forever.mood, "Near-black soot, weathered bronze trim.", "forever mood")
+check(ns.byId.crownwall and ns.byId.crownwall.mood, "Pale castle stone, banner blue.", "crownwall mood")
+check(ns.byId.druid and ns.byId.druid.c2.hex, "#C26218", "druid accent stays")
+check(ns.byId.ironbanner and ns.byId.ironbanner.c2.hex, "#C8583A", "ironbanner accent stays")
+check(ns.byId.forgeglow and ns.byId.forgeglow.c2.hex, "#F26A1A", "forgeglow accent stays")
+
+-- Body text stays at least 6.6:1 on the background. Title, text and label
+-- stay at least 4.5:1 on the background and the band. Accent and dim text
+-- stay at least 3:1 on both. These are the signed-off sheet numbers.
+local function closeRatio(actual, expected, label)
+    if type(actual) ~= "number" or math.abs(actual - expected) > 0.06 then
+        fail(label .. "\n  expected: " .. tostring(expected) .. "\n  actual:   " .. tostring(actual))
+    end
+end
+local sheetRatio = {
+    vanilla = { textBg = 13.41, accentBg = 13.03, accentBand = 10.32 },
+    forever = { textBg = 16.18, accentBg = 9.33, accentBand = 7.54 },
+    crownwall = { textBg = 11.93, accentBg = 4.91, accentBand = 3.37, labelBg = 7.10, labelBand = 4.87 },
+    rogue = { accentBg = 12.53, accentBand = 10.15 },
+    gilded = { textBg = 15.82, accentBg = 9.37, accentBand = 8.49 },
+    warrior = { accentBg = 9.38, accentBand = 7.64 },
+    deepforge = { accentBg = 6.65, accentBand = 5.45 },
+    gravelight = { accentBg = 12.26, accentBand = 10.35 },
+}
+for id, want in pairs(sheetRatio) do
+    local p = ns.byId[id]
+    if want.textBg then closeRatio(ns.ratio(p.text, p.background), want.textBg, id .. " text on background") end
+    if want.labelBg then closeRatio(ns.ratio(p.label, p.background), want.labelBg, id .. " label on background") end
+    if want.labelBand then closeRatio(ns.ratio(p.label, p.band), want.labelBand, id .. " label on band") end
+    closeRatio(ns.ratio(p.c2, p.background), want.accentBg, id .. " accent on background")
+    closeRatio(ns.ratio(p.c2, p.band), want.accentBand, id .. " accent on band")
+    if ns.ratio(p.text, p.background) < 6.6 then fail(id .. " body text is under 6.6:1") end
+    for _, ink in ipairs({ p.title, p.text, p.label }) do
+        if ns.ratio(ink, p.background) < 4.5 or ns.ratio(ink, p.band) < 4.5 then
+            fail(id .. " ink is under 4.5:1")
+        end
+    end
+    for _, ink in ipairs({ p.c2, p.off }) do
+        if ns.ratio(ink, p.background) < 3 or ns.ratio(ink, p.band) < 3 then
+            fail(id .. " accent or dim text is under 3:1")
+        end
     end
 end
 
@@ -480,7 +532,7 @@ else
         fail("PalettesCustom.lua failed: " .. tostring(customRunErr))
     end
 end
-check(ns.order and #ns.order or 0, 33, "custom does not add a thirty-fourth palette")
+check(ns.order and #ns.order or 0, 35, "custom does not add a thirty-sixth palette")
 check(ns.byId.custom and ns.byId.custom.name, "Custom", "custom palette name")
 check(ns.byId.custom and ns.byId.custom.mood, "Your own colors.", "custom palette description")
 

@@ -2,8 +2,9 @@
 --
 -- This file does not call the game, so a checker can load it with plain
 -- Lua 5.1. The hex strings are the approved dark palettes: the five from
--- v1, the eight dark palettes from the v2 sheet, and the v3 class and
--- realm themes. Class themes are palettes. They do not change class colors.
+-- v1, the dark palettes (Vanilla and Forever sit after Sightline), and
+-- the class and realm themes. Class themes are palettes. They do not
+-- change class colors.
 --
 -- c1 and c3 are the ends of a decorative gradient. They are not text colors
 -- and not hairline borders. The highlight a player sees is c2, the middle.
@@ -161,8 +162,8 @@ sheet({
 sheet({
     id = "gilded", name = "Gilded", group = "dark",
     mood = "Near-black, trimmed in real gold.",
-    window = C("#0A0907"), background = C("#0E0D0A"), border = C("#050403"),
-    band = C("#242018"), bandLit = C("#3A3428"),
+    window = C("#070706"), background = C("#0B0B08"), border = C("#050403"),
+    band = C("#18180F"), bandLit = C("#2C2C1C"),
     c1 = C("#B89020"), c2 = C("#D4AF37"), c3 = C("#F0D878"),
     title = C("#FFF8E8"), text = C("#F0E6C8"), label = C("#D4C498"), off = C("#A09070"),
 })
@@ -190,6 +191,23 @@ sheet({
     c1 = C("#C48410"), c2 = C("#E8A020"), c3 = C("#F3C86A"),
     title = C("#F4F7FB"), text = C("#E2E8F0"), label = C("#B8C4D2"), off = C("#7E8C9A"),
 })
+-- Vanilla and Forever stay in Dark, after Sightline.
+sheet({
+    id = "vanilla", name = "Vanilla", group = "dark",
+    mood = "Dark oak and pewter chrome.",
+    window = C("#241208"), background = C("#32180A"), border = C("#100804"),
+    band = C("#4A2814"), bandLit = C("#6E3E1C"),
+    c1 = C("#C4C0B8"), c2 = C("#E8E4DC"), c3 = C("#F8F6F0"),
+    title = C("#FFF8EE"), text = C("#F3E6D0"), label = C("#C8B080"), off = C("#9A8460"),
+})
+sheet({
+    id = "forever", name = "Forever", group = "dark",
+    mood = "Near-black soot, weathered bronze trim.",
+    window = C("#080706"), background = C("#0C0908"), border = C("#050403"),
+    band = C("#321C10"), bandLit = C("#523824"),
+    c1 = C("#B07A50"), c2 = C("#DCA77F"), c3 = C("#F0D0B0"),
+    title = C("#F7F6F2"), text = C("#EAE8E0"), label = C("#C8B49A"), off = C("#9A846C"),
+})
 
 -- v3. Same dark path. Two accent gradients are nudged so near pairs stay apart.
 -- Priest's stops are bluer than the sheet, so the silver is not Nightglass or Ash.
@@ -200,7 +218,7 @@ sheet({
     mood = "Oiled leather and iron, tan trim.",
     window = C("#121110"), background = C("#171614"), border = C("#070605"),
     band = C("#2A2823"), bandLit = C("#424038"),
-    c1 = C("#A88858"), c2 = C("#D4B07A"), c3 = C("#EEDCC0"),
+    c1 = C("#A89060"), c2 = C("#D0B888"), c3 = C("#F0E4C8"),
     title = C("#F9F8F6"), text = C("#EDE9E3"), label = C("#A28B6A"), off = C("#A08C6E"),
 })
 sheet({
@@ -241,7 +259,7 @@ sheet({
     mood = "Sulfur yellow on cool charcoal, not gold.",
     window = C("#10110B"), background = C("#15160F"), border = C("#060604"),
     band = C("#28291C"), bandLit = C("#3E3F2A"),
-    c1 = C("#9A9A28"), c2 = C("#D0D040"), c3 = C("#ECEC90"),
+    c1 = C("#B0B024"), c2 = C("#E0DC30"), c3 = C("#F2F08A"),
     title = C("#F9F9F6"), text = C("#EDEDE3"), label = C("#929254"), off = C("#929259"),
 })
 sheet({
@@ -294,18 +312,18 @@ sheet({
 })
 sheet({
     id = "crownwall", name = "Crownwall", group = "realm",
-    mood = "Castle stone, banner blue.",
-    window = C("#101216"), background = C("#15181D"), border = C("#06070A"),
-    band = C("#252A33"), bandLit = C("#3A414E"),
-    c1 = C("#5A82BE"), c2 = C("#7FA6DC"), c3 = C("#C8D8F0"),
-    title = C("#F6F7F9"), text = C("#E3E7ED"), label = C("#7C92B1"), off = C("#7E93AF"),
+    mood = "Pale castle stone, banner blue.",
+    window = C("#1A1810"), background = C("#2A281C"), border = C("#06070A"),
+    band = C("#444230"), bandLit = C("#4A4732"),
+    c1 = C("#2E6CB8"), c2 = C("#4A98EA"), c3 = C("#B8D6FA"),
+    title = C("#F6F7F9"), text = C("#E3E7ED"), label = C("#B8B4A0"), off = C("#7E93AF"),
 })
 sheet({
     id = "deepforge", name = "Deepforge", group = "realm",
     mood = "Granite and hot copper.",
     window = C("#111213"), background = C("#17181A"), border = C("#060607"),
     band = C("#28292C"), bandLit = C("#404247"),
-    c1 = C("#B65734"), c2 = C("#D07048"), c3 = C("#E8B090"),
+    c1 = C("#C06820"), c2 = C("#E08A38"), c3 = C("#F0C090"),
     title = C("#F9F7F6"), text = C("#EDE6E3"), label = C("#AF8776"), off = C("#AD8879"),
 })
 sheet({
@@ -337,7 +355,7 @@ sheet({
     mood = "Cold crypt stone, pale sickly green.",
     window = C("#0E100F"), background = C("#131614"), border = C("#050605"),
     band = C("#212622"), bandLit = C("#363E38"),
-    c1 = C("#82A06A"), c2 = C("#A9C38C"), c3 = C("#D8E6C8"),
+    c1 = C("#98A880"), c2 = C("#D0D8B0"), c3 = C("#EEF0D8"),
     title = C("#F7F8F7"), text = C("#E8EBE5"), label = C("#80926D"), off = C("#829171"),
 })
 sheet({
@@ -362,6 +380,7 @@ ns.groups = {
     { key = "_dark", label = "Dark", ids = {
         "ember", "tide", "dusk", "ash", "pine",
         "forgeglow", "nightglass", "vesper", "carmine-night", "gilded", "phosphor", "ink", "sightline",
+        "vanilla", "forever",
     } },
     { key = "_class", label = "Class themes", ids = {
         "warrior", "mage", "paladin", "priest",
@@ -586,6 +605,8 @@ ns.shadeOf = {
         ["phosphor"] = "#C69B6D",
         ["ink"] = "#C69B6D",
         ["sightline"] = "#C69B6D",
+        ["vanilla"] = "#C69B6D",
+        ["forever"] = "#C69B6D",
         ["warrior"] = "#C69B6D",
         ["mage"] = "#C69B6D",
         ["paladin"] = "#C69B6D",
@@ -621,6 +642,8 @@ ns.shadeOf = {
         ["phosphor"] = "#F58CBA",
         ["ink"] = "#F58CBA",
         ["sightline"] = "#F58CBA",
+        ["vanilla"] = "#F58CBA",
+        ["forever"] = "#F58CBA",
         ["warrior"] = "#F58CBA",
         ["mage"] = "#F58CBA",
         ["paladin"] = "#F58CBA",
@@ -656,6 +679,8 @@ ns.shadeOf = {
         ["phosphor"] = "#ABD473",
         ["ink"] = "#ABD473",
         ["sightline"] = "#ABD473",
+        ["vanilla"] = "#ABD473",
+        ["forever"] = "#ABD473",
         ["warrior"] = "#ABD473",
         ["mage"] = "#ABD473",
         ["paladin"] = "#ABD473",
@@ -691,6 +716,8 @@ ns.shadeOf = {
         ["phosphor"] = "#FFF468",
         ["ink"] = "#FFF468",
         ["sightline"] = "#FFF468",
+        ["vanilla"] = "#FFF468",
+        ["forever"] = "#FFF468",
         ["warrior"] = "#FFF468",
         ["mage"] = "#FFF468",
         ["paladin"] = "#FFF468",
@@ -726,6 +753,8 @@ ns.shadeOf = {
         ["phosphor"] = "#FFFFFF",
         ["ink"] = "#FFFFFF",
         ["sightline"] = "#FFFFFF",
+        ["vanilla"] = "#FFFFFF",
+        ["forever"] = "#FFFFFF",
         ["warrior"] = "#FFFFFF",
         ["mage"] = "#FFFFFF",
         ["paladin"] = "#FFFFFF",
@@ -757,10 +786,12 @@ ns.shadeOf = {
         ["nightglass"] = "#D8364A",
         ["vesper"] = "#CB2840",
         ["carmine-night"] = "#C8233D",
-        ["gilded"] = "#CB2840",
+        ["gilded"] = "#C41E3A",
         ["phosphor"] = "#C8233D",
         ["ink"] = "#C8233D",
         ["sightline"] = "#D23045",
+        ["vanilla"] = "#DD3C4E",
+        ["forever"] = "#CD2A41",
         ["warrior"] = "#D43247",
         ["mage"] = "#CF2C42",
         ["paladin"] = "#CF2C42",
@@ -773,7 +804,7 @@ ns.shadeOf = {
         ["keepstone"] = "#DA384B",
         ["ironbanner"] = "#CD2A41",
         ["sapphire-crown"] = "#CF2C42",
-        ["crownwall"] = "#D63448",
+        ["crownwall"] = "#F55361",
         ["deepforge"] = "#D43247",
         ["starshade"] = "#CB2840",
         ["cogspark"] = "#D12E44",
@@ -796,6 +827,8 @@ ns.shadeOf = {
         ["phosphor"] = "#0070DD",
         ["ink"] = "#0070DD",
         ["sightline"] = "#0070DD",
+        ["vanilla"] = "#1278E6",
+        ["forever"] = "#0070DD",
         ["warrior"] = "#0070DD",
         ["mage"] = "#0070DD",
         ["paladin"] = "#0070DD",
@@ -808,7 +841,7 @@ ns.shadeOf = {
         ["keepstone"] = "#0C75E2",
         ["ironbanner"] = "#0070DD",
         ["sapphire-crown"] = "#0070DD",
-        ["crownwall"] = "#0472DF",
+        ["crownwall"] = "#2F8DFC",
         ["deepforge"] = "#0070DD",
         ["starshade"] = "#0070DD",
         ["cogspark"] = "#0070DD",
@@ -831,6 +864,8 @@ ns.shadeOf = {
         ["phosphor"] = "#3FC7EB",
         ["ink"] = "#3FC7EB",
         ["sightline"] = "#3FC7EB",
+        ["vanilla"] = "#3FC7EB",
+        ["forever"] = "#3FC7EB",
         ["warrior"] = "#3FC7EB",
         ["mage"] = "#3FC7EB",
         ["paladin"] = "#3FC7EB",
@@ -866,6 +901,8 @@ ns.shadeOf = {
         ["phosphor"] = "#8788EE",
         ["ink"] = "#8788EE",
         ["sightline"] = "#8788EE",
+        ["vanilla"] = "#8788EE",
+        ["forever"] = "#8788EE",
         ["warrior"] = "#8788EE",
         ["mage"] = "#8788EE",
         ["paladin"] = "#8788EE",
@@ -901,6 +938,8 @@ ns.shadeOf = {
         ["phosphor"] = "#00FF96",
         ["ink"] = "#00FF96",
         ["sightline"] = "#00FF96",
+        ["vanilla"] = "#00FF96",
+        ["forever"] = "#00FF96",
         ["warrior"] = "#00FF96",
         ["mage"] = "#00FF96",
         ["paladin"] = "#00FF96",
@@ -936,6 +975,8 @@ ns.shadeOf = {
         ["phosphor"] = "#FF7C0A",
         ["ink"] = "#FF7C0A",
         ["sightline"] = "#FF7C0A",
+        ["vanilla"] = "#FF7C0A",
+        ["forever"] = "#FF7C0A",
         ["warrior"] = "#FF7C0A",
         ["mage"] = "#FF7C0A",
         ["paladin"] = "#FF7C0A",
@@ -967,10 +1008,12 @@ ns.shadeOf = {
         ["nightglass"] = "#B03FD7",
         ["vesper"] = "#A532CB",
         ["carmine-night"] = "#A330C9",
-        ["gilded"] = "#A532CB",
+        ["gilded"] = "#A330C9",
         ["phosphor"] = "#A330C9",
         ["ink"] = "#A330C9",
         ["sightline"] = "#AB3AD1",
+        ["vanilla"] = "#B545DC",
+        ["forever"] = "#A634CC",
         ["warrior"] = "#AD3CD3",
         ["mage"] = "#A836CE",
         ["paladin"] = "#A836CE",
@@ -983,7 +1026,7 @@ ns.shadeOf = {
         ["keepstone"] = "#B241D8",
         ["ironbanner"] = "#A634CC",
         ["sapphire-crown"] = "#A836CE",
-        ["crownwall"] = "#AE3DD5",
+        ["crownwall"] = "#CA5BF2",
         ["deepforge"] = "#AD3CD3",
         ["starshade"] = "#A532CB",
         ["cogspark"] = "#AB3AD1",
@@ -1006,6 +1049,8 @@ ns.shadeOf = {
         ["phosphor"] = "#33937F",
         ["ink"] = "#33937F",
         ["sightline"] = "#33937F",
+        ["vanilla"] = "#33937F",
+        ["forever"] = "#33937F",
         ["warrior"] = "#33937F",
         ["mage"] = "#33937F",
         ["paladin"] = "#33937F",
@@ -1018,7 +1063,7 @@ ns.shadeOf = {
         ["keepstone"] = "#33937F",
         ["ironbanner"] = "#33937F",
         ["sapphire-crown"] = "#33937F",
-        ["crownwall"] = "#33937F",
+        ["crownwall"] = "#3C9B86",
         ["deepforge"] = "#33937F",
         ["starshade"] = "#33937F",
         ["cogspark"] = "#33937F",
