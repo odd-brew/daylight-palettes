@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.0] - 2026-11-21
+
+### Added
+- Vanilla and Forever in the Dark group, after Sightline. Vanilla is "Dark oak and pewter chrome." Forever is "Near-black soot, weathered bronze trim."
+- Share codes in the Custom editor, in the form PAL1-RRGGBB-RRGGBB (base, then accent). The Share code row has Copy and Apply. Copy puts the draft in the field, and on the clipboard when the game allows it; the button reads "Copied." for a moment. Apply loads the preview only; Save is what applies it in game. A bad or empty code leaves the draft alone and shows "That isn't a Palettes share code." A valid code shows "Applied. Save to keep it." If the base is too light, it is darkened and the note reads "Base was darkened so text stays readable."
+- While a palette is on and Daylight's micro-menu style is on, micro-menu icons follow the palette accent. There is no new Palettes setting. Palette off, Restore Daylight colors, or the style switch off puts the player's own icon color back.
+
+### Changed
+- Crownwall, Rogue, Gilded, Warrior, Deepforge and Gravelight were retuned. Crownwall's description is now "Pale castle stone, banner blue."
+
 ## [0.2.0] - 2026-11-21
 
 ### Added

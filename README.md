@@ -1,23 +1,25 @@
 # Palettes (DaylightUI Plugin)
 
-Palettes recolors DaylightUI's windows, panels, borders, accent and text with one of 33 dark palettes, or a Custom palette you mix yourself. Your layout doesn't move, and class and combat colors stay exactly as DaylightUI paints them, so fights stay readable.
+Palettes recolors DaylightUI's windows, panels, borders, accent and text with one of 35 dark palettes, or a Custom palette you mix yourself. Your layout doesn't move, and class and combat colors stay exactly as DaylightUI paints them, so fights stay readable.
 
 Made for World of Warcraft: Forever.
 
 ## What you get
 
-- **33 dark palettes** in three groups:
-  - **Dark (13):** Ember, Tide, Dusk, Ash, Pine, Forgeglow, Nightglass, Vesper, Carmine Night, Gilded, Phosphor, Ink, Sightline
+- **35 dark palettes** in three groups:
+  - **Dark (15):** Ember, Tide, Dusk, Ash, Pine, Forgeglow, Nightglass, Vesper, Carmine Night, Gilded, Phosphor, Ink, Sightline, Vanilla, Forever
   - **Class themes (9):** Warrior, Mage, Paladin, Priest, Hunter, Rogue, Shaman, Warlock, Druid
   - **Realm themes (11):** Keepstone, Ironbanner, Sapphire Crown, Crownwall, Deepforge, Starshade, Cogspark, Rustbrand, Gravelight, Plainsong, Junglefire
-- **Custom:** mix your own colors. The dark base is kept dark enough that text stays readable, and the accent is yours to choose.
+- **Custom:** mix your own colors, or paste a share code. The dark base is kept dark enough that text stays readable, and the accent is yours to choose.
 - **Three-color swatches:** each palette row shows background, band and accent.
 - **Undo:** one step back to the previous palette, for this session. It is not a return to Daylight's colors, and it greys out after you use it or when nothing has changed yet.
 - **Accent follows class:** tints the window accent to a shade of your class color, adjusted just enough to stay readable.
 - **Account-wide by default:** one palette for all your characters, or save a different one for a single character.
 - **Restore anytime:** one button, or `/palettes off`, puts DaylightUI's own colors back.
 
-Sightline uses slate blue and amber, chosen with color-blind players in mind.
+Vanilla is dark oak and pewter chrome. Forever is near-black soot with weathered bronze trim. Sightline uses slate blue and amber, chosen with color-blind players in mind.
+
+While a palette is on and Daylight's micro-menu style is on, micro-menu icons follow the palette accent. There is no new Palettes setting for this.
 
 ## Requirements
 
@@ -25,7 +27,7 @@ Sightline uses slate blue and amber, chosen with color-blind players in mind.
 
 ## Install
 
-1. Download `Palettes-v0.2.0.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
+1. Download `Palettes-v0.3.0.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
 2. Unzip it into your game's `Interface/AddOns` folder, so you end up with `Interface/AddOns/Palettes`.
 3. Start the game, or type `/reload` if it's already running.
 
@@ -44,6 +46,8 @@ Palettes starts switched off, so your first login looks exactly like DaylightUI.
 The editor has **Hue**, **Saturation** and **Lightness** sliders for **BASE** and **ACCENT**. Base lightness stops at 28, shown as **L\*12 / 28**. Under the base sliders: **Base colors stay dark so text stays readable.** Moving a slider changes only the preview until you **Save**. If the accent is hard to see, **Accent is hard to see on this base.** appears, but Save still works.
 
 If you haven't saved your own colors yet, Custom starts with a dark plum base and gold accent.
+
+A **Share code** row sits in the editor. Codes look like **PAL1-RRGGBB-RRGGBB** (base, then accent). Case and a leading # don't matter. **Copy** puts the current draft in the field, and on the clipboard when the game allows it; the button reads **Copied.** for a moment. **Apply** reads the field and loads the preview only; **Save** is what applies it in game. A bad or empty code leaves your draft alone and shows **That isn't a Palettes share code.** A valid code shows **Applied. Save to keep it.** If the base is too light, it is darkened and the note reads **Base was darkened so text stays readable.**
 
 - **Back** leaves the editor without saving.
 - **Reset to Ember** asks first (**Reset Custom to Ember?**). Confirming copies Ember's colors into the editor; **Save** is what writes them. Custom stays selected.
