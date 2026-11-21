@@ -55,12 +55,13 @@ local function hex(id, key)
 end
 
 check(type(ns.byId), "table", "byId")
-check(ns.order and #ns.order or 0, 28, "palette count")
+check(ns.order and #ns.order or 0, 33, "palette count")
 
 local ids = {
     "ember", "tide", "dusk", "ash", "pine",
     "forgeglow", "nightglass", "vesper", "carmine-night", "gilded", "phosphor", "ink", "sightline",
     "warrior", "mage", "paladin", "priest",
+    "hunter", "rogue", "shaman", "warlock", "druid",
     "keepstone", "ironbanner", "sapphire-crown", "crownwall", "deepforge",
     "starshade", "cogspark", "rustbrand", "gravelight", "plainsong", "junglefire",
 }
@@ -151,7 +152,7 @@ check(ns.groups and #ns.groups, 3, "palette groups")
 check(ns.groups and ns.groups[1].label, "Dark", "dark group")
 check(ns.groups and #ns.groups[1].ids, 13, "dark count")
 check(ns.groups and ns.groups[2].label, "Class themes", "class group")
-check(ns.groups and #ns.groups[2].ids, 4, "class theme count")
+check(ns.groups and #ns.groups[2].ids, 9, "class theme count")
 check(ns.groups and ns.groups[3].label, "Realm themes", "realm group")
 check(ns.groups and #ns.groups[3].ids, 11, "realm theme count")
 check(ns.off and ns.off.name, "Daylight (off)", "restore name")
@@ -172,6 +173,21 @@ local v3 = {
     priest = { group = "class", window = "#0B0C0E", background = "#0F1013", border = "#040405",
         band = "#1C1E23", bandLit = "#30333B", c1 = "#6E8CAA", c2 = "#8EADC8", c3 = "#E4F0F8",
         title = "#F7F7F8", text = "#E7E8EA", label = "#80868E", off = "#81868D" },
+    hunter = { group = "class", window = "#12100A", background = "#16140C", border = "#060503",
+        band = "#2A2418", bandLit = "#403828", c1 = "#7A8830", c2 = "#A8B44A", c3 = "#D8E090",
+        title = "#F8F8F6", text = "#EBECE4", label = "#8B9062", off = "#8A8F66" },
+    rogue = { group = "class", window = "#10110B", background = "#15160F", border = "#060604",
+        band = "#28291C", bandLit = "#3E3F2A", c1 = "#9A9A28", c2 = "#D0D040", c3 = "#ECEC90",
+        title = "#F9F9F6", text = "#EDEDE3", label = "#929254", off = "#929259" },
+    shaman = { group = "class", window = "#0F1116", background = "#14161C", border = "#05060A",
+        band = "#222830", bandLit = "#384456", c1 = "#3E6ECF", c2 = "#4A82E0", c3 = "#A8C8F4",
+        title = "#F6F7F9", text = "#E3E7EE", label = "#798FB4", off = "#7C90B1" },
+    warlock = { group = "class", window = "#0E0C16", background = "#14101C", border = "#07050C",
+        band = "#241C32", bandLit = "#382C4E", c1 = "#695BC7", c2 = "#7A6AE0", c3 = "#B8AEEF",
+        title = "#F6F6F9", text = "#E4E3EE", label = "#8780B7", off = "#8881B4" },
+    druid = { group = "class", window = "#0F0D08", background = "#14120A", border = "#060503",
+        band = "#262016", bandLit = "#3E3224", c1 = "#AC5014", c2 = "#C26218", c3 = "#E8A878",
+        title = "#F9F7F6", text = "#EEE7E3", label = "#A78062", off = "#A38166" },
     keepstone = { group = "realm", window = "#16120C", background = "#1E1912", border = "#090704",
         band = "#322C22", bandLit = "#4C4436", c1 = "#867446", c2 = "#9A8650", c3 = "#C4B484",
         title = "#F8F8F7", text = "#EBE9E5", label = "#9B937A", off = "#9B937E" },

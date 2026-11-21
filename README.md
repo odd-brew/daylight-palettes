@@ -1,14 +1,14 @@
 # Palettes (DaylightUI Plugin)
 
-Palettes recolors DaylightUI's windows, panels, borders, accent and text with one of 28 dark palettes. Your layout doesn't move, and class and combat colors stay exactly as DaylightUI paints them, so fights stay readable.
+Palettes recolors DaylightUI's windows, panels, borders, accent and text with one of 33 dark palettes. Your layout doesn't move, and class and combat colors stay exactly as DaylightUI paints them, so fights stay readable.
 
 Made for World of Warcraft: Forever.
 
 ## What you get
 
-- **28 dark palettes** in three groups:
+- **33 dark palettes** in three groups:
   - **Dark (13):** Ember, Tide, Dusk, Ash, Pine, Forgeglow, Nightglass, Vesper, Carmine Night, Gilded, Phosphor, Ink, Sightline
-  - **Class themes (4):** Warrior, Mage, Paladin, Priest
+  - **Class themes (9):** Warrior, Mage, Paladin, Priest, Hunter, Rogue, Shaman, Warlock, Druid
   - **Realm themes (11):** Keepstone, Ironbanner, Sapphire Crown, Crownwall, Deepforge, Starshade, Cogspark, Rustbrand, Gravelight, Plainsong, Junglefire
 - **Accent follows class:** tints the window accent to a shade of your class color, adjusted just enough to stay readable.
 - **Accent from:** borrow another palette's accent for the one you're using. Only accents with enough contrast are listed.

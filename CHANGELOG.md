@@ -5,7 +5,7 @@
 First public release.
 
 ### Added
-- 28 dark palettes for DaylightUI's windows, panels, borders, accent and text, in three groups: Dark (13), Class themes (4) and Realm themes (11).
+- 33 dark palettes for DaylightUI's windows, panels, borders, accent and text, in three groups: Dark (13), Class themes (9) and Realm themes (11).
 - Plugins > Palettes page with a swatch and short description for each palette.
 - Palette dropdown on DaylightUI's Appearance page, synced with the Plugins page.
 - `/palettes` slash command: pick a palette by name, see the current one, or `/palettes off` to restore DaylightUI's colors.
