@@ -18,7 +18,7 @@ Sightline uses slate blue and amber, chosen with color-blind players in mind.
 
 ## Requirements
 
-- DaylightUI ([DAYLIGHTUI-LINK]) installed and enabled. Palettes is a plugin and does nothing on its own.
+- [DaylightUI](https://www.curseforge.com/wow/addons/daylightui) installed and enabled. Palettes is a plugin and does nothing on its own.
 
 ## Install
 
