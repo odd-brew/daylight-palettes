@@ -2299,14 +2299,14 @@ local function onEnable(_, db)
     end
     ready = true
     if unknown then
-        say("Palettes: that profile used a palette this version doesn't have, so Ember is on. Your layout is unchanged.")
+        say("Palettes: That profile's palette isn't in this version, so Ember is on instead. Your layout is unchanged.")
         apply("ember", true, true)
     elseif id ~= "off" then
         apply(id)
     elseif hadLook and changed then
         apply("off")
     end
-    if capped then say("Base was darkened so text stays readable.") end
+    if capped then say("Palettes: Custom base was darkened so text stays readable.") end
 end
 
 local function boot()

@@ -16,6 +16,7 @@ Made for World of Warcraft: Forever.
 - **Accent follows class:** tints the window accent to a shade of your class color, adjusted just enough to stay readable.
 - **Account-wide by default:** one palette for all your characters, or save a different one for a single character.
 - **Restore anytime:** one button, or `/palettes off`, puts DaylightUI's own colors back.
+- **Daylight profiles:** importing or switching a Daylight profile also brings its palette, Accent follows class, and Custom colors. **Save for this character only** stays your own switch. A profile with no Palettes settings keeps your current look.
 
 Vanilla is dark oak and pewter chrome. Forever is near-black soot with weathered bronze trim. Sightline uses slate blue and amber, chosen with color-blind players in mind.
 
@@ -27,7 +28,7 @@ While a palette is on and Daylight's micro-menu style is on, micro-menu icons fo
 
 ## Install
 
-1. Download `Palettes-v0.3.0.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
+1. Download `Palettes-v0.3.1.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
 2. Unzip it into your game's `Interface/AddOns` folder, so you end up with `Interface/AddOns/Palettes`.
 3. Start the game, or type `/reload` if it's already running.
 
@@ -68,6 +69,7 @@ On **Plugins > Palettes**:
 ## Known limits
 
 - **Combat waits.** If you change palettes in combat, the row shows **PENDING** and a note under the list reads **Applies when combat ends.** The change applies when combat ends. **Undo** cancels that waiting pick, so nothing applies.
+- **A v0.3.0 export with Palettes off.** Importing that profile does not turn Palettes off; you keep your current look. Exports from 0.3.1 do turn Palettes off when that's what was shared.
 - **Some text changes color after a /reload.**
 - **Editing DaylightUI's Accent or Window tint switches the palette off.** Palettes steps aside so your own colors win. Pick a palette again to bring it back.
 - **Some things never change color:** class, reaction, power, item quality and money colors, plus game text. That's on purpose.

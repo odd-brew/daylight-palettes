@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.1] - 2026-11-21
+
+### Added
+- Palettes follows a shared or switched Daylight profile. On import or switch, it uses that profile's palette, Accent follows class, and Custom colors. Save for this character only stays your own switch. A profile with no Palettes settings keeps your current look. Existing users keep their palette and Custom colors.
+- If the profile used a palette this version doesn't have, Ember is used and chat shows: "Palettes: That profile's palette isn't in this version, so Ember is on instead. Your layout is unchanged."
+- If the profile's Custom base is too light, it is darkened and chat shows: "Palettes: Custom base was darkened so text stays readable."
+
+### Notes
+- A v0.3.0 export with Palettes off does not turn Palettes off on import; you keep your current look. Exports from 0.3.1 do turn Palettes off when that's what was shared.
+
 ## [0.3.0] - 2026-11-21
 
 ### Added
