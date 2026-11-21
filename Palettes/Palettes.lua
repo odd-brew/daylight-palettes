@@ -1003,7 +1003,8 @@ function ns.setPalette(account, char, id)
 end
 
 -- Undo is one step, and only for this session. previous is nil at login.
--- A combat pick stays in pending until combat ends, so cancelling it writes nothing.
+-- A combat pick is saved early so a reload keeps it. Cancelling writes the
+-- palette on screen back over that waiting id.
 function ns.undoReady(state)
     return type(state) == "table" and (state.pending ~= nil or state.previous ~= nil)
 end
@@ -1013,6 +1014,15 @@ function ns.resetUndo(state, id)
     state.current = id or "off"
     state.previous = nil
     state.pending = nil
+end
+
+function ns.clearPending(state, account, char)
+    if type(state) ~= "table" or state.pending == nil then return false end
+    state.pending = nil
+    if type(account) == "table" and type(char) == "table" then
+        ns.setPalette(account, char, state.current or "off")
+    end
+    return true
 end
 
 function ns.choosePalette(state, account, char, id, duringCombat)
@@ -1026,7 +1036,7 @@ function ns.choosePalette(state, account, char, id, duringCombat)
                 ns.setPalette(account, char, id)
             end
         else
-            state.pending = nil
+            ns.clearPending(state, account, char)
         end
         return state.current
     end
@@ -1043,14 +1053,7 @@ end
 
 function ns.undoPalette(state, account, char)
     if type(state) ~= "table" then return end
-    if state.pending ~= nil then
-        state.pending = nil
-        -- The waiting pick was saved early. Put the palette on screen back.
-        if type(account) == "table" and type(char) == "table" then
-            ns.setPalette(account, char, state.current)
-        end
-        return state.current
-    end
+    if ns.clearPending(state, account, char) then return state.current end
     if state.previous == nil then return state.current end
     state.current = state.previous
     state.previous = nil
@@ -1194,7 +1197,9 @@ local function onSetting(scope, path)
     if scope == "Palettes" and path == "only" then
         local beforeId = d:Get("Palettes", "palette")
         local beforeAccent = d:Get("Palettes", "classAccent") == true
-        local id, accent = ns.setOnly(ns.accountTable(), ns.charTable(), d:Get("Palettes", "only") == true)
+        local account, char = ns.accountTable(), ns.charTable()
+        local cleared = ns.clearPending(history, account, char)
+        local id, accent = ns.setOnly(account, char, d:Get("Palettes", "only") == true)
         applying = true
         if beforeId ~= id then d:Set("Palettes", "palette", id) end
         if beforeAccent ~= (accent == true) then d:Set("Palettes", "classAccent", accent == true) end
@@ -1205,7 +1210,8 @@ local function onSetting(scope, path)
             history.pending = nil
             heldPaint = false
         end
-        if id ~= beforeId or (accent == true) ~= beforeAccent then apply(id) end
+        if id ~= beforeId or (accent == true) ~= beforeAccent then apply(id)
+        elseif cleared and refreshList then refreshList() end
         return
     end
     if scope == "Palettes" and path == "classAccent" then
@@ -1336,6 +1342,59 @@ local function offColor(key)
     if key == "border" then return copy3(look.BORDER) end
 end
 
+-- A dashed edge is the closest native look: short solid textures, no custom art.
+local function paintDashes(entry, on, color)
+    local dashes = entry.dashes
+    if not on then
+        if dashes then
+            for i = 1, #dashes do
+                if dashes[i].Hide then dashes[i]:Hide() end
+            end
+        end
+        return
+    end
+    local button = entry.button
+    if type(button) ~= "table" then return end
+    if not dashes then
+        dashes = {}
+        for i = 1, 48 do
+            local tex = button:CreateTexture(nil, "OVERLAY")
+            tex:Hide()
+            dashes[i] = tex
+        end
+        entry.dashes = dashes
+    end
+    local width = type(button.GetWidth) == "function" and button:GetWidth() or 0
+    local height = type(button.GetHeight) == "function" and button:GetHeight() or 28
+    if type(width) ~= "number" or width < 40 then width = 480 end
+    if type(height) ~= "number" or height < 8 then height = 28 end
+    local stride, used = 10, 0
+    local across = math.floor(width / stride)
+    if across > 20 then across = 20 end
+    local function place(x, y, w, h)
+        used = used + 1
+        local tex = dashes[used]
+        if not tex then return end
+        tex:ClearAllPoints()
+        tex:SetSize(w, h)
+        tex:SetPoint("TOPLEFT", button, "TOPLEFT", x, y)
+        paintSwatch(tex, color)
+        if tex.Show then tex:Show() end
+    end
+    for i = 0, across - 1 do
+        place(4 + i * stride, -1, 6, 1)
+        place(4 + i * stride, 2 - height, 6, 1)
+    end
+    local down = math.floor((height - 4) / stride)
+    for i = 0, down - 1 do
+        place(1, -4 - i * stride, 1, 6)
+        place(width - 2, -4 - i * stride, 1, 6)
+    end
+    for i = used + 1, #dashes do
+        if dashes[i].Hide then dashes[i]:Hide() end
+    end
+end
+
 local function currentId()
     local d = dui()
     if type(d) == "table" and type(d.Get) == "function" then
@@ -1419,7 +1478,7 @@ local function buildList(row)
             if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
         end)
         entries[#entries + 1] = {
-            id = id, name = name, mood = mood, wash = wash,
+            id = id, name = name, mood = mood, wash = wash, button = button,
             edge = edge, bgSwatch = bgSwatch, bandSwatch = bandSwatch, accentSwatch = accentSwatch,
             nameText = nameText, moodText = moodText, onText = onText,
         }
@@ -1477,7 +1536,8 @@ local function buildList(row)
             uiFont(entry.onText, ink, 12, waiting and labelColor or accent)
             entry.nameText:SetText(entry.name)
             entry.moodText:SetText(entry.mood)
-            entry.onText:SetText(waiting and "Pending" or (on and "[On]" or ""))
+            entry.onText:SetText(waiting and "PENDING" or (on and "[On]" or ""))
+            paintDashes(entry, waiting, accent)
             if entry.bgSwatch then
                 local palette = ns.byId[entry.id]
                 paintSwatch(entry.edge, (palette and palette.border) or { 0.05, 0.05, 0.05 })

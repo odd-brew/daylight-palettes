@@ -674,6 +674,33 @@ else
     check(fightCharOnly.only, true, "character combat undo leaves the box ticked")
     check(fightCharOnly.classAccent, true, "character combat undo leaves the character accent")
     check(fightMine.current, "ember", "character combat undo applies nothing when combat ends")
+
+    local again = { current = "ember" }
+    local againAccount = { palette = "ember", classAccent = false, seeded = true }
+    local againChar = { only = false, ready = true }
+    ns.choosePalette(again, againAccount, againChar, "mage", true)
+    ns.choosePalette(again, againAccount, againChar, "ember", true)
+    check(again.pending, nil, "picking the current palette clears the wait")
+    check(again.current, "ember", "picking the current palette stays on ember")
+    check(againAccount.palette, "ember", "picking the current palette writes ember back")
+    ns.finishCombat(again, againAccount, againChar)
+    check(again.current, "ember", "combat end stays on ember")
+    check(againAccount.palette, "ember", "combat end saves ember")
+
+    local scopeWait = { current = "ember" }
+    local scopeAccount = { palette = "ember", classAccent = false, seeded = true }
+    local scopeChar = { only = false, ready = true }
+    ns.choosePalette(scopeWait, scopeAccount, scopeChar, "mage", true)
+    ns.clearPending(scopeWait, scopeAccount, scopeChar)
+    local scopeId = ns.setOnly(scopeAccount, scopeChar, true)
+    check(scopeWait.pending, nil, "a scope change clears the waiting pick")
+    check(scopeAccount.palette, "ember", "a scope change puts the on-screen palette back")
+    check(scopeId, "ember", "ticking the box copies the on-screen palette")
+    check(scopeChar.palette, "ember", "the character does not copy the waiting palette")
+    check(scopeChar.only, true, "the box is ticked")
+end
+if not main:find('"PENDING"', 1, true) then
+    fail("a waiting row must be tagged PENDING")
 end
 
 if failures > 0 then
