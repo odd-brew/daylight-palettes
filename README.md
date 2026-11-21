@@ -22,7 +22,7 @@ Sightline uses slate blue and amber, chosen with color-blind players in mind.
 
 ## Install
 
-1. Download `Palettes-v0.1.0.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
+1. Download `Palettes-v0.1.1.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
 2. Unzip it into your game's `Interface/AddOns` folder, so you end up with `Interface/AddOns/Palettes`.
 3. Start the game, or type `/reload` if it's already running.
 
@@ -51,7 +51,7 @@ On **Plugins > Palettes**:
 - **Some things never change color:** class, reaction, power, item quality and money colors, plus game text. That's on purpose.
 - **Needs a recent DaylightUI.** If your DaylightUI is too old, Palettes prints a chat line and leaves your colors alone.
 - **Partial support on some DaylightUI versions.** If a DaylightUI update changes a window Palettes doesn't know, Palettes skips that piece and says so in chat once.
-- **It's v0.1.0.** Expect rough edges.
+- **It's an early version.** Expect rough edges.
 
 ## Found a bug?
 
