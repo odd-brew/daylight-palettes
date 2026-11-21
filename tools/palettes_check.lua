@@ -786,13 +786,27 @@ else
     check(previewAccount.custom, nil, "back does not write the account")
     check(previewChar.custom, nil, "back does not write the character")
 
-    local resetAccount = { palette = "custom" }
+    local resetAccount = { palette = "custom", custom = { h = 222, s = 0.58, l = 28, ah = 41, as = 0.72, al = 75 } }
     local resetChar = { only = false }
+    local savedHex = ns.deriveCustom(ns.readCustom(resetAccount, resetChar)).background.hex
     local resetSpec = ns.resetCustomToEmber(resetAccount, resetChar)
     check(resetAccount.palette, "custom", "reset leaves Custom selected")
-    check(ns.deriveCustom(resetSpec).background.hex, "#211812", "reset copies Ember's base")
-    check(ns.deriveCustom(resetSpec).c2.hex, "#E8A04A", "reset copies Ember's accent")
-    check(resetChar.custom, nil, "an account reset does not write a character custom")
+    check(ns.deriveCustom(resetSpec).background.hex, "#211812", "reset loads Ember's base into the draft")
+    check(ns.deriveCustom(resetSpec).c2.hex, "#E8A04A", "reset loads Ember's accent into the draft")
+    check(ns.deriveCustom(ns.readCustom(resetAccount, resetChar)).background.hex, savedHex, "reset does not write the saved custom")
+    local afterBack = ns.backCustom(ns.readCustom(resetAccount, resetChar))
+    check(ns.deriveCustom(afterBack).background.hex, savedHex, "back after reset keeps the saved custom")
+    check(resetAccount.custom.h, 222, "back after reset leaves the saved hue")
+
+    local resetSave = { current = "tide" }
+    local resetSaveAccount = { palette = "tide", custom = { h = 222, s = 0.58, l = 28, ah = 41, as = 0.72, al = 75 } }
+    local resetSaveChar = { only = false }
+    ns.saveCustom(resetSave, resetSaveAccount, resetSaveChar, ns.resetCustomToEmber(resetSaveAccount, resetSaveChar), false)
+    check(resetSave.current, "custom", "saving a reset selects custom")
+    check(resetSave.previous, "tide", "saving a reset remembers the previous palette")
+    check(ns.deriveCustom(ns.readCustom(resetSaveAccount, resetSaveChar)).background.hex, "#211812", "save writes the reset colors")
+    check(ns.undoPalette(resetSave, resetSaveAccount, resetSaveChar), "tide", "undo after a saved reset returns the previous palette")
+    check(resetSaveAccount.palette, "tide", "undo after a saved reset restores the palette id")
 
     local scoped = { palette = "ember", custom = ns.customDefaults() }
     local mine = { only = true }
@@ -858,6 +872,15 @@ if not main:find("Reset to Ember", 1, true) then
 end
 if not main:find("L*%d / 28", 1, true) then
     fail("the lightness readout is missing")
+end
+if not main:find("Reset Custom to Ember?", 1, true) then
+    fail("reset needs a confirm")
+end
+if not main:find("SliderLook", 1, true) or not main:find("Widgets", 1, true) then
+    fail("the editor should use Daylight's slider and button widgets")
+end
+if main:find("OptionsSliderTemplate", 1, true) or main:find("UIPanelButtonTemplate", 1, true) then
+    fail("the editor should not use game slider or button templates")
 end
 
 if failures > 0 then

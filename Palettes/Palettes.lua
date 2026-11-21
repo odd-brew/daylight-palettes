@@ -1422,16 +1422,22 @@ local function currentId()
     return paintedId or "off"
 end
 
+local EDITOR_H = 452
+
 local function buildCustomEditor(row)
     if type(row) ~= "table" or type(row.palettesEditor) == "table" then return end
     if type(CreateFrame) ~= "function" or type(ns.deriveCustom) ~= "function" then return end
+    local d0 = dui()
+    local W = type(d0) == "table" and d0.Widgets
+    if type(W) ~= "table" or type(W.Button) ~= "function" or type(W.SliderLook) ~= "function" then return end
     local editor = CreateFrame("Frame", nil, row)
     if type(editor) ~= "table" or type(editor.CreateTexture) ~= "function" or type(editor.SetPoint) ~= "function" then
         return
     end
-    editor:SetPoint("TOPLEFT", row, "TOPLEFT", 8, -40)
-    editor:SetPoint("TOPRIGHT", row, "TOPRIGHT", -8, -40)
-    editor:SetHeight(430)
+    editor:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -4)
+    editor:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, -4)
+    editor:SetHeight(EDITOR_H - 8)
+    row.palettesEditorHeight = EDITOR_H
     if editor.EnableMouse then editor:EnableMouse(true) end
     if editor.SetFrameLevel and row.GetFrameLevel then
         editor:SetFrameLevel((row:GetFrameLevel() or 0) + 20)
@@ -1447,34 +1453,33 @@ local function buildCustomEditor(row)
         return fs
     end
 
-    local serial = ns._slider or 0
-    local function slider(y, minValue, maxValue)
-        serial = serial + 1
-        ns._slider = serial
-        local name = "PalettesCustomSlider" .. serial
-        local widget
-        pcall(function()
-            widget = CreateFrame("Slider", name, editor, "OptionsSliderTemplate")
-        end)
-        if type(widget) ~= "table" or type(widget.SetPoint) ~= "function" then
-            widget = CreateFrame("Slider", nil, editor)
-        end
+    local function slider(y, minValue, maxValue, ramp)
+        local widget = CreateFrame("Slider", nil, editor)
         if type(widget) ~= "table" or type(widget.SetPoint) ~= "function" then return nil, nil end
         widget:SetPoint("TOPLEFT", editor, "TOPLEFT", 16, y)
-        if widget.SetWidth then widget:SetWidth(250) end
-        if widget.SetHeight then widget:SetHeight(16) end
+        if widget.SetWidth then widget:SetWidth(220) end
+        if widget.SetHeight then widget:SetHeight(18) end
+        if widget.SetOrientation then widget:SetOrientation("HORIZONTAL") end
         if widget.SetMinMaxValues then widget:SetMinMaxValues(minValue, maxValue) end
         if widget.SetValueStep then widget:SetValueStep(1) end
         if widget.SetObeyStepOnDrag then pcall(widget.SetObeyStepOnDrag, widget, true) end
-        if widget.SetOrientation then pcall(widget.SetOrientation, widget, "HORIZONTAL") end
-        if type(_G) == "table" then
-            local low, high, text = _G[name .. "Low"], _G[name .. "High"], _G[name .. "Text"]
-            if type(low) == "table" and low.Hide then low:Hide() end
-            if type(high) == "table" and high.Hide then high:Hide() end
-            if type(text) == "table" and text.SetText then text:SetText("") end
+        local look = W.SliderLook(widget, {})
+        local strips
+        if ramp and type(look) == "table" then
+            if type(look.track) == "table" and look.track.Hide then look.track:Hide() end
+            if type(look.fill) == "table" and look.fill.Hide then look.fill:Hide() end
+            strips = {}
+            for i = 1, 12 do
+                local tex = widget:CreateTexture(nil, "BACKGROUND")
+                if type(tex) == "table" and tex.SetPoint then
+                    tex:SetSize(20, 6)
+                    tex:SetPoint("LEFT", widget, "LEFT", (i - 1) * 18, 0)
+                    strips[i] = tex
+                end
+            end
         end
-        local value = line(editor, "", "BOTTOMRIGHT", widget, "TOPRIGHT", 0, 2)
-        return widget, value
+        local value = line(editor, "", "LEFT", widget, "RIGHT", 8, 0)
+        return widget, value, strips
     end
 
     local function labelSlider(widget, text)
@@ -1482,32 +1487,45 @@ local function buildCustomEditor(row)
         line(editor, text, "BOTTOMLEFT", widget, "TOPLEFT", 0, 2)
     end
 
-    line(editor, "Base", "TOPLEFT", editor, "TOPLEFT", 16, -2)
-    local baseH, baseHValue = slider(-28, 0, 360)
-    local baseS, baseSValue = slider(-68, 0, 100)
-    local baseL, baseLValue = slider(-108, 0, 28)
+    line(editor, "Custom", "TOPLEFT", editor, "TOPLEFT", 16, -2)
+    local blurb = line(editor, "Mix a dark base and any accent. The palette applies when you Save, out of combat.", "TOPLEFT", editor, "TOPLEFT", 16, -20)
+    if type(blurb) == "table" and blurb.SetWidth then blurb:SetWidth(420) end
+    local function chipAt(x, y)
+        local swatch = editor:CreateTexture(nil, "ARTWORK")
+        if type(swatch) ~= "table" then return nil, nil end
+        swatch:SetSize(22, 14)
+        swatch:SetPoint("TOPLEFT", editor, "TOPLEFT", x, y)
+        local hex = line(editor, "", "LEFT", swatch, "RIGHT", 8, 0)
+        return swatch, hex
+    end
+    line(editor, "BASE", "TOPLEFT", editor, "TOPLEFT", 16, -46)
+    local baseChip, baseHex = chipAt(64, -44)
+    local baseH, baseHValue, baseHueRamp = slider(-90, 0, 360, true)
+    local baseS, baseSValue, baseSatRamp = slider(-118, 0, 100, true)
+    local baseL, baseLValue = slider(-146, 0, 28, false)
     labelSlider(baseH, "Hue")
     labelSlider(baseS, "Saturation")
     labelSlider(baseL, "Lightness")
-    local capNote = line(editor, "Base colors stay dark so text stays readable.", "TOPLEFT", editor, "TOPLEFT", 16, -130)
+    local capNote = line(editor, "Base colors stay dark so text stays readable.", "TOPLEFT", editor, "TOPLEFT", 16, -168)
     if type(capNote) == "table" then
         if capNote.SetWidth then capNote:SetWidth(250) end
         if capNote.SetWordWrap then capNote:SetWordWrap(true) end
         if capNote.SetJustifyH then capNote:SetJustifyH("LEFT") end
     end
 
-    line(editor, "Accent", "TOPLEFT", editor, "TOPLEFT", 16, -162)
-    local accentH, accentHValue = slider(-188, 0, 360)
-    local accentS, accentSValue = slider(-228, 0, 100)
-    local accentL, accentLValue = slider(-268, 0, 100)
+    line(editor, "ACCENT", "TOPLEFT", editor, "TOPLEFT", 16, -196)
+    local accentChip, accentHex = chipAt(78, -194)
+    local accentH, accentHValue, accentHueRamp = slider(-240, 0, 360, true)
+    local accentS, accentSValue, accentSatRamp = slider(-268, 0, 100, true)
+    local accentL, accentLValue = slider(-296, 0, 100, false)
     labelSlider(accentH, "Hue")
     labelSlider(accentS, "Saturation")
     labelSlider(accentL, "Lightness")
 
     local preview = CreateFrame("Frame", nil, editor)
     if type(preview) ~= "table" or type(preview.CreateTexture) ~= "function" then return end
-    preview:SetSize(210, 108)
-    preview:SetPoint("TOPRIGHT", editor, "TOPRIGHT", -12, -22)
+    preview:SetSize(220, 132)
+    preview:SetPoint("TOPRIGHT", editor, "TOPRIGHT", -12, -48)
     local border = preview:CreateTexture(nil, "BACKGROUND")
     border:SetAllPoints(preview)
     local bg = preview:CreateTexture(nil, "BORDER")
@@ -1523,10 +1541,10 @@ local function buildCustomEditor(row)
         if body.SetWidth then body:SetWidth(180) end
         if body.SetWordWrap then body:SetWordWrap(true) end
     end
-    local accentChip = preview:CreateTexture(nil, "OVERLAY")
-    accentChip:SetSize(36, 10)
-    accentChip:SetPoint("BOTTOMLEFT", preview, "BOTTOMLEFT", 10, 10)
-    local accentLabel = line(preview, "Accent", "LEFT", accentChip, "RIGHT", 6, 0)
+    local previewAccent = preview:CreateTexture(nil, "OVERLAY")
+    previewAccent:SetSize(36, 10)
+    previewAccent:SetPoint("BOTTOMLEFT", preview, "BOTTOMLEFT", 10, 10)
+    local accentLabel = line(preview, "Accent", "LEFT", previewAccent, "RIGHT", 6, 0)
 
     local warn = line(editor, "Accent is hard to see on this base.", "TOPLEFT", preview, "BOTTOMLEFT", 0, -8)
     if type(warn) == "table" then
@@ -1546,16 +1564,38 @@ local function buildCustomEditor(row)
         paintSwatch(border, palette.border)
         paintSwatch(bg, palette.background)
         paintSwatch(band, palette.band)
+        paintSwatch(previewAccent, palette.c2)
+        paintSwatch(baseChip, palette.background)
         paintSwatch(accentChip, palette.c2)
         if title then uiFont(title, nil, 13, palette.title) end
         if body then uiFont(body, nil, 12, palette.text) end
         if accentLabel then uiFont(accentLabel, nil, 11, palette.c2) end
+        setText(baseHex, palette.background.hex)
+        setText(accentHex, palette.c2.hex)
         setText(baseHValue, string.format("%d", math.floor(customDraft.h + 0.5)))
         setText(baseSValue, string.format("%d%%", math.floor(customDraft.s * 100 + 0.5)))
         setText(baseLValue, string.format("L*%d / 28", math.floor(customDraft.l + 0.5)))
         setText(accentHValue, string.format("%d", math.floor(customDraft.ah + 0.5)))
         setText(accentSValue, string.format("%d%%", math.floor(customDraft.as * 100 + 0.5)))
         setText(accentLValue, string.format("L*%d", math.floor(customDraft.al + 0.5)))
+        local function paintRamp(strips, colorAt)
+            if type(strips) ~= "table" or type(ns.colorAtL) ~= "function" then return end
+            for i = 1, #strips do
+                paintSwatch(strips[i], colorAt(i, #strips))
+            end
+        end
+        paintRamp(baseHueRamp, function(i, n)
+            return ns.colorAtL((i - 0.5) / n * 359, 1, 48)
+        end)
+        paintRamp(baseSatRamp, function(i, n)
+            return ns.colorAtL(customDraft.h, (i - 0.5) / n, 42)
+        end)
+        paintRamp(accentHueRamp, function(i, n)
+            return ns.colorAtL((i - 0.5) / n * 359, 1, 48)
+        end)
+        paintRamp(accentSatRamp, function(i, n)
+            return ns.colorAtL(customDraft.ah, (i - 0.5) / n, 48)
+        end)
         if type(warn) == "table" and warn.SetShown and type(ns.accentHardToSee) == "function" then
             local hard = ns.accentHardToSee(customDraft) == true
             warn:SetShown(hard)
@@ -1620,26 +1660,61 @@ local function buildCustomEditor(row)
         showDraft()
     end
 
-    local function gameButton(text, width)
-        local button
-        local templated = false
-        pcall(function()
-            button = CreateFrame("Button", nil, editor, "UIPanelButtonTemplate")
-            templated = type(button) == "table"
-        end)
-        if type(button) ~= "table" or type(button.SetPoint) ~= "function" then
-            button = CreateFrame("Button", nil, editor)
-            templated = false
-        end
+    local function dayButton(parent, text, minWidth)
+        local button = W.Button(parent, text, 22)
         if type(button) ~= "table" or type(button.SetPoint) ~= "function" then return nil end
-        if button.SetSize then button:SetSize(width, 22) end
-        if templated and button.SetText then
-            button:SetText(text)
-        else
-            local label = line(button, text, "CENTER", button, "CENTER", 0, 0)
-            if type(label) == "table" and label.SetJustifyH then label:SetJustifyH("CENTER") end
-        end
+        if button.FitWidth then button.FitWidth(minWidth) end
         return button
+    end
+
+    local function scopeOn()
+        local d = dui()
+        return type(d) == "table" and type(d.Get) == "function" and d:Get("Palettes", "only") == true
+    end
+    local onlySwitch
+    if type(W.Switch) == "function" then
+        onlySwitch = W.Switch(editor)
+        if type(onlySwitch) == "table" and onlySwitch.SetPoint then
+            onlySwitch:SetPoint("TOPLEFT", editor, "TOPLEFT", 16, -328)
+            onlySwitch:SetScript("OnClick", function()
+                local d = dui()
+                if type(d) ~= "table" or type(d.Set) ~= "function" then return end
+                d:Set("Palettes", "only", not scopeOn())
+                if onlySwitch.SetOn then onlySwitch:SetOn(scopeOn()) end
+            end)
+        end
+    end
+    local onlyLabel = line(editor, "Save for this character only", "LEFT", onlySwitch or editor, onlySwitch and "RIGHT" or "TOPLEFT", onlySwitch and 8 or 16, onlySwitch and 0 or -328)
+    local onlyNote = line(editor, "Custom uses the same character-only save as every other palette, and Undo steps back to the previous one.", "TOPLEFT", editor, "TOPLEFT", 16, -352)
+    if type(onlyNote) == "table" and onlyNote.SetWidth then onlyNote:SetWidth(420) end
+
+    local ask = CreateFrame("Frame", nil, editor)
+    if type(ask) == "table" and ask.SetPoint then
+        ask:SetSize(340, 128)
+        ask:SetPoint("CENTER", editor, "CENTER", 40, 10)
+        if ask.SetFrameLevel and editor.GetFrameLevel then
+            ask:SetFrameLevel((editor:GetFrameLevel() or 1) + 30)
+        end
+        local askBg = ask:CreateTexture(nil, "BACKGROUND")
+        if type(askBg) == "table" and askBg.SetAllPoints then
+            askBg:SetAllPoints(ask)
+            if askBg.SetColorTexture then askBg:SetColorTexture(0.09, 0.06, 0.05, 0.97) end
+        end
+        line(ask, "Reset Custom to Ember?", "TOPLEFT", ask, "TOPLEFT", 14, -12)
+        local askBody = line(ask, "This replaces your current custom colors with Ember's base and accent. Custom stays selected. After you Save, Undo can step back to the colors you had.", "TOPLEFT", ask, "TOPLEFT", 14, -32)
+        if type(askBody) == "table" then
+            if askBody.SetWidth then askBody:SetWidth(300) end
+            if askBody.SetWordWrap then askBody:SetWordWrap(true) end
+        end
+        if type(W.Close) == "function" then
+            local close = W.Close(ask, function() if ask.Hide then ask:Hide() end end, 18)
+            if type(close) == "table" and close.SetPoint then
+                close:SetPoint("TOPRIGHT", ask, "TOPRIGHT", -4, -4)
+            end
+        end
+        if ask.Hide then ask:Hide() end
+        if ask.EnableMouse then ask:EnableMouse(true) end
+        row.palettesAsk = ask
     end
 
     local function syncSetting(id)
@@ -1652,16 +1727,26 @@ local function buildCustomEditor(row)
         applying = false
     end
 
-    local back = gameButton("Back", 72)
-    local save = gameButton("Save", 72)
-    local reset = gameButton("Reset to Ember", 140)
+    local back = dayButton(editor, "Back", 72)
+    local save = dayButton(editor, "Save", 72)
+    local reset = dayButton(editor, "Reset to Ember", 130)
+    local askCancel = type(ask) == "table" and dayButton(ask, "Cancel", 72) or nil
+    local askYes = type(ask) == "table" and dayButton(ask, "Reset to Ember", 120) or nil
     if type(back) ~= "table" or type(save) ~= "table" or type(reset) ~= "table" then return end
     back:SetPoint("BOTTOMLEFT", editor, "BOTTOMLEFT", 8, 8)
     save:SetPoint("BOTTOMRIGHT", editor, "BOTTOMRIGHT", -8, 8)
     reset:SetPoint("RIGHT", save, "LEFT", -8, 0)
+    if type(askCancel) == "table" then
+        askCancel:SetPoint("BOTTOMRIGHT", ask, "BOTTOMRIGHT", -136, 10)
+        askCancel:SetScript("OnClick", function() if ask.Hide then ask:Hide() end end)
+    end
+    if type(askYes) == "table" then
+        askYes:SetPoint("BOTTOMRIGHT", ask, "BOTTOMRIGHT", -10, 10)
+    end
 
     back:SetScript("OnClick", function()
         editorOn = false
+        if type(ask) == "table" and ask.Hide then ask:Hide() end
         if type(ns.readCustom) == "function" and type(ns.backCustom) == "function" then
             customDraft = ns.backCustom(ns.readCustom(ns.accountTable(), ns.charTable()))
         end
@@ -1686,30 +1771,23 @@ local function buildCustomEditor(row)
         syncSetting("custom")
         apply("custom", true)
     end)
-    reset:SetScript("OnClick", function()
+    local function applyReset()
         if type(ns.resetCustomToEmber) ~= "function" then return end
-        local account, char = ns.accountTable(), ns.charTable()
-        customDraft = ns.customSpec(ns.resetCustomToEmber(account, char))
-        editorOn = true
-        local during = inCombat()
-        if history.current ~= "custom" then
-            ns.choosePalette(history, account, char, "custom", during)
-        end
-        if during then
-            syncSetting(history.current or "off")
-            if history.pending then
-                heldPaint = false
-                queueLine(history.pending)
-            elseif history.current == "custom" then
-                heldPaint = true
-            end
-        else
-            syncSetting("custom")
-            apply("custom", true)
-        end
+        customDraft = ns.customSpec(ns.resetCustomToEmber(ns.accountTable(), ns.charTable()))
+        if type(ask) == "table" and ask.Hide then ask:Hide() end
         pushSliders()
-        if refreshList then refreshList() end
+    end
+    reset:SetScript("OnClick", function()
+        if type(ask) == "table" and ask.Show then ask:Show() else applyReset() end
     end)
+    if type(askYes) == "table" then askYes:SetScript("OnClick", applyReset) end
+    if type(onlySwitch) == "table" and type(onlySwitch.SetOn) == "function" then
+        local paint = showDraft
+        showDraft = function()
+            onlySwitch:SetOn(scopeOn())
+            paint()
+        end
+    end
 
     loadCustomEditor = pushSliders
     previewCustom = showDraft
@@ -1786,7 +1864,7 @@ local function buildList(row)
         local onText = blankText(button)
         onText:SetPoint("RIGHT", button, "RIGHT", -8, 0)
         button:SetScript("OnClick", function()
-            if id == "custom" then
+            if id == "custom" and type(row.palettesEditor) == "table" then
                 editorOn = true
                 if type(ns.readCustom) == "function" then
                     customDraft = ns.readCustom(ns.accountTable(), ns.charTable())
@@ -1829,7 +1907,8 @@ local function buildList(row)
     combatNote:SetText("Applies when combat ends.")
     if combatNote.SetShown then combatNote:SetShown(false) end
     y = y - 18
-    row.palettesHeight = -y + 8
+    row.palettesListHeight = -y + 8
+    row.palettesHeight = row.palettesListHeight
     listRow = row
 
     function row.palettesRefresh()
@@ -1880,10 +1959,25 @@ local function buildList(row)
         local function showRow(widget, on)
             if type(widget) == "table" and widget.SetShown then widget:SetShown(on) end
         end
+        showRow(note, not editorOpen)
         for i = 1, #headers do showRow(headers[i], not editorOpen) end
         for i = 1, #entries do showRow(entries[i].button, not editorOpen) end
         showRow(row.palettesEditor, editorOpen)
+        if not editorOpen and type(row.palettesAsk) == "table" and row.palettesAsk.Hide then
+            row.palettesAsk:Hide()
+        end
         if editorOpen and previewCustom then previewCustom() end
+        local want = editorOpen and (row.palettesEditorHeight or EDITOR_H) or row.palettesListHeight
+        if type(want) == "number" and want ~= row.palettesHeight and not row.palettesLaying then
+            row.palettesHeight = want
+            row.palettesLaying = true
+            local panel = dui()
+            panel = type(panel) == "table" and panel.OptionsPanel
+            if type(panel) == "table" and type(panel.Refresh) == "function" then pcall(panel.Refresh) end
+            row.palettesLaying = false
+        elseif type(want) == "number" then
+            row.palettesHeight = want
+        end
         if syncUndo then syncUndo() end
     end
     row.palettesRefresh()
@@ -1999,7 +2093,8 @@ local function boot()
                                 { type = "toggle", key = "classAccent", label = "Accent follows class",
                                     desc = "Uses your class color as the chrome accent. The shade keeps the class hue and moves only as far as it needs to clear 3:1 on this frame. Names, chat, and unit frames stay the game's colors." },
                                 { type = "toggle", key = "only", label = "Save for this character only",
-                                    desc = "Off: this character uses your account palette. On: changes here apply only to this character." },
+                                    desc = "Off: this character uses your account palette. On: changes here apply only to this character.",
+                                    hidden = function() return editorOn == true end },
                                 { type = "button", label = "Restore Daylight colors", text = "Restore", func = function()
                                     if type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
                                         DaylightUI:Set("Palettes", "palette", "off")

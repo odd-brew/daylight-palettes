@@ -307,8 +307,9 @@ function ns.emberCustomSpec()
     })
 end
 
+-- Ember's colors for the editor draft. Save is what writes them.
 function ns.resetCustomToEmber(account, char)
-    return ns.writeCustom(account, char, ns.emberCustomSpec())
+    return ns.emberCustomSpec()
 end
 
 -- Saving custom colors is a palette pick, so Undo can step back to the previous one.
