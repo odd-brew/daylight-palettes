@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0] - RELEASE-DATE
+## [0.2.0] - 2026-11-21
 
 ### Added
 - Each palette row shows a three-color swatch: background, band and accent.
@@ -12,7 +12,7 @@
 - Moving a Custom slider changes only the preview until you Save. If the accent is hard to see, "Accent is hard to see on this base." appears, but Save still works.
 - Some text changes color after a /reload.
 
-## [0.1.1] - RELEASE-DATE
+## [0.1.1] - 2026-11-20
 
 ### Changed
 - Palettes are account-wide by default, with a per-character option. The "Use this palette on every character" setting is replaced by a "Save for this character only" checkbox, and Accent follows class is saved the same way.
