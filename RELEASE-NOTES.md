@@ -1,6 +1,10 @@
 ## Palettes v0.1.1
 
-A small cleanup release for Palettes, the DaylightUI plugin for World of Warcraft: Forever.
+A small update for Palettes, the DaylightUI plugin for World of Warcraft: Forever.
+
+### Changed
+- **Account-wide by default:** your palette now applies to all your characters. Tick **Save for this character only** on Plugins > Palettes to give one character its own palette. Accent follows class is saved the same way.
+- **Your look carries over:** the first character you log in with sets the account palette. Any character that had a different palette gets **Save for this character only** ticked for you, so nothing changes on screen.
 
 ### Removed
 - The **Accent from** setting. Accent follows class and all 33 palettes work as before.
