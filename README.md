@@ -11,19 +11,18 @@ Made for World of Warcraft: Forever.
   - **Class themes (9):** Warrior, Mage, Paladin, Priest, Hunter, Rogue, Shaman, Warlock, Druid
   - **Realm themes (11):** Keepstone, Ironbanner, Sapphire Crown, Crownwall, Deepforge, Starshade, Cogspark, Rustbrand, Gravelight, Plainsong, Junglefire
 - **Accent follows class:** tints the window accent to a shade of your class color, adjusted just enough to stay readable.
-- **Accent from:** borrow another palette's accent for the one you're using. Only accents with enough contrast are listed.
-- **One palette or per character:** keep a palette on one character, or use it on all of them.
+- **Account-wide by default:** one palette for all your characters, or save a different one for a single character.
 - **Restore anytime:** one button, or `/palettes off`, puts DaylightUI's own colors back.
 
 Sightline uses slate blue and amber, chosen with color-blind players in mind.
 
 ## Requirements
 
-- DaylightUI installed and enabled. Palettes is a plugin and does nothing on its own.
+- DaylightUI ([DAYLIGHTUI-LINK]) installed and enabled. Palettes is a plugin and does nothing on its own.
 
 ## Install
 
-1. Download `Palettes-v0.1.0.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
+1. Download `Palettes-v0.1.1.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
 2. Unzip it into your game's `Interface/AddOns` folder, so you end up with `Interface/AddOns/Palettes`.
 3. Start the game, or type `/reload` if it's already running.
 
@@ -42,9 +41,8 @@ On **Plugins > Palettes**:
 | Setting | What it does |
 | --- | --- |
 | Accent follows class | Uses a shade of your class color as the window accent. Names, chat and unit frames keep the game's class colors. |
-| Accent from | Uses another palette's accent with your current palette. Greyed out while Accent follows class is on. |
-| Use this palette on every character | Off keeps the palette on this character, in your active DaylightUI profile. On uses one palette everywhere. Class accent and Accent from stay per character. |
-| Restore Daylight colors | Switches Palettes off and puts DaylightUI's own colors back. |
+| Save for this character only | Off: this character uses your account palette. On: changes here apply only to this character, including Accent follows class. Unticking it clears this character's own pick and goes back to the account palette. |
+| Restore Daylight colors | Switches off whichever palette is active, account or character, and puts DaylightUI's own colors back. |
 
 ## Known limits
 
@@ -53,7 +51,7 @@ On **Plugins > Palettes**:
 - **Some things never change color:** class, reaction, power, item quality and money colors, plus game text. That's on purpose.
 - **Needs a recent DaylightUI.** If your DaylightUI is too old, Palettes prints a chat line and leaves your colors alone.
 - **Partial support on some DaylightUI versions.** If a DaylightUI update changes a window Palettes doesn't know, Palettes skips that piece and says so in chat once.
-- **It's v0.1.0.** Expect rough edges.
+- **It's an early version.** Expect rough edges.
 
 ## Found a bug?
 

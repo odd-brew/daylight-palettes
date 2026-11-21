@@ -25,9 +25,7 @@
 -- the hue. Lightness stays between 0.30 and 0.88, and chroma stays at least
 -- 0.08. A color that already clears 3:1 is kept. One that does not is
 -- lightened until it does. Names, chat, and unit frames stay the game's
--- class color. Mix and match is used when class accent is off, and only
--- when that highlight clears 3:1. Accent from is greyed out while class
--- accent is on, and the saved mix is kept.
+-- class color.
 --
 -- v3 adds the class themes and the realm themes on that same path.
 -- While a palette is on, three Daylight surfaces follow it and there is no
@@ -517,9 +515,9 @@ local function lift(path)
         if type(keepAccent) == "string" then d:Set("general", "accent", keepAccent) end
         if type(keepTint) == "string" then d:Set("general", "windowTint", keepTint) end
         d:Set("Palettes", "palette", "off")
-        d:Set("Palettes", "own", "off")
     end
-    if type(PalettesAccount) == "table" and PalettesAccount.every then PalettesAccount.palette = "off" end
+    -- The checkbox stays as it is. Only the palette in force is switched off.
+    ns.restoreActive(ns.accountTable(), ns.charTable())
     paintedId = nil
     applying = false
     notify()
@@ -555,31 +553,20 @@ local function playerClassColor()
 end
 
 -- Class accent wins while it is on. The shade is always a class color: the
--- shifted one, or the precomputed shade for that class. Mix and match is
--- used only when class accent is off. Game text is not recolored.
+-- shifted one, or the precomputed shade for that class. Game text is not recolored.
 local function accentChoice(frame)
     if type(frame) ~= "table" or type(ns.accentPasses) ~= "function" then return nil, nil, nil end
     local d = dui()
     if type(d) ~= "table" or type(d.Get) ~= "function" then return nil, nil, nil end
-    if d:Get("Palettes", "classAccent") == true then
-        local color, row = playerClassColor()
-        local name = row and row.name or "Class"
-        local token = row and row.id
-        local shade
-        if type(ns.classShade) == "function" then
-            shade = ns.classShade(color, frame, token)
-        end
-        -- Accent from has no effect while class accent is on. The saved mix stays.
-        if shade then return shade, name, nil end
-        return nil, nil, nil
+    if d:Get("Palettes", "classAccent") ~= true then return nil, nil, nil end
+    local color, row = playerClassColor()
+    local name = row and row.name or "Class"
+    local token = row and row.id
+    local shade
+    if type(ns.classShade) == "function" then
+        shade = ns.classShade(color, frame, token)
     end
-    local mixId = d:Get("Palettes", "mixAccent")
-    if type(mixId) == "string" and mixId ~= "same" and mixId ~= frame.id then
-        local accent = ns.byId[mixId]
-        if type(accent) == "table" and type(accent.c2) == "table" and ns.accentPasses(accent.c2, frame) then
-            return accent.c2, accent.name, accent
-        end
-    end
+    if shade then return shade, name, nil end
     return nil, nil, nil
 end
 
@@ -901,19 +888,6 @@ local function apply(id, fromQueue)
         warnMissing()
         return
     end
-    local d = dui()
-    if type(d) == "table" and type(d.Get) == "function" and type(d.Set) == "function"
-        and d:Get("Palettes", "classAccent") ~= true then
-        -- A mix that fails on this frame is not a choice, so it does not linger in the menu.
-        -- Class accent leaves the saved Accent from choice alone.
-        local mixId = d:Get("Palettes", "mixAccent")
-        if type(mixId) == "string" and mixId ~= "same" and mixId ~= p.id then
-            local accent = ns.byId[mixId]
-            if type(accent) ~= "table" or type(ns.accentPasses) ~= "function" or not ns.accentPasses(accent.c2, p) then
-                d:Set("Palettes", "mixAccent", "same")
-            end
-        end
-    end
     local map = resolvedMap(p)
     writeMap(map, 3)
     override("accent", "customGradient")
@@ -927,37 +901,164 @@ local function apply(id, fromQueue)
     say("Palettes: " .. p.name .. " is on. Your layout is unchanged.")
 end
 
-local function rememberPick(id)
-    local d = dui()
-    if type(d) ~= "table" or type(d.Set) ~= "function" then return end
-    applying = true
-    d:Set("Palettes", "own", id)
-    applying = false
-    if type(PalettesAccount) == "table" and PalettesAccount.every then PalettesAccount.palette = id end
+-- PalettesAccount is the palette every character uses until they opt out.
+-- PalettesChar is this character only. only means "Save for this character only":
+-- palette and classAccent on that table then replace the account ones.
+-- seeded means a character has already filled in the account palette.
+-- ready means this character's upgrade from 0.1.0 has already run.
+
+function ns.accountTable()
+    if type(PalettesAccount) ~= "table" then PalettesAccount = {} end
+    return PalettesAccount
 end
 
-local function onEvery(on)
-    if type(PalettesAccount) ~= "table" then PalettesAccount = {} end
-    PalettesAccount.every = on and true or false
-    local d = dui()
-    if type(d) ~= "table" or type(d.Get) ~= "function" then return end
-    if PalettesAccount.every then
-        -- The palette on screen becomes the one every character will log in with.
-        PalettesAccount.palette = paintedId or d:Get("Palettes", "palette") or "off"
+function ns.charTable()
+    if type(PalettesChar) ~= "table" then PalettesChar = {} end
+    return PalettesChar
+end
+
+local function hasLegacy(db)
+    return type(db) == "table" and (type(db.own) == "string" or type(db.everyCharacter) == "boolean")
+end
+
+-- What 0.1.0 was showing. "Every character" used the account palette.
+-- Otherwise this character's own pick won, then the palette setting.
+local function legacyLook(account, db)
+    local accent = type(db) == "table" and db.classAccent == true
+    if type(account) == "table" and account.every == true then
+        return fallbackId(account.palette) or "off", accent
+    end
+    if type(db) ~= "table" then return "off", false end
+    return fallbackId(db.own) or fallbackId(db.palette) or "off", accent
+end
+
+local function activeLook(account, char)
+    if type(account) ~= "table" then account = {} end
+    if type(char) ~= "table" then char = {} end
+    if char.only == true then
+        local accent = char.classAccent
+        if type(accent) ~= "boolean" then accent = account.classAccent == true end
+        return fallbackId(char.palette) or fallbackId(account.palette) or "off", accent == true, true
+    end
+    return fallbackId(account.palette) or "off", account.classAccent == true, false
+end
+
+function ns.activeLook(account, char)
+    return activeLook(account, char)
+end
+
+-- A name that is not a palette any more becomes Ember, same as a fresh login.
+local function normalizeSaved(account, char)
+    if type(account.palette) == "string" and not known(account.palette) then
+        account.palette = fallbackId(account.palette) or "off"
+    end
+    if type(char.palette) == "string" and not known(char.palette) then
+        char.palette = fallbackId(char.palette) or "off"
+    end
+end
+
+function ns.setPalette(account, char, id)
+    if type(account) ~= "table" or type(char) ~= "table" then return end
+    id = fallbackId(id) or "off"
+    if char.only == true then
+        char.palette = id
         return
     end
-    local own = fallbackId(d:Get("Palettes", "own")) or "off"
-    if own ~= d:Get("Palettes", "own") and type(d.Set) == "function" then
-        applying = true
-        d:Set("Palettes", "own", own)
-        applying = false
+    account.palette = id
+    char.palette = nil
+    char.classAccent = nil
+end
+
+function ns.setClassAccent(account, char, on)
+    if type(account) ~= "table" or type(char) ~= "table" then return end
+    on = on == true
+    if char.only == true then
+        char.classAccent = on
+        return
     end
-    if d:Get("Palettes", "palette") ~= own then
-        applying = true
-        d:Set("Palettes", "palette", own)
-        applying = false
-        apply(own)
+    account.classAccent = on
+    char.palette = nil
+    char.classAccent = nil
+end
+
+-- Ticking copies the account look onto this character, so the screen does not jump.
+-- Unticking throws that copy away and this character follows the account again.
+function ns.setOnly(account, char, on)
+    if type(account) ~= "table" or type(char) ~= "table" then
+        return activeLook(account, char)
     end
+    if on == true then
+        if char.only ~= true then
+            char.palette = fallbackId(account.palette) or "off"
+            char.classAccent = account.classAccent == true
+        end
+        char.only = true
+    else
+        char.only = false
+        char.palette = nil
+        char.classAccent = nil
+    end
+    char.ready = true
+    return activeLook(account, char)
+end
+
+function ns.restoreActive(account, char)
+    ns.setPalette(account, char, "off")
+    return activeLook(account, char)
+end
+
+-- Runs once per character. The first character logged in after 0.1.0 becomes
+-- the account palette. A later character keeps a different look, with the box on.
+-- A character who already ran this is left alone, including on the next login.
+function ns.migrateLogin(account, char, db)
+    if type(account) ~= "table" or type(char) ~= "table" then
+        return "off", false, false
+    end
+    if char.ready == true then
+        normalizeSaved(account, char)
+        return activeLook(account, char)
+    end
+    if account.seeded ~= true then
+        local id, accent = legacyLook(account, db)
+        account.legacyEvery = account.every == true
+        account.palette = id
+        account.classAccent = accent == true
+        account.seeded = true
+        account.every = nil
+        char.only = false
+        char.palette = nil
+        char.classAccent = nil
+        char.ready = true
+        return id, accent == true, false
+    end
+    if not hasLegacy(db) then
+        char.only = false
+        char.palette = nil
+        char.classAccent = nil
+        char.ready = true
+        return activeLook(account, char)
+    end
+    local id, accent = legacyLook(account, db)
+    if account.legacyEvery == true then
+        id = fallbackId(account.palette) or "off"
+    end
+    local samePalette = id == (fallbackId(account.palette) or "off")
+    local sameAccent = (accent == true) == (account.classAccent == true)
+    if samePalette and sameAccent then
+        char.only = false
+        char.palette = nil
+        char.classAccent = nil
+    else
+        char.only = true
+        char.palette = id
+        char.classAccent = accent == true
+    end
+    char.ready = true
+    return activeLook(account, char)
+end
+
+local function rememberPick(id)
+    ns.setPalette(ns.accountTable(), ns.charTable(), id)
 end
 
 -- SettingChanged is (scope, path, value). scope is "general" or a module name.
@@ -976,11 +1077,19 @@ local function onSetting(scope, path)
         apply(id)
         return
     end
-    if scope == "Palettes" and path == "everyCharacter" then
-        onEvery(d:Get("Palettes", "everyCharacter") == true)
+    if scope == "Palettes" and path == "only" then
+        local beforeId = d:Get("Palettes", "palette")
+        local beforeAccent = d:Get("Palettes", "classAccent") == true
+        local id, accent = ns.setOnly(ns.accountTable(), ns.charTable(), d:Get("Palettes", "only") == true)
+        applying = true
+        if beforeId ~= id then d:Set("Palettes", "palette", id) end
+        if beforeAccent ~= (accent == true) then d:Set("Palettes", "classAccent", accent == true) end
+        applying = false
+        if id ~= beforeId or (accent == true) ~= beforeAccent then apply(id) end
         return
     end
-    if scope == "Palettes" and (path == "classAccent" or path == "mixAccent") then
+    if scope == "Palettes" and path == "classAccent" then
+        ns.setClassAccent(ns.accountTable(), ns.charTable(), d:Get("Palettes", "classAccent") == true)
         local id = d:Get("Palettes", "palette")
         if known(id) and id ~= "off" then apply(id) end
         return
@@ -1283,25 +1392,25 @@ end
 
 local function onEnable(_, db)
     watchFrames()
-    if type(PalettesAccount) ~= "table" then PalettesAccount = {} end
-    if type(PalettesAccount.every) ~= "boolean" then PalettesAccount.every = false end
-    if type(PalettesAccount.palette) == "string" and not known(PalettesAccount.palette) then
-        PalettesAccount.palette = "ember"
+    local account = ns.accountTable()
+    local char = ns.charTable()
+    -- A saved choice from the removed setting is dropped, so the palette accent is its own.
+    if type(db) == "table" then db.mixAccent = nil end
+    local id, accent, onlyOn = ns.migrateLogin(account, char, db)
+    if type(db) == "table" then
+        db.own = nil
+        db.everyCharacter = nil
     end
     local d = dui()
-    if type(d) ~= "table" or type(d.Set) ~= "function" then return end
+    if type(d) ~= "table" or type(d.Set) ~= "function" or type(d.Get) ~= "function" then return end
     applying = true
-    if db.everyCharacter ~= PalettesAccount.every then
-        d:Set("Palettes", "everyCharacter", PalettesAccount.every)
+    if d:Get("Palettes", "palette") ~= id then d:Set("Palettes", "palette", id) end
+    if (d:Get("Palettes", "classAccent") == true) ~= (accent == true) then
+        d:Set("Palettes", "classAccent", accent == true)
     end
-    local id = "off"
-    if PalettesAccount.every then
-        id = fallbackId(PalettesAccount.palette) or "off"
-    else
-        id = fallbackId(db.own) or fallbackId(db.palette) or "off"
+    if (d:Get("Palettes", "only") == true) ~= (onlyOn == true) then
+        d:Set("Palettes", "only", onlyOn == true)
     end
-    if type(db.own) == "string" and not known(db.own) then d:Set("Palettes", "own", id) end
-    if db.palette ~= id then d:Set("Palettes", "palette", id) end
     applying = false
     ready = true
     if id ~= "off" then apply(id) end
@@ -1329,7 +1438,7 @@ local function boot()
     d:RegisterModule("Palettes", {
         label = "Palettes",
         plugin = "Palettes",
-        defaults = { palette = "off", own = "off", everyCharacter = false, classAccent = false, mixAccent = "same" },
+        defaults = { palette = "off", classAccent = false, only = false },
         OnEnable = onEnable,
         options = {
             pages = {
@@ -1346,31 +1455,8 @@ local function boot()
                                 end, height = function(row) return row.palettesHeight or 430 end },
                                 { type = "toggle", key = "classAccent", label = "Accent follows class",
                                     desc = "Uses your class color as the chrome accent. The shade keeps the class hue and moves only as far as it needs to clear 3:1 on this frame. Names, chat, and unit frames stay the game's colors." },
-                                { type = "dropdown", key = "mixAccent", label = "Accent from",
-                                    desc = "Another palette's accent on this frame. Only accents that pass the contrast check are listed.",
-                                    -- Daylight greys a row whose disabled(get) is true, and ignores clicks.
-                                    disabled = function(get) return get("classAccent") == true end,
-                                    choices = function()
-                                        local frameId = currentId()
-                                        local frame = ns.byId[frameId]
-                                        local values, order = { same = "Same as frame" }, { "same" }
-                                        if type(frame) ~= "table" or type(ns.accentPasses) ~= "function" then return values, order end
-                                        for g = 1, #ns.groups do
-                                            local group = ns.groups[g]
-                                            for i = 1, #group.ids do
-                                                local id = group.ids[i]
-                                                local accent = ns.byId[id]
-                                                if id ~= frameId and type(accent) == "table" and ns.accentPasses(accent.c2, frame) then
-                                                    values[id] = accent.name
-                                                    order[#order + 1] = id
-                                                end
-                                            end
-                                        end
-                                        return values, order
-                                    end },
-                                { type = "text", label = "Accent from is used only when class accent is off. It only lists accents that clear 3:1. Game text is not recolored." },
-                                { type = "toggle", key = "everyCharacter", label = "Use this palette on every character",
-                                    desc = "Off keeps the choice on this character, in the active Daylight profile. On uses one palette for every character. Class accent and mix stay on this character." },
+                                { type = "toggle", key = "only", label = "Save for this character only",
+                                    desc = "Off: this character uses your account palette. On: changes here apply only to this character." },
                                 { type = "button", label = "Restore Daylight colors", text = "Restore", func = function()
                                     if type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
                                         DaylightUI:Set("Palettes", "palette", "off")

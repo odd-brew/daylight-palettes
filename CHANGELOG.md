@@ -1,6 +1,16 @@
 # Changelog
 
-## [0.1.0] - RELEASE-DATE
+## [0.1.1] - RELEASE-DATE
+
+### Changed
+- Palettes are account-wide by default, with a per-character option. The "Use this palette on every character" setting is replaced by a "Save for this character only" checkbox, and Accent follows class is saved the same way.
+- Unticking "Save for this character only" clears that character's own pick.
+- Upgrading from 0.1.0 keeps your look: the first character to log in sets the account palette, and any character with a different palette gets "Save for this character only" ticked automatically.
+
+### Removed
+- Accent from setting.
+
+## [0.1.0] - 2026-11-20
 
 First public release.
 

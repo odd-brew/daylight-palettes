@@ -260,6 +260,9 @@ end
 if not toc:find("## SavedVariables: PalettesAccount", 1, true) then
     fail("toc must save PalettesAccount")
 end
+if not toc:find("## SavedVariablesPerCharacter: PalettesChar", 1, true) then
+    fail("toc must save PalettesChar for each character")
+end
 if not toc:find("## Interface: 16001", 1, true) then
     fail("toc interface should be 16001")
 end
@@ -301,17 +304,32 @@ end
 if main:find("Live sample", 1, true) then
     fail("the live sample bar should be gone")
 end
-if not main:find("classAccent", 1, true) or not main:find("mixAccent", 1, true) then
-    fail("class accent and mix controls are missing")
+if not main:find("classAccent", 1, true) then
+    fail("class accent control is missing")
 end
-if not main:find('disabled = function(get) return get("classAccent") == true end', 1, true) then
-    fail("Accent from must be disabled while class accent is on")
+local _, mixCount = main:gsub("mixAccent", "mixAccent")
+if mixCount ~= 1 or not main:find("db.mixAccent = nil", 1, true) then
+    fail("mixAccent remains")
 end
-if not main:find("Accent from is used only when class accent is off.", 1, true) then
-    fail("missing Accent from help")
+if main:find("Accent from", 1, true) then
+    fail("Accent from remains")
 end
-if not main:find('d:Get("Palettes", "classAccent") ~= true', 1, true) then
-    fail("class accent must leave the saved Accent from choice alone")
+if main:find("Use this palette on every character", 1, true) then
+    fail("the every-character option remains")
+end
+if not main:find('label = "Save for this character only"', 1, true) then
+    fail("missing save-for-this-character option")
+end
+if not main:find("Off: this character uses your account palette. On: changes here apply only to this character.", 1, true) then
+    fail("missing character override help")
+end
+local choicesAt = main:find('label = "Choices"', 1, true)
+local accentAt = main:find('label = "Accent follows class"', 1, true)
+local saveAt = main:find('label = "Save for this character only"', 1, true)
+local restoreAt = main:find('label = "Restore Daylight colors"', 1, true)
+if not (choicesAt and accentAt and saveAt and restoreAt
+    and choicesAt < accentAt and accentAt < saveAt and saveAt < restoreAt) then
+    fail("settings are out of order")
 end
 if not main:find("ns.classShade(color, frame, token)", 1, true) then
     fail("class accent must shade every palette, light and dark")
@@ -440,6 +458,133 @@ for i = 1, #required do
     if not main:find(required[i], 1, true) then
         fail("missing chat line: " .. required[i])
     end
+end
+
+-- 0.1.0 saved two characters on different palettes. Log in A, then B.
+-- A becomes the account palette. B keeps its own look, with the box on.
+-- Logging in again, after the old keys are gone, must not change that.
+local addonChunk, addonErr = loadfile(mainPath)
+if not addonChunk then
+    fail("could not load Palettes.lua: " .. tostring(addonErr))
+else
+    local env = {
+        math = math, string = string, table = table, type = type,
+        pairs = pairs, ipairs = ipairs, pcall = pcall, tostring = tostring,
+        tonumber = tonumber, select = select, unpack = unpack, next = next, error = error,
+        CreateFrame = function()
+            return { RegisterEvent = function() end, SetScript = function() end }
+        end,
+    }
+    setfenv(addonChunk, env)
+    local loaded, loadErr = pcall(addonChunk, "Palettes", ns)
+    if not loaded then
+        fail("Palettes.lua failed: " .. tostring(loadErr))
+    end
+end
+
+if type(ns.migrateLogin) ~= "function" or type(ns.setOnly) ~= "function" or type(ns.restoreActive) ~= "function" then
+    fail("palette scope functions are missing")
+else
+    local function saved(palette, accent)
+        return {
+            palette = palette, own = palette, everyCharacter = false, classAccent = accent == true,
+        }
+    end
+
+    local account = { every = false }
+    local charA = {}
+    local idA, accentA, onlyA = ns.migrateLogin(account, charA, saved("ember", false))
+    local charB = {}
+    local idB, accentB, onlyB = ns.migrateLogin(account, charB, saved("tide", true))
+    check(idA, "ember", "first character keeps ember")
+    check(accentA, false, "first character keeps its class accent")
+    check(onlyA, false, "first character uses the account palette")
+    check(account.palette, "ember", "first character becomes the account palette")
+    check(account.classAccent, false, "first character's class accent becomes the account one")
+    check(charA.only, false, "first character's box is off")
+    check(charA.palette, nil, "first character does not keep a private palette")
+    check(idB, "tide", "second character keeps tide")
+    check(accentB, true, "second character keeps its class accent")
+    check(onlyB, true, "second character gets the box ticked")
+    check(charB.palette, "tide", "second character keeps its own palette")
+    check(charB.classAccent, true, "class accent is saved with the character palette")
+    check(account.palette, "ember", "second character does not replace the account palette")
+
+    local againA, againAccentA, againOnlyA = ns.migrateLogin(account, charA, {
+        palette = "off", classAccent = false, only = false,
+    })
+    local againB, againAccentB, againOnlyB = ns.migrateLogin(account, charB, {
+        palette = "off", classAccent = false, only = false,
+    })
+    check(againA, "ember", "logging in again keeps the first character")
+    check(againAccentA, false, "logging in again keeps the account accent")
+    check(againOnlyA, false, "logging in again leaves the first box off")
+    check(againB, "tide", "logging in again keeps the second character")
+    check(againAccentB, true, "logging in again keeps the second accent")
+    check(againOnlyB, true, "logging in again keeps the box ticked")
+    check(account.palette, "ember", "logging in again keeps the account palette")
+
+    local charC = {}
+    local idC, _, onlyC = ns.migrateLogin(account, charC, {
+        palette = "off", classAccent = false, only = false,
+    })
+    check(idC, "ember", "a new character uses the account palette")
+    check(onlyC, false, "a new character does not get the box")
+    check(charC.palette, nil, "a new character has no private palette")
+
+    local backId, backAccent, backOnly = ns.setOnly(account, charB, false)
+    check(backOnly, false, "untick clears the box")
+    check(charB.palette, nil, "untick clears the character palette")
+    check(charB.classAccent, nil, "untick clears the character accent")
+    check(backId, "ember", "untick falls back to the account palette")
+    check(backAccent, false, "untick falls back to the account accent")
+    check(account.palette, "ember", "untick leaves the account palette")
+
+    local scoped = { every = false }
+    local scopeA, scopeB = {}, {}
+    ns.migrateLogin(scoped, scopeA, saved("pine", false))
+    ns.migrateLogin(scoped, scopeB, saved("phosphor", false))
+    ns.restoreActive(scoped, scopeA)
+    check(scoped.palette, "off", "restore switches off the account palette")
+    check(scopeA.only, false, "restore does not tick the account character")
+    check(scopeA.palette, nil, "restore does not write a private palette")
+    check(scopeB.only, true, "account restore leaves the other box ticked")
+    check(scopeB.palette, "phosphor", "account restore leaves the other character")
+
+    local scopedOn = { every = false }
+    local onA, onB = {}, {}
+    ns.migrateLogin(scopedOn, onA, saved("pine", false))
+    ns.migrateLogin(scopedOn, onB, saved("phosphor", true))
+    ns.restoreActive(scopedOn, onB)
+    check(onB.palette, "off", "restore switches off this character")
+    check(onB.only, true, "restore leaves the box ticked")
+    check(onB.classAccent, true, "restore leaves this character's class accent")
+    check(scopedOn.palette, "pine", "character restore leaves the account palette")
+    check(onA.only, false, "character restore leaves the account character")
+
+    -- 0.1.0 "every character" showed one palette. A different private pick was hidden,
+    -- so the upgrade keeps the shared look instead of revealing that old pick.
+    local shared = { every = true, palette = "dusk" }
+    local sharedA, sharedB, sharedC = {}, {}, {}
+    local sharedIdA = ns.migrateLogin(shared, sharedA, {
+        palette = "ember", own = "ember", everyCharacter = true, classAccent = false,
+    })
+    local sharedIdB, _, sharedOnlyB = ns.migrateLogin(shared, sharedB, {
+        palette = "tide", own = "tide", everyCharacter = true, classAccent = false,
+    })
+    local sharedIdC, sharedAccentC, sharedOnlyC = ns.migrateLogin(shared, sharedC, {
+        palette = "tide", own = "tide", everyCharacter = true, classAccent = true,
+    })
+    check(sharedIdA, "dusk", "the shared palette becomes the account palette")
+    check(shared.palette, "dusk", "a hidden private pick does not replace the account")
+    check(sharedA.only, false, "the first shared character leaves the box off")
+    check(sharedIdB, "dusk", "another character keeps the shared palette")
+    check(sharedOnlyB, false, "the same shared look does not tick the box")
+    check(sharedB.palette, nil, "the same shared look has no private palette")
+    check(sharedIdC, "dusk", "a different class accent keeps the shared palette")
+    check(sharedAccentC, true, "a different class accent is kept")
+    check(sharedOnlyC, true, "a different class accent ticks the box")
+    check(sharedC.palette, "dusk", "the override stores the palette that was showing")
 end
 
 if failures > 0 then
