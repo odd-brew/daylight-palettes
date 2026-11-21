@@ -1,18 +1,18 @@
-## Palettes v0.3.0
+## Palettes v0.3.1
 
-Two new Dark palettes, Custom share codes, and micro-menu icons for Palettes, the DaylightUI plugin for World of Warcraft: Forever.
+Palettes now follows a shared or switched Daylight profile. A small update for Palettes, the DaylightUI plugin for World of Warcraft: Forever.
 
 ### Added
-- **Vanilla and Forever:** two new palettes in Dark, after Sightline. Vanilla is dark oak and pewter chrome. Forever is near-black soot with weathered bronze trim.
-- **Share codes:** in the Custom editor, codes look like **PAL1-RRGGBB-RRGGBB**. **Copy** puts the draft on the clipboard when the game allows it. **Apply** loads the preview; **Save** is what applies it in game. A bad code shows **That isn't a Palettes share code.** and leaves your colors alone.
-- **Micro-menu icons** follow the palette accent while a palette is on and Daylight's micro-menu style is on. There is no new Palettes setting.
+- **Daylight profiles:** importing or switching a profile brings its palette, Accent follows class, and Custom colors. **Save for this character only** stays your own switch. A profile with no Palettes settings keeps your current look, and existing users keep their palette and Custom colors.
+- If the profile used a palette this version doesn't have, Ember is used and chat shows: **Palettes: That profile's palette isn't in this version, so Ember is on instead. Your layout is unchanged.**
+- If the profile's Custom base is too light, it is darkened and chat shows: **Palettes: Custom base was darkened so text stays readable.**
 
-### Changed
-- **Crownwall, Rogue, Gilded, Warrior, Deepforge and Gravelight** were retuned. Crownwall's description is now "Pale castle stone, banner blue."
+### Note
+- A v0.3.0 export with Palettes off does not turn Palettes off on import. Exports from 0.3.1 do.
 
 ### Install or update
 1. You need DaylightUI installed first.
-2. Download **Palettes-v0.3.0.zip** below.
+2. Download **Palettes-v0.3.1.zip** below.
 3. Unzip it into `Interface/AddOns`, replacing your old `Palettes` folder.
 4. In game, type `/reload`.
 

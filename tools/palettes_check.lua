@@ -1106,11 +1106,14 @@ end
 if main:find("PaintMicro", 1, true) then
     fail("micro icons must not be recolored by painting them")
 end
-if not main:find("Palettes: that profile used a palette this version doesn't have, so Ember is on. Your layout is unchanged.", 1, true) then
+if not main:find("Palettes: That profile's palette isn't in this version, so Ember is on instead. Your layout is unchanged.", 1, true) then
     fail("missing the unknown-palette line")
 end
-if not main:find("Base was darkened so text stays readable.", 1, true) then
+if not main:find("Palettes: Custom base was darkened so text stays readable.", 1, true) then
     fail("missing the darkened-base line")
+end
+if main:find("that profile used a palette this version doesn't have", 1, true) then
+    fail("the old unknown-palette line remains")
 end
 if not main:find("carried = false", 1, true) then
     fail("a profile needs a marker for Palettes settings")
