@@ -466,6 +466,24 @@ end
 -- 0.1.0 saved two characters on different palettes. Log in A, then B.
 -- A becomes the account palette. B keeps its own look, with the box on.
 -- Logging in again, after the old keys are gone, must not change that.
+local customPath = root .. "/Palettes/PalettesCustom.lua"
+local customChunk, customErr = loadfile(customPath)
+if not customChunk then
+    fail("could not load PalettesCustom.lua: " .. tostring(customErr))
+else
+    setfenv(customChunk, {
+        math = math, string = string, tonumber = tonumber, type = type,
+        pairs = pairs, ipairs = ipairs,
+    })
+    local customOk, customRunErr = pcall(customChunk, "Palettes", ns)
+    if not customOk then
+        fail("PalettesCustom.lua failed: " .. tostring(customRunErr))
+    end
+end
+check(ns.order and #ns.order or 0, 33, "custom does not add a thirty-fourth palette")
+check(ns.byId.custom and ns.byId.custom.name, "Custom", "custom palette name")
+check(ns.byId.custom and ns.byId.custom.mood, "Your own colors.", "custom palette description")
+
 local addonChunk, addonErr = loadfile(mainPath)
 if not addonChunk then
     fail("could not load Palettes.lua: " .. tostring(addonErr))
@@ -701,6 +719,331 @@ else
 end
 if not main:find('"PENDING"', 1, true) then
     fail("a waiting row must be tagged PENDING")
+end
+
+-- Custom palette. Lightness of the base stops at CIE L* 28. Accent does not.
+-- Slider edits stay in the preview until Save. Back throws them away.
+if type(ns.customSpec) ~= "function" or type(ns.deriveCustom) ~= "function"
+    or type(ns.saveCustom) ~= "function" or type(ns.backCustom) ~= "function"
+    or type(ns.resetCustomToEmber) ~= "function" or type(ns.writeCustom) ~= "function" then
+    fail("custom palette functions are missing")
+else
+    local function close(actual, expected, tol, label)
+        if type(actual) ~= "number" or math.abs(actual - expected) > tol then
+            fail(label .. "\n  expected: " .. tostring(expected) .. "\n  actual:   " .. tostring(actual))
+        end
+    end
+
+    local hues = { 0, 60, 120, 180, 242, 300 }
+    for i = 1, #hues do
+        for _, sat in ipairs({ 0, 1 }) do
+            local spec = ns.customSpec({ h = hues[i], s = sat, l = 40, ah = 30, as = 0.5, al = 70 })
+            check(spec.l, 28, "base lightness stops at 28 for hue " .. hues[i])
+            local measured = ns.customBaseL(spec)
+            if type(measured) ~= "number" or measured > 28.05 then
+                fail("base L* is over 28 at hue " .. hues[i] .. " sat " .. sat .. ": " .. tostring(measured))
+            end
+            local textOnBase = ns.customTextRatio(spec)
+            if type(textOnBase) ~= "number" or textOnBase < 6.6 then
+                fail("body text is under 6.6:1 on the base at hue " .. hues[i] .. " sat " .. sat)
+            end
+        end
+    end
+    local openAccent = ns.customSpec({ h = 0, s = 0, l = 10, ah = 40, as = 0.8, al = 95 })
+    check(openAccent.al, 95, "accent lightness is not capped")
+
+    local starter = ns.deriveCustom(ns.customDefaults())
+    check(starter.background.hex, "#341529", "starter base")
+    check(starter.band.hex, "#3D1D32", "starter band")
+    check(starter.text.hex, "#EDE3E9", "starter text")
+    check(starter.c2.hex, "#E2B14A", "starter accent")
+    check(starter.c1.hex, "#A0751A", "starter accent gradient start")
+    check(starter.c3.hex, "#E7D7B5", "starter accent gradient end")
+    close(ns.customTextRatio(ns.customDefaults()), 13.04, 0.06, "starter text on the base")
+    close(ns.customAccentRatio(ns.customDefaults()), 8.26, 0.06, "gold accent on the starter base")
+    check(ns.accentHardToSee(ns.customDefaults()), false, "gold accent does not warn")
+
+    local grey = ns.deriveCustom({ h = 0, s = 0, l = 28, ah = 0, as = 0, al = 50 })
+    check(grey.background.hex, "#424242", "grey at the lightness cap")
+    check(grey.band.hex, "#4B4B4B", "grey band at the lightness cap")
+
+    local low = ns.customSpec({
+        h = 321, s = 0.42, l = 12, ah = 330, as = 0.3, al = 40,
+        baseHex = "#341529", accentHex = "#794B69",
+    })
+    close(ns.customAccentRatio(low), 2.35, 0.06, "low accent contrast")
+    check(ns.accentHardToSee(low), true, "an accent under 3:1 warns")
+
+    local previewAccount = { palette = "ember" }
+    local previewChar = { only = false }
+    local saved = ns.readCustom(previewAccount, previewChar)
+    local draft = ns.customSpec({ h = 90, s = 1, l = 28, ah = 10, as = 1, al = 80 })
+    if ns.deriveCustom(draft).background.hex == ns.deriveCustom(saved).background.hex then
+        fail("moving a slider should change the preview")
+    end
+    local kept = ns.backCustom(saved)
+    check(ns.deriveCustom(kept).background.hex, ns.deriveCustom(saved).background.hex, "back keeps the saved colors")
+    check(previewAccount.custom, nil, "back does not write the account")
+    check(previewChar.custom, nil, "back does not write the character")
+
+    local resetAccount = { palette = "custom", custom = { h = 222, s = 0.58, l = 28, ah = 41, as = 0.72, al = 75 } }
+    local resetChar = { only = false }
+    local savedHex = ns.deriveCustom(ns.readCustom(resetAccount, resetChar)).background.hex
+    local resetSpec = ns.resetCustomToEmber(resetAccount, resetChar)
+    check(resetAccount.palette, "custom", "reset leaves Custom selected")
+    check(ns.deriveCustom(resetSpec).background.hex, "#211812", "reset loads Ember's base into the draft")
+    check(ns.deriveCustom(resetSpec).c2.hex, "#E8A04A", "reset loads Ember's accent into the draft")
+    check(ns.deriveCustom(ns.readCustom(resetAccount, resetChar)).background.hex, savedHex, "reset does not write the saved custom")
+    local afterBack = ns.backCustom(ns.readCustom(resetAccount, resetChar))
+    check(ns.deriveCustom(afterBack).background.hex, savedHex, "back after reset keeps the saved custom")
+    check(resetAccount.custom.h, 222, "back after reset leaves the saved hue")
+
+    local resetSave = { current = "tide" }
+    local resetSaveAccount = { palette = "tide", custom = { h = 222, s = 0.58, l = 28, ah = 41, as = 0.72, al = 75 } }
+    local resetSaveChar = { only = false }
+    ns.saveCustom(resetSave, resetSaveAccount, resetSaveChar, ns.resetCustomToEmber(resetSaveAccount, resetSaveChar), false)
+    check(resetSave.current, "custom", "saving a reset selects custom")
+    check(resetSave.previous, "tide", "saving a reset remembers the previous palette")
+    check(ns.deriveCustom(ns.readCustom(resetSaveAccount, resetSaveChar)).background.hex, "#211812", "save writes the reset colors")
+    check(ns.undoPalette(resetSave, resetSaveAccount, resetSaveChar), "tide", "undo after a saved reset returns the previous palette")
+    check(resetSaveAccount.palette, "tide", "undo after a saved reset restores the palette id")
+
+    local scoped = { palette = "ember", custom = ns.customDefaults() }
+    local mine = { only = true }
+    local navy = { h = 222, s = 0.58, l = 28, ah = 41, as = 0.72, al = 75 }
+    ns.writeCustom(scoped, mine, navy)
+    check(scoped.custom.h, 321, "a character custom does not replace the account colors")
+    check(mine.custom.h, 222, "a character custom is stored on the character")
+    check(mine.custom.l, 28, "a character custom keeps the capped lightness")
+    mine.only = false
+    ns.writeCustom(scoped, mine, navy)
+    check(math.floor(scoped.custom.h + 0.5), 222, "an account custom is stored on the account")
+    check(mine.custom, nil, "an account custom clears the character copy")
+
+    local copied = { palette = "ember", custom = { h = 10, s = 1, l = 20, ah = 0, as = 0, al = 40 } }
+    local copiedChar = { only = false }
+    ns.setOnly(copied, copiedChar, true)
+    check(copiedChar.custom and math.floor(copiedChar.custom.h + 0.5), 10, "ticking the box copies custom colors")
+    check(copied.custom.h, 10, "ticking the box leaves the account custom")
+    ns.writeCustom(copied, copiedChar, navy)
+    check(copied.custom.h, 10, "a private edit leaves the account custom")
+    ns.setOnly(copied, copiedChar, false)
+    check(copiedChar.custom, nil, "unticking the box drops the private custom")
+    check(math.floor(ns.readCustom(copied, copiedChar).h + 0.5), 10, "unticking the box follows the account custom")
+
+    local undoState = { current = "ember" }
+    local undoAccount = { palette = "ember" }
+    local undoChar = { only = false }
+    ns.saveCustom(undoState, undoAccount, undoChar, navy, false)
+    check(undoState.current, "custom", "saving custom selects custom")
+    check(undoState.previous, "ember", "saving custom remembers the previous palette")
+    check(undoAccount.palette, "custom", "saving custom writes the palette id")
+    check(math.floor(undoAccount.custom.h + 0.5), 222, "saving custom writes the colors")
+    check(ns.undoReady(undoState), true, "undo is on after a custom save")
+    check(ns.undoPalette(undoState, undoAccount, undoChar), "ember", "undo steps back from a custom save")
+    check(undoAccount.palette, "ember", "undo restores the palette from before custom")
+    check(undoState.current, "ember", "undo selects the previous palette")
+    check(ns.undoReady(undoState), false, "undo is off after stepping back from custom")
+
+    local customFight = { current = "ember" }
+    local customFightAccount = { palette = "ember" }
+    local customFightChar = { only = false }
+    ns.saveCustom(customFight, customFightAccount, customFightChar, navy, true)
+    check(customFight.current, "ember", "a custom save in combat stays on the current palette")
+    check(customFight.pending, "custom", "a custom save in combat waits")
+    check(customFightAccount.palette, "custom", "a custom save in combat is saved for after combat")
+    ns.undoPalette(customFight, customFightAccount, customFightChar)
+    check(customFight.pending, nil, "undo cancels a waiting custom save")
+    check(customFightAccount.palette, "ember", "undo writes the on-screen palette back over custom")
+    ns.finishCombat(customFight, customFightAccount, customFightChar)
+    check(customFight.current, "ember", "combat end does not apply a cancelled custom save")
+end
+if not main:find("Your own colors.", 1, true) then
+    fail("the custom row needs its description")
+end
+if not main:find("Base colors stay dark so text stays readable.", 1, true) then
+    fail("the base cap note is missing")
+end
+if not main:find("Accent is hard to see on this base.", 1, true) then
+    fail("the accent warning is missing")
+end
+if not main:find("Reset to Ember", 1, true) then
+    fail("reset to ember is missing")
+end
+if not main:find("L*%d / 28", 1, true) then
+    fail("the lightness readout is missing")
+end
+if not main:find("Reset Custom to Ember?", 1, true) then
+    fail("reset needs a confirm")
+end
+if not main:find("SliderLook", 1, true) or not main:find("Widgets", 1, true) then
+    fail("the editor should use Daylight's slider and button widgets")
+end
+if main:find("OptionsSliderTemplate", 1, true) or main:find("UIPanelButtonTemplate", 1, true) then
+    fail("the editor should not use game slider or button templates")
+end
+if main:find("onlySwitch:SetOn", 1, true) then
+    fail("the editor switch must be called as a function, not a method")
+end
+
+-- The in-editor switch uses Daylight's plain SetOn(on). A colon call would
+-- pass the frame as the flag, so the switch would always look on.
+do
+    local function piece()
+        local w = {}
+        w.scripts = {}
+        function w:SetPoint() end
+        function w:SetSize() end
+        function w:SetWidth() end
+        function w:SetHeight() end
+        function w:SetAllPoints() end
+        function w:ClearAllPoints() end
+        function w:Hide() end
+        function w:Show() end
+        function w:SetShown() end
+        function w:SetText() end
+        function w:SetTextColor() end
+        function w:SetFont() end
+        function w:SetJustifyH() end
+        function w:SetWordWrap() end
+        function w:SetColorTexture() end
+        function w:SetTexture() end
+        function w:SetVertexColor() end
+        function w:SetAlpha() end
+        function w:SetFrameLevel() end
+        function w:GetFrameLevel() return 1 end
+        function w:EnableMouse() end
+        function w:SetOrientation() end
+        function w:SetMinMaxValues() end
+        function w:SetValueStep() end
+        function w:SetObeyStepOnDrag() end
+        function w:SetValue() end
+        function w:GetValue() return 0 end
+        function w:GetWidth() return 480 end
+        function w:GetHeight() return 28 end
+        function w:GetStringWidth() return 40 end
+        function w:SetScript(name, fn) w.scripts[name] = fn end
+        function w:CreateTexture() return piece() end
+        function w:CreateFontString() return piece() end
+        return w
+    end
+    local rowButtons = {}
+    local named = {}
+    local switches = {}
+    local settings = { palette = "ember", only = false, classAccent = false }
+    local module
+    local ui = {
+        API = { major = 1, minor = 7 },
+        OptionsPanel = { Refresh = function() end },
+        Style = {},
+    }
+    function ui:RegisterPlugin() return {} end
+    function ui:RegisterModule(_, spec) module = spec end
+    function ui:Get(_, key) return settings[key] end
+    function ui:Set(_, key, value) settings[key] = value end
+    ui.Widgets = {
+        Button = function(_, text)
+            local b = piece()
+            function b.FitWidth() end
+            named[text] = b
+            return b
+        end,
+        SliderLook = function()
+            return { track = piece(), fill = piece() }
+        end,
+        Switch = function()
+            local b = piece()
+            -- Same shape as Daylight: SetOn is a plain function, and the flag is its only argument.
+            function b.SetOn(on) b.on = on end
+            switches[#switches + 1] = b
+            return b
+        end,
+        Close = function() return piece() end,
+    }
+    local editorChunk, editorErr = loadfile(mainPath)
+    if not editorChunk then
+        fail("could not reload Palettes.lua: " .. tostring(editorErr))
+    else
+        setfenv(editorChunk, {
+            math = math, string = string, table = table, type = type,
+            pairs = pairs, ipairs = ipairs, pcall = pcall, tostring = tostring,
+            tonumber = tonumber, select = select, unpack = unpack, next = next, error = error,
+            _G = {},
+            DaylightUI = ui,
+            CreateFrame = function(kind)
+                local w = piece()
+                if kind == "Button" then rowButtons[#rowButtons + 1] = w end
+                return w
+            end,
+        })
+        local loaded, loadErr = pcall(editorChunk, "Palettes", ns)
+        local items = module and module.options and module.options.pages
+            and module.options.pages[1] and module.options.pages[1].groups
+            and module.options.pages[1].groups[1] and module.options.pages[1].groups[1].items
+        local function labeled(text)
+            if type(items) ~= "table" then return nil end
+            for i = 1, #items do
+                if items[i].label == text then return items[i] end
+            end
+        end
+        local build = labeled("Choices")
+        build = build and build.build
+        local row = piece()
+        if not loaded or type(build) ~= "function" then
+            fail("the editor harness did not register: " .. tostring(loadErr))
+        else
+            build(row)
+            local accentRow = labeled("Accent follows class")
+            local restoreRow = labeled("Restore Daylight colors")
+            local custom = rowButtons[1]
+            local switch = switches[1]
+            if type(row.palettesEditor) ~= "table" or type(custom) ~= "table"
+                or type(custom.scripts.OnClick) ~= "function" or type(switch) ~= "table"
+                or type(accentRow) ~= "table" or type(accentRow.hidden) ~= "function"
+                or type(restoreRow) ~= "table" or type(restoreRow.hidden) ~= "function" then
+                fail("the custom editor did not build")
+            else
+                check(accentRow.hidden(), false, "accent follows class shows while the list is open")
+                check(restoreRow.hidden(), false, "restore shows while the list is open")
+                local opened, openErr = pcall(custom.scripts.OnClick)
+                if not opened then fail("opening the editor: " .. tostring(openErr)) end
+                check(switch.on, false, "the editor switch shows off when Palettes.only is off")
+                settings.only = true
+                local painted, paintErr = pcall(row.palettesRefresh)
+                if not painted then fail("painting the editor: " .. tostring(paintErr)) end
+                check(switch.on, true, "the editor switch shows on when Palettes.only is on")
+                settings.only = false
+                local clicked, clickErr = pcall(switch.scripts.OnClick)
+                if not clicked then fail("clicking the editor switch: " .. tostring(clickErr)) end
+                check(settings.only, true, "clicking the editor switch turns Palettes.only on")
+                check(switch.on, true, "clicking the editor switch shows on")
+                pcall(switch.scripts.OnClick)
+                check(switch.on, false, "clicking the editor switch shows off")
+                check(accentRow.hidden(), true, "accent follows class hides while the editor is open")
+                check(restoreRow.hidden(), true, "restore hides while the editor is open")
+                local back = named["Back"]
+                if type(back) ~= "table" or type(back.scripts.OnClick) ~= "function" then
+                    fail("the editor has no Back button")
+                else
+                    local left, leftErr = pcall(back.scripts.OnClick)
+                    if not left then fail("Back: " .. tostring(leftErr)) end
+                    check(accentRow.hidden(), false, "accent follows class shows again after Back")
+                    check(restoreRow.hidden(), false, "restore shows again after Back")
+                end
+                local again, againErr = pcall(custom.scripts.OnClick)
+                if not again then fail("reopening the editor: " .. tostring(againErr)) end
+                local save = named["Save"]
+                if type(save) ~= "table" or type(save.scripts.OnClick) ~= "function" then
+                    fail("the editor has no Save button")
+                else
+                    local saved, saveErr = pcall(save.scripts.OnClick)
+                    if not saved then fail("Save: " .. tostring(saveErr)) end
+                    check(accentRow.hidden(), false, "accent follows class shows again after Save")
+                    check(restoreRow.hidden(), false, "restore shows again after Save")
+                end
+            end
+        end
+    end
 end
 
 if failures > 0 then
