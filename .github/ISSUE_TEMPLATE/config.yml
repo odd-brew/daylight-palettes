@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Palettes README
+    url: https://github.com/odd-brew/daylight-palettes#readme
+    about: Install steps and the palette list are in the README.

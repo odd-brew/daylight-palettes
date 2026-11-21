@@ -1,0 +1,36 @@
+name: Checks
+
+# pull_request and every push, including a push to main.
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  lua:
+    name: Lua 5.1
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+
+      - name: Palettes syntax
+        run: luac5.1 -p Palettes/PalettesColors.lua Palettes/Palettes.lua
+
+      - name: Palettes check
+        run: lua5.1 tools/palettes_check.lua
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Secret scan
+        run: bash tools/secret_scan.sh

@@ -1,0 +1,66 @@
+name: Bug report
+description: Palettes did the wrong thing, or the game showed an error.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tell us what you did, what you expected, and what happened. A screenshot or the error text helps.
+  - type: textarea
+    id: what_you_did
+    attributes:
+      label: What you did
+      description: The steps you took, in order.
+      placeholder: |
+        1. Open Daylight options
+        2. Pick a palette
+        3. Mouse over a unit frame
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: What did you see instead?
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot_or_error
+    attributes:
+      label: Screenshot or the error text
+      description: Paste the red error from chat, or describe the screenshot you are attaching. Leave a short note if you are attaching the image on this issue.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: palettes_version
+    attributes:
+      label: Palettes version
+      description: From the add-on list, or the Version line in Palettes.toc.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: daylight_version
+    attributes:
+      label: DaylightUI version
+      description: From the add-on list.
+      placeholder: 2.1.1
+    validations:
+      required: true
+  - type: input
+    id: game_version
+    attributes:
+      label: Game version
+      description: "In game, run /dump select(4, GetBuildInfo()) and paste the number."
+      placeholder: "16001"
+    validations:
+      required: true
