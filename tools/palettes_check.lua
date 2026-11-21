@@ -815,6 +815,41 @@ else
     close(ns.customAccentRatio(ns.customDefaults()), 8.26, 0.06, "gold accent on the starter base")
     check(ns.accentHardToSee(ns.customDefaults()), false, "gold accent does not warn")
 
+    check(ns.shareCode(ns.customDefaults()), "PAL1-341529-E2B14A", "starter share code")
+    local function applied(code)
+        local spec, status = ns.applyShareCode(code)
+        if type(spec) ~= "table" then return nil, status end
+        local palette = ns.deriveCustom(spec)
+        return palette, status, spec
+    end
+    local round, roundStatus = applied("PAL1-341529-E2B14A")
+    check(roundStatus, "applied", "starter code applies")
+    check(round and round.background.hex, "#341529", "starter code keeps the base")
+    check(round and round.c2.hex, "#E2B14A", "starter code keeps the accent")
+    check(ns.shareCode(ns.applyShareCode("pal1-#341529-#e2b14a")), "PAL1-341529-E2B14A", "share codes ignore case and hashes")
+    local jungle, jungleStatus = applied("PAL1-0E1916-E85A32")
+    check(jungleStatus, "applied", "a dark code applies")
+    check(jungle and jungle.background.hex, "#0E1916", "a dark code sets the base")
+    check(jungle and jungle.c2.hex, "#E85A32", "a dark code sets the accent")
+    local light, lightStatus, lightSpec = applied("PAL1-F5E6D0-E8A04A")
+    check(lightStatus, "capped", "a light base is capped")
+    check(light and light.background.hex, "#4B412F", "a light base darkens to the cap")
+    check(light and light.c2.hex, "#E8A04A", "a light base keeps its accent")
+    if type(lightSpec) == "table" and lightSpec.l ~= 28 then
+        fail("a capped base slider sits at 28")
+    end
+    if type(light) == "table" and ns.customBaseL(lightSpec) > 28.1 then
+        fail("a capped base is lighter than L* 28")
+    end
+    local untouched = ns.customDefaults()
+    local badSpec, badStatus = ns.applyShareCode("hello")
+    check(badSpec, nil, "hello is not a share code")
+    check(badStatus, "bad", "a bad code says so")
+    check(ns.shareCode(untouched), "PAL1-341529-E2B14A", "a bad code does not change the draft")
+    check(select(1, ns.applyShareCode("")), nil, "an empty code is rejected")
+    check(select(1, ns.applyShareCode("   ")), nil, "a blank code is rejected")
+    check(select(1, ns.applyShareCode("PAL1-341529")), nil, "a short code is rejected")
+
     local grey = ns.deriveCustom({ h = 0, s = 0, l = 28, ah = 0, as = 0, al = 50 })
     check(grey.background.hex, "#424242", "grey at the lightness cap")
     check(grey.band.hex, "#4B4B4B", "grey band at the lightness cap")
@@ -937,6 +972,12 @@ end
 if main:find("onlySwitch:SetOn", 1, true) then
     fail("the editor switch must be called as a function, not a method")
 end
+if not main:find('override("microIconColor", "accent", "ActionBars")', 1, true) then
+    fail("micro icons should follow through ActionBars.microIconColor")
+end
+if main:find("PaintMicro", 1, true) then
+    fail("micro icons must not be recolored by painting them")
+end
 
 -- The in-editor switch uses Daylight's plain SetOn(on). A colon call would
 -- pass the frame as the flag, so the switch would always look on.
@@ -953,7 +994,12 @@ do
         function w:Hide() end
         function w:Show() end
         function w:SetShown() end
-        function w:SetText() end
+        function w:SetText(text) w.words = text end
+        function w:GetText() return w.words or "" end
+        function w:HighlightText() w.selected = true end
+        function w:SetFocus() end
+        function w:HasFocus() return false end
+        function w:SetAutoFocus() end
         function w:SetTextColor() end
         function w:SetFont() end
         function w:SetJustifyH() end
@@ -1011,6 +1057,9 @@ do
             return b
         end,
         Close = function() return piece() end,
+        Input = function()
+            return piece()
+        end,
     }
     local editorChunk, editorErr = loadfile(mainPath)
     if not editorChunk then
@@ -1084,6 +1133,42 @@ do
                 end
                 local again, againErr = pcall(custom.scripts.OnClick)
                 if not again then fail("reopening the editor: " .. tostring(againErr)) end
+                local field = row.palettesEditor.palettesShareField
+                local note = row.palettesEditor.palettesShareNote
+                local copy = named["Copy"]
+                local applyCode = named["Apply"]
+                if type(field) ~= "table" or type(note) ~= "table"
+                    or type(copy) ~= "table" or type(copy.scripts.OnClick) ~= "function"
+                    or type(applyCode) ~= "table" or type(applyCode.scripts.OnClick) ~= "function" then
+                    fail("the editor has no share code row")
+                else
+                    check(field:GetText(), "PAL1-341529-E2B14A", "the share field tracks the starter draft")
+                    local copied, copyErr = pcall(copy.scripts.OnClick)
+                    if not copied then fail("Copy: " .. tostring(copyErr)) end
+                    check(copy.words, "Copied.", "Copy reads Copied.")
+                    check(field.selected, true, "Copy selects the code")
+                    field:SetText("hello")
+                    field.selected = nil
+                    local rejected, rejectErr = pcall(applyCode.scripts.OnClick)
+                    if not rejected then fail("Apply hello: " .. tostring(rejectErr)) end
+                    check(note.words, "That isn't a Palettes share code.", "a bad code is named")
+                    local still, stillErr = pcall(copy.scripts.OnClick)
+                    if not still then fail("Copy after a bad code: " .. tostring(stillErr)) end
+                    check(field:GetText(), "PAL1-341529-E2B14A", "a bad code leaves the draft")
+                    field:SetText("PAL1-0E1916-E85A32")
+                    local pasted, pasteErr = pcall(applyCode.scripts.OnClick)
+                    if not pasted then fail("Apply a code: " .. tostring(pasteErr)) end
+                    check(note.words, "Applied. Save to keep it.", "a good code says to save")
+                    local keptCode, keptErr = pcall(copy.scripts.OnClick)
+                    if not keptCode then fail("Copy after Apply: " .. tostring(keptErr)) end
+                    check(field:GetText(), "PAL1-0E1916-E85A32", "Apply loads that base and accent")
+                    field:SetText("PAL1-F5E6D0-E8A04A")
+                    local capped, capErr = pcall(applyCode.scripts.OnClick)
+                    if not capped then fail("Apply a light code: " .. tostring(capErr)) end
+                    check(note.words, "Base was darkened so text stays readable.", "a light base says it was darkened")
+                    pcall(copy.scripts.OnClick)
+                    check(field:GetText(), "PAL1-4B412F-E8A04A", "a light base is the capped color")
+                end
                 local save = named["Save"]
                 if type(save) ~= "table" or type(save.scripts.OnClick) ~= "function" then
                     fail("the editor has no Save button")

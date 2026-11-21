@@ -432,7 +432,9 @@ end
 -- when they edit that setting, and at logout. Color tables cannot be overridden.
 local handles = {}
 
-local function override(path, value)
+local holdingIcon
+
+local function override(path, value, scope)
     for i = 1, #handles do
         if handles[i].path == path then return end
     end
@@ -447,7 +449,7 @@ local function override(path, value)
         skip("setting overrides")
         return
     end
-    local ok, handle = pcall(view.Override, "general", path, value)
+    local ok, handle = pcall(view.Override, scope or "general", path, value)
     if ok and type(handle) == "table" then
         handles[#handles + 1] = { ref = handle, path = path }
     else
@@ -472,6 +474,25 @@ local function forget(path)
     for i = #handles, 1, -1 do
         if handles[i].path == path then table.remove(handles, i) end
     end
+end
+
+-- Icons follow the accent Palettes already applied, and only while Daylight's
+-- micro-menu style is on. The player's own icon-color setting comes back
+-- when this is released. Daylight drops it if they change that setting.
+local function syncMicro()
+    if not paintedId then
+        release("microIconColor")
+        return
+    end
+    local d = dui()
+    local skin = type(d) == "table" and type(d.Get) == "function" and d:Get("ActionBars", "skinMenus")
+    if skin ~= true then
+        release("microIconColor")
+        return
+    end
+    holdingIcon = true
+    override("microIconColor", "accent", "ActionBars")
+    holdingIcon = false
 end
 
 local function notify()
@@ -724,8 +745,8 @@ local function buttonChildren(btn)
 end
 
 -- Plates follow the palette only while Daylight's micro-menu style switch is on
--- (ActionBars skinMenus). Off returns before any button is touched. Icons are
--- not recolored here. Daylight keeps painting them with the accent.
+-- (ActionBars skinMenus). Off returns before any button is touched. The icons
+-- follow through the micro-icon color setting, which syncMicro points at the accent.
 local function dressMicro(bg, border, band)
     local d = dui()
     if type(d) ~= "table" or type(d.Get) ~= "function" then return end
@@ -934,6 +955,7 @@ local function apply(id, fromQueue)
     paintedId = id
     history.current = id
     applying = false
+    syncMicro()
     notify()
     pcall(dressExtras)
     warnMissing()
@@ -1234,6 +1256,14 @@ local function onSetting(scope, path)
         if known(id) and id ~= "off" then apply(id) elseif refreshList then refreshList() end
         return
     end
+    if scope == "ActionBars" and path == "microIconColor" then
+        if paintedId and not holdingIcon then forget("microIconColor") end
+        return
+    end
+    if scope == "ActionBars" and path == "skinMenus" then
+        syncMicro()
+        return
+    end
     if scope ~= "general" or not paintedId then return end
     if path == "accent" and snap and d:Get("general", "accent") == snap.accent then return end
     if path == "windowTint" and snap and d:Get("general", "windowTint") == snap.windowTint then return end
@@ -1422,7 +1452,7 @@ local function currentId()
     return paintedId or "off"
 end
 
-local EDITOR_H = 452
+local EDITOR_H = 510
 
 local function buildCustomEditor(row)
     if type(row) ~= "table" or type(row.palettesEditor) == "table" then return end
@@ -1488,7 +1518,7 @@ local function buildCustomEditor(row)
     end
 
     line(editor, "Custom", "TOPLEFT", editor, "TOPLEFT", 16, -2)
-    local blurb = line(editor, "Mix a dark base and any accent. The palette applies when you Save, out of combat.", "TOPLEFT", editor, "TOPLEFT", 16, -20)
+    local blurb = line(editor, "Mix a dark base and any accent, or paste a share code. Applies when you Save, out of combat.", "TOPLEFT", editor, "TOPLEFT", 16, -20)
     if type(blurb) == "table" and blurb.SetWidth then blurb:SetWidth(420) end
     local function chipAt(x, y)
         local swatch = editor:CreateTexture(nil, "ARTWORK")
@@ -1558,6 +1588,9 @@ local function buildCustomEditor(row)
         if type(fs) == "table" and fs.SetText then fs:SetText(text) end
     end
 
+    local shareField, shareNote
+    local shareQuiet
+
     local function showDraft()
         if type(customDraft) ~= "table" then return end
         local palette = ns.deriveCustom(customDraft)
@@ -1601,6 +1634,23 @@ local function buildCustomEditor(row)
             warn:SetShown(hard)
             if hard then uiFont(warn, nil, 12, palette.text) end
         end
+        if not shareQuiet and type(shareField) == "table" and type(ns.shareCode) == "function" then
+            local focused = type(shareField.HasFocus) == "function" and shareField:HasFocus()
+            if not focused and shareField.SetText then
+                local code = ns.shareCode(customDraft)
+                if code then shareField:SetText(code) end
+            end
+        end
+    end
+
+    local function setShareNote(text)
+        if type(shareNote) ~= "table" then return end
+        local on = type(text) == "string" and text ~= ""
+        if shareNote.SetText then shareNote:SetText(on and text or "") end
+        if shareNote.SetShown then shareNote:SetShown(on) end
+        if on and type(customDraft) == "table" then
+            uiFont(shareNote, nil, 12, ns.deriveCustom(customDraft).text)
+        end
     end
 
     local function bind(widget, write)
@@ -1612,6 +1662,7 @@ local function buildCustomEditor(row)
             end
             if type(value) ~= "number" then return end
             write(customDraft, value)
+            setShareNote("")
             showDraft()
         end)
     end
@@ -1671,11 +1722,94 @@ local function buildCustomEditor(row)
         local d = dui()
         return type(d) == "table" and type(d.Get) == "function" and d:Get("Palettes", "only") == true
     end
+    local shareLabel = line(editor, "Share code", "TOPLEFT", editor, "TOPLEFT", 16, -332)
+    if type(W.Input) == "function" then
+        shareField = W.Input(editor, { height = 22, maxLetters = 24 })
+    elseif type(CreateFrame) == "function" then
+        shareField = CreateFrame("EditBox", nil, editor)
+    end
+    local copyButton, applyButton
+    if type(shareField) == "table" and shareField.SetPoint then
+        if type(shareLabel) == "table" then
+            shareField:SetPoint("LEFT", shareLabel, "RIGHT", 10, 0)
+        else
+            shareField:SetPoint("TOPLEFT", editor, "TOPLEFT", 110, -328)
+        end
+        if shareField.SetSize then shareField:SetSize(210, 22) end
+        if shareField.SetAutoFocus then shareField:SetAutoFocus(false) end
+        copyButton = dayButton(editor, "Copy", 64)
+        applyButton = dayButton(editor, "Apply", 64)
+        if type(copyButton) == "table" then
+            copyButton:SetPoint("LEFT", shareField, "RIGHT", 8, 0)
+        end
+        if type(applyButton) == "table" and type(copyButton) == "table" then
+            applyButton:SetPoint("LEFT", copyButton, "RIGHT", 6, 0)
+        end
+        shareNote = line(editor, "", "TOPLEFT", editor, "TOPLEFT", 16, -356)
+        if type(shareNote) == "table" then
+            if shareNote.SetWidth then shareNote:SetWidth(420) end
+            if shareNote.Hide then shareNote:Hide() end
+        end
+        editor.palettesShareField = shareField
+        editor.palettesShareNote = shareNote
+    end
+
+    local function buttonLabel(button, text)
+        if type(button) ~= "table" then return end
+        if type(button.text) == "table" and type(button.text.SetText) == "function" then
+            button.text:SetText(text)
+        elseif type(button.SetText) == "function" then
+            button:SetText(text)
+        end
+        if type(button.FitWidth) == "function" then button.FitWidth(64) end
+    end
+
+    local function writeClipboard(text)
+        if type(CopyToClipboard) ~= "function" then return end
+        pcall(CopyToClipboard, text)
+    end
+
+    if type(copyButton) == "table" and copyButton.SetScript then
+        copyButton:SetScript("OnClick", function()
+            if type(customDraft) ~= "table" or type(ns.shareCode) ~= "function" then return end
+            local code = ns.shareCode(customDraft)
+            if not code or type(shareField) ~= "table" then return end
+            if shareField.SetText then shareField:SetText(code) end
+            if shareField.SetFocus then shareField:SetFocus() end
+            if shareField.HighlightText then shareField:HighlightText() end
+            writeClipboard(code)
+            buttonLabel(copyButton, "Copied.")
+            if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
+                C_Timer.After(1.2, function() buttonLabel(copyButton, "Copy") end)
+            end
+        end)
+    end
+    if type(applyButton) == "table" and applyButton.SetScript then
+        applyButton:SetScript("OnClick", function()
+            if type(shareField) ~= "table" or type(ns.applyShareCode) ~= "function" then return end
+            local text = shareField.GetText and shareField:GetText() or ""
+            local nextSpec, status = ns.applyShareCode(text)
+            if type(nextSpec) ~= "table" then
+                setShareNote("That isn't a Palettes share code.")
+                return
+            end
+            customDraft = nextSpec
+            shareQuiet = true
+            pushSliders()
+            shareQuiet = false
+            if status == "capped" then
+                setShareNote("Base was darkened so text stays readable.")
+            else
+                setShareNote("Applied. Save to keep it.")
+            end
+        end)
+    end
+
     local onlySwitch
     if type(W.Switch) == "function" then
         onlySwitch = W.Switch(editor)
         if type(onlySwitch) == "table" and onlySwitch.SetPoint then
-            onlySwitch:SetPoint("TOPLEFT", editor, "TOPLEFT", 16, -328)
+            onlySwitch:SetPoint("TOPLEFT", editor, "TOPLEFT", 16, -386)
             onlySwitch:SetScript("OnClick", function()
                 local d = dui()
                 if type(d) ~= "table" or type(d.Set) ~= "function" then return end
@@ -1684,8 +1818,8 @@ local function buildCustomEditor(row)
             end)
         end
     end
-    local onlyLabel = line(editor, "Save for this character only", "LEFT", onlySwitch or editor, onlySwitch and "RIGHT" or "TOPLEFT", onlySwitch and 8 or 16, onlySwitch and 0 or -328)
-    local onlyNote = line(editor, "Custom uses the same character-only save as every other palette, and Undo steps back to the previous one.", "TOPLEFT", editor, "TOPLEFT", 16, -352)
+    local onlyLabel = line(editor, "Save for this character only", "LEFT", onlySwitch or editor, onlySwitch and "RIGHT" or "TOPLEFT", onlySwitch and 8 or 16, onlySwitch and 0 or -386)
+    local onlyNote = line(editor, "Custom uses the same character-only save as every other palette, and Undo steps back to the previous one.", "TOPLEFT", editor, "TOPLEFT", 16, -410)
     if type(onlyNote) == "table" and onlyNote.SetWidth then onlyNote:SetWidth(420) end
 
     local ask = CreateFrame("Frame", nil, editor)
@@ -1746,6 +1880,7 @@ local function buildCustomEditor(row)
 
     back:SetScript("OnClick", function()
         editorOn = false
+        setShareNote("")
         if type(ask) == "table" and ask.Hide then ask:Hide() end
         if type(ns.readCustom) == "function" and type(ns.backCustom) == "function" then
             customDraft = ns.backCustom(ns.readCustom(ns.accountTable(), ns.charTable()))
@@ -1774,6 +1909,7 @@ local function buildCustomEditor(row)
     local function applyReset()
         if type(ns.resetCustomToEmber) ~= "function" then return end
         customDraft = ns.customSpec(ns.resetCustomToEmber(ns.accountTable(), ns.charTable()))
+        setShareNote("")
         if type(ask) == "table" and ask.Hide then ask:Hide() end
         pushSliders()
     end
