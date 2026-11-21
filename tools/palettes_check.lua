@@ -658,6 +658,116 @@ else
     check(sharedAccentC, true, "a different class accent is kept")
     check(sharedOnlyC, true, "a different class accent ticks the box")
     check(sharedC.palette, "dusk", "the override stores the palette that was showing")
+
+    local function look(palette, accent, custom)
+        return {
+            palette = palette, classAccent = accent == true, seeded = true,
+            custom = custom,
+        }
+    end
+    local mine = look("tide", false, { baseHex = "#0E1916", accentHex = "#3DB8A8" })
+    local me = { only = false, ready = true }
+    local empty = { palette = "off", classAccent = false, only = true }
+    local kept, _, keptOnly, unknownEmpty, _, hadEmpty = ns.adoptProfile(mine, me, empty)
+    check(kept, "tide", "a profile with no Palettes part keeps yours")
+    check(hadEmpty, false, "defaults are not a shared Palettes part")
+    check(unknownEmpty, false, "keeping yours is not an unknown palette")
+    check(mine.palette, "tide", "keeping yours does not snap the account to off")
+    check(mine.custom.baseHex, "#0E1916", "keeping yours keeps your custom colors")
+    check(me.only, false, "a profile does not turn Save for this character only on")
+    check(empty.only, false, "the switch in the profile is put back to yours")
+    check(empty.palette, "tide", "your look is stamped into a profile that had none")
+    check(empty.carried, true, "a stamped profile is marked as carrying Palettes")
+    check(empty.custom and empty.custom.baseHex, "#0E1916", "your custom colors are stamped for the next share")
+
+    local friend = look("tide", false, { baseHex = "#0E1916", accentHex = "#3DB8A8" })
+    local friendChar = { only = false, ready = true }
+    local emberProfile = { palette = "ember", classAccent = false, carried = true, only = true }
+    local adopted, adoptedAccent, adoptedOnly, unknownEmber = ns.adoptProfile(friend, friendChar, emberProfile)
+    check(adopted, "ember", "an imported Ember profile is adopted")
+    check(adoptedAccent, false, "Accent follows class is adopted from the profile")
+    check(adoptedOnly, false, "the importer's switch stays off")
+    check(unknownEmber, false, "Ember is a known palette")
+    check(friend.palette, "ember", "Ember is written into the account slot")
+    check(friendChar.only, false, "import does not tick the switch")
+    check(emberProfile.only, false, "the imported switch is not kept")
+    check(friend.custom.baseHex, "#0E1916", "a profile with no custom leaves yours")
+
+    local customFriend = look("tide", false, { baseHex = "#0E1916", accentHex = "#3DB8A8" })
+    local customChar = { only = true, ready = true, palette = "tide", classAccent = false,
+        custom = { baseHex = "#111111", accentHex = "#222222" } }
+    local customProfile = {
+        palette = "custom", classAccent = false, carried = true, only = false,
+        custom = { baseHex = "#341529", accentHex = "#E2B14A" },
+    }
+    local customId = ns.adoptProfile(customFriend, customChar, customProfile)
+    check(customId, "custom", "an imported Custom profile is adopted")
+    check(customChar.palette, "custom", "Custom goes into this character's slot")
+    check(customChar.custom.baseHex, "#341529", "this character gets the shared custom colors")
+    check(customFriend.palette, "tide", "other characters keep the account palette")
+    check(customFriend.custom.baseHex, "#0E1916", "other characters keep the account custom colors")
+    check(customChar.only, true, "this character's switch stays on")
+
+    local partOff = look("tide", false, { baseHex = "#0E1916", accentHex = "#3DB8A8" })
+    local partChar = { only = false, ready = true }
+    local stillMine = { palette = "tide", classAccent = false, carried = true, custom = { baseHex = "#0E1916", accentHex = "#3DB8A8" } }
+    local stillId, _, _, _, _, stillHad, stillChanged = ns.adoptProfile(partOff, partChar, stillMine)
+    check(stillId, "tide", "turning the Palettes part off keeps yours")
+    check(stillHad, true, "your own stamped profile still carries Palettes")
+    check(stillChanged, false, "keeping the same palette is not a change")
+    check(partOff.custom.baseHex, "#0E1916", "turning the part off keeps your custom colors")
+
+    local specAccount = look("ember", false, { baseHex = "#341529", accentHex = "#E2B14A" })
+    local specChar = { only = false, ready = true }
+    local tideProfile = {
+        palette = "tide", classAccent = false, carried = true,
+        custom = { baseHex = "#0E1916", accentHex = "#3DB8A8" },
+    }
+    local emberAgain = {
+        palette = "ember", classAccent = false, carried = true,
+        custom = { baseHex = "#341529", accentHex = "#E2B14A" },
+    }
+    check(select(1, ns.adoptProfile(specAccount, specChar, tideProfile)), "tide", "a talent switch adopts that profile")
+    check(specAccount.custom.baseHex, "#0E1916", "a talent switch adopts that profile's custom colors")
+    check(select(1, ns.adoptProfile(specAccount, specChar, emberAgain)), "ember", "switching back adopts the other profile")
+    check(specAccount.custom.baseHex, "#341529", "switching back restores that profile's custom colors")
+
+    local offAccount = look("tide", false, { baseHex = "#0E1916", accentHex = "#3DB8A8" })
+    local offChar = { only = false, ready = true }
+    local offProfile = { carried = true, classAccent = false }
+    local offId, _, _, offUnknown, _, offHad, offChanged = ns.adoptProfile(offAccount, offChar, offProfile)
+    check(offHad, true, "a carried profile is a Palettes part even when the palette is off")
+    check(offId, "off", "a shared off is adopted")
+    check(offChanged, true, "moving from Tide to off is a change")
+    check(offUnknown, false, "off is not an unknown palette")
+    check(offAccount.palette, "off", "off is written into the account slot")
+    check(offAccount.custom.baseHex, "#0E1916", "off with no custom leaves your custom colors")
+
+    local old = look("tide", false, nil)
+    local oldChar = { only = false, ready = true }
+    local retired = { palette = "not-a-palette", classAccent = true, carried = true }
+    local retiredId, retiredAccent, _, retiredUnknown = ns.adoptProfile(old, oldChar, retired)
+    check(retiredUnknown, true, "an unknown profile palette is reported")
+    check(retiredId, "ember", "an unknown profile palette falls back to Ember")
+    check(retiredAccent, true, "Accent follows class still comes from that profile")
+    check(retired.palette, "ember", "the profile stores Ember after the fallback")
+    check(old.palette, "ember", "the account stores Ember after the fallback")
+
+    local lightAccount = look("custom", false, nil)
+    local lightChar = { only = false, ready = true }
+    local lightDb = { palette = "custom", carried = true, custom = { baseHex = "#F5E6D0", accentHex = "#E8A04A" } }
+    local _, _, _, _, lightWas = ns.adoptProfile(lightAccount, lightChar, lightDb)
+    check(lightWas, true, "adopting a light base reports the darkening")
+    check(lightAccount.custom.baseHex, "#4B412F", "adopting a light base stores the cap")
+    check(ns.deriveCustom(lightAccount.custom).c2.hex, "#E8A04A", "adopting a light base keeps the accent")
+
+    local stored = look("ember", false, { baseHex = "#211812", accentHex = "#E8A04A" })
+    local storedChar = { only = false, ready = true }
+    local withCustom = { palette = "tide", classAccent = false, carried = true, custom = { h = 180 } }
+    ns.adoptProfile(stored, storedChar, withCustom)
+    check(stored.palette, "tide", "custom colors are stored even when the pick is not Custom")
+    check(type(stored.custom) == "table" and type(stored.custom.h) == "number", true, "a partial profile custom is stored")
+    check(stored.custom.baseHex == "#211812", false, "the partial profile custom replaces the old one")
 end
 
 -- Undo is one step, for this session. A combat pick can be cancelled before it applies.
@@ -850,6 +960,24 @@ else
     check(select(1, ns.applyShareCode("   ")), nil, "a blank code is rejected")
     check(select(1, ns.applyShareCode("PAL1-341529")), nil, "a short code is rejected")
 
+    local carried, wasCapped = ns.profileCustom({ baseHex = "#341529", accentHex = "#E2B14A" })
+    check(wasCapped, false, "a dark profile base is not darkened")
+    check(ns.deriveCustom(carried).background.hex, "#341529", "a profile keeps a dark base")
+    check(ns.deriveCustom(carried).c2.hex, "#E2B14A", "a profile keeps its accent")
+    local lightProfile, lightCapped = ns.profileCustom({ baseHex = "#F5E6D0", accentHex = "#E8A04A" })
+    check(lightCapped, true, "a light profile base is darkened")
+    check(ns.deriveCustom(lightProfile).background.hex, "#4B412F", "a light profile base caps at the share-code color")
+    check(ns.deriveCustom(lightProfile).c2.hex, "#E8A04A", "a light profile base keeps its accent")
+    if ns.customBaseL(lightProfile) > 28.1 then fail("a profile base stayed lighter than L* 28") end
+    local partial = ns.profileCustom({ h = 200 })
+    check(type(partial) == "table" and type(partial.ah) == "number", true, "a partial custom fills the missing accent")
+    check(ns.deriveCustom(partial).background and true or false, true, "a partial custom still derives")
+    local broken = ns.profileCustom({ baseHex = "nope", l = "high", accentHex = "#E8A04A" })
+    check(type(broken) == "table", true, "a damaged custom still returns colors")
+    local textOn, _ = ns.customTextRatio(broken)
+    if textOn < 6.6 then fail("a damaged custom leaves text unreadable") end
+    check(ns.profileCustom("nope"), nil, "a custom that is not a table is ignored")
+
     local grey = ns.deriveCustom({ h = 0, s = 0, l = 28, ah = 0, as = 0, al = 50 })
     check(grey.background.hex, "#424242", "grey at the lightness cap")
     check(grey.band.hex, "#4B4B4B", "grey band at the lightness cap")
@@ -977,6 +1105,18 @@ if not main:find('override("microIconColor", "accent", "ActionBars")', 1, true) 
 end
 if main:find("PaintMicro", 1, true) then
     fail("micro icons must not be recolored by painting them")
+end
+if not main:find("Palettes: that profile used a palette this version doesn't have, so Ember is on. Your layout is unchanged.", 1, true) then
+    fail("missing the unknown-palette line")
+end
+if not main:find("Base was darkened so text stays readable.", 1, true) then
+    fail("missing the darkened-base line")
+end
+if not main:find("carried = false", 1, true) then
+    fail("a profile needs a marker for Palettes settings")
+end
+if not main:find("ns.adoptProfile", 1, true) then
+    fail("login must adopt the profile")
 end
 
 -- The in-editor switch uses Daylight's plain SetOn(on). A colon call would
