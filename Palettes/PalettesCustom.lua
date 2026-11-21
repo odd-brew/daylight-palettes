@@ -314,6 +314,50 @@ function ns.resetCustomToEmber(account, char)
     return ns.emberCustomSpec()
 end
 
+local function validHex(hex)
+    return type(hex) == "string" and string.match(string.upper(hex), "^#?%x%x%x%x%x%x$") ~= nil
+end
+
+-- A Custom spec from a shared profile. Missing pieces are filled the way the
+-- editor fills them. A base lighter than L* 28 is darkened. The second return
+-- is true when that darkening happened.
+function ns.profileCustom(raw)
+    if type(raw) ~= "table" then return nil, false end
+    local capped = type(raw.l) == "number" and raw.l > 28
+    local spec = ns.customSpec(raw)
+    if not validHex(spec.baseHex) then spec.baseHex = nil end
+    if not validHex(spec.accentHex) then spec.accentHex = nil end
+    spec = ns.customSpec(spec)
+    local base = spec.baseHex and fromHex(spec.baseHex)
+    if type(base) == "table" and labOf(base[1], base[2], base[3]) > 28 then
+        local shown = shiftL(base, 28)
+        local h, s = rgbHsl(shown[1], shown[2], shown[3])
+        spec = ns.customSpec({
+            h = h, s = s, l = 28,
+            ah = spec.ah, as = spec.as, al = spec.al,
+            baseHex = shown.hex, accentHex = spec.accentHex,
+        })
+        capped = true
+    end
+    local function readable(sample)
+        if type(ns.ratio) ~= "function" or type(sample) ~= "table" then return true end
+        if ns.ratio(sample.text, sample.background) < 6.6 then return false end
+        if ns.ratio(sample.title, sample.background) < 4.5 then return false end
+        if ns.ratio(sample.label, sample.background) < 4.5 then return false end
+        return true
+    end
+    if not readable(ns.deriveCustom(spec)) then
+        spec.baseHex = nil
+        spec.l = 28
+        spec = ns.customSpec(spec)
+        capped = true
+        if not readable(ns.deriveCustom(spec)) then
+            spec = ns.customDefaults()
+        end
+    end
+    return spec, capped
+end
+
 local function bareHex(hex)
     if type(hex) ~= "string" then return nil end
     return string.match(string.upper(hex), "^#?(%x%x%x%x%x%x)$")

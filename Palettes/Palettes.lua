@@ -913,7 +913,7 @@ local function queueLine(id)
     say("Palettes: " .. paletteName(id) .. " queued until combat ends.")
 end
 
-local function apply(id, fromQueue)
+local function apply(id, fromQueue, quietLine)
     if not known(id) then return end
     if not fromQueue and inCombat() then
         if id ~= history.current then
@@ -959,7 +959,9 @@ local function apply(id, fromQueue)
     notify()
     pcall(dressExtras)
     warnMissing()
-    say("Palettes: " .. p.name .. " is on. Your layout is unchanged.")
+    if not quietLine then
+        say("Palettes: " .. p.name .. " is on. Your layout is unchanged.")
+    end
     if refreshList then refreshList() end
 end
 
@@ -1200,6 +1202,88 @@ function ns.migrateLogin(account, char, db)
     return activeLook(account, char)
 end
 
+-- The Daylight profile is the palette in force. carried marks a profile Palettes
+-- has already written, including one whose palette is off. Without it, an
+-- imported profile that never had Palettes would look the same as off.
+local function profileCarries(db)
+    if type(db) ~= "table" then return false end
+    if db.carried == true then return true end
+    if type(db.custom) == "table" then return true end
+    if db.classAccent == true then return true end
+    if type(db.palette) == "string" and db.palette ~= "" and db.palette ~= "off" then return true end
+    return false
+end
+
+local function copyCustom(account, char)
+    if type(ns.customSpec) ~= "function" then return nil end
+    local slot
+    if type(char) == "table" and char.only == true and type(char.custom) == "table" then
+        slot = char.custom
+    elseif type(account) == "table" and type(account.custom) == "table" then
+        slot = account.custom
+    end
+    if type(slot) ~= "table" then return nil end
+    return ns.customSpec(slot)
+end
+
+-- Reads the profile into the slot Save for this character only already uses.
+-- A profile with no Palettes part keeps the saved look and is stamped so the
+-- next share includes it. The switch itself is never taken from the profile.
+function ns.adoptProfile(account, char, db)
+    if type(account) ~= "table" or type(char) ~= "table" then
+        return "off", false, false, false, false, false, false
+    end
+    local savedId, savedAccent, onlyOn = activeLook(account, char)
+    if type(db) ~= "table" then
+        return savedId, savedAccent, onlyOn, false, false, false, false
+    end
+    local hadLook = profileCarries(db)
+    local unknown, capped = false, false
+    local id, accent = savedId, savedAccent
+    if hadLook then
+        local raw = db.palette
+        if type(raw) == "string" and raw ~= "" and not known(raw) then
+            unknown = true
+            id = "ember"
+        else
+            id = fallbackId(raw) or "off"
+        end
+        accent = db.classAccent == true
+        if onlyOn then
+            char.palette = id
+            char.classAccent = accent
+        else
+            account.palette = id
+            account.classAccent = accent
+            char.palette = nil
+            char.classAccent = nil
+            char.custom = nil
+        end
+        if type(db.custom) == "table" and type(ns.profileCustom) == "function" then
+            local spec, wasCapped = ns.profileCustom(db.custom)
+            if type(spec) == "table" then
+                capped = wasCapped == true
+                if onlyOn then char.custom = spec else account.custom = spec end
+                db.custom = spec
+            end
+        elseif not unknown and (fallbackId(raw) or "off") == savedId and type(ns.customSpec) == "function" then
+            db.custom = copyCustom(account, char)
+        end
+    else
+        db.palette = savedId
+        db.classAccent = savedAccent == true
+        db.custom = copyCustom(account, char)
+    end
+    db.palette = id
+    db.classAccent = accent == true
+    db.carried = true
+    db.only = onlyOn
+    db.own = nil
+    db.everyCharacter = nil
+    local changed = savedId ~= id or (savedAccent == true) ~= (accent == true)
+    return id, accent == true, onlyOn, unknown, capped, hadLook, changed
+end
+
 -- SettingChanged is (scope, path, value). scope is "general" or a module name.
 local function onSetting(scope, path)
     if applying or shutting then return end
@@ -1246,6 +1330,18 @@ local function onSetting(scope, path)
             history.pending = nil
             heldPaint = false
         end
+        local slot
+        if char.only == true and type(char.custom) == "table" then
+            slot = char.custom
+        elseif type(account.custom) == "table" then
+            slot = account.custom
+        end
+        local stored
+        if slot and type(ns.customSpec) == "function" then stored = ns.customSpec(slot) end
+        applying = true
+        d:Set("Palettes", "custom", stored)
+        d:Set("Palettes", "carried", true)
+        applying = false
         if id ~= beforeId or (accent == true) ~= beforeAccent then apply(id)
         elseif cleared and refreshList then refreshList() end
         return
@@ -1905,6 +2001,21 @@ local function buildCustomEditor(row)
         end
         syncSetting("custom")
         apply("custom", true)
+        local d = dui()
+        if type(d) == "table" and type(d.Set) == "function" then
+            local account, char = ns.accountTable(), ns.charTable()
+            local slot
+            if char.only == true and type(char.custom) == "table" then
+                slot = char.custom
+            elseif type(account.custom) == "table" then
+                slot = account.custom
+            end
+            local stored = slot and type(ns.customSpec) == "function" and ns.customSpec(slot) or nil
+            applying = true
+            d:Set("Palettes", "custom", stored)
+            d:Set("Palettes", "carried", true)
+            applying = false
+        end
     end)
     local function applyReset()
         if type(ns.resetCustomToEmber) ~= "function" then return end
@@ -2167,26 +2278,35 @@ local function onEnable(_, db)
     local char = ns.charTable()
     -- A saved choice from the removed setting is dropped, so the palette accent is its own.
     if type(db) == "table" then db.mixAccent = nil end
-    local id, accent, onlyOn = ns.migrateLogin(account, char, db)
+    -- 0.1.0 still moves into the account once. After that the profile wins.
+    ns.migrateLogin(account, char, db)
+    local id, accent, onlyOn, unknown, capped, hadLook, changed = ns.adoptProfile(account, char, db)
     ns.resetUndo(history, id)
     heldPaint = false
-    if type(db) == "table" then
-        db.own = nil
-        db.everyCharacter = nil
-    end
     local d = dui()
-    if type(d) ~= "table" or type(d.Set) ~= "function" or type(d.Get) ~= "function" then return end
-    applying = true
-    if d:Get("Palettes", "palette") ~= id then d:Set("Palettes", "palette", id) end
-    if (d:Get("Palettes", "classAccent") == true) ~= (accent == true) then
-        d:Set("Palettes", "classAccent", accent == true)
+    if type(d) == "table" and type(d.Set) == "function" and type(d.Get) == "function" then
+        applying = true
+        if d:Get("Palettes", "palette") ~= id then d:Set("Palettes", "palette", id) end
+        if (d:Get("Palettes", "classAccent") == true) ~= (accent == true) then
+            d:Set("Palettes", "classAccent", accent == true)
+        end
+        if (d:Get("Palettes", "only") == true) ~= (onlyOn == true) then
+            d:Set("Palettes", "only", onlyOn == true)
+        end
+        if type(db) == "table" then d:Set("Palettes", "custom", db.custom) end
+        if d:Get("Palettes", "carried") ~= true then d:Set("Palettes", "carried", true) end
+        applying = false
     end
-    if (d:Get("Palettes", "only") == true) ~= (onlyOn == true) then
-        d:Set("Palettes", "only", onlyOn == true)
-    end
-    applying = false
     ready = true
-    if id ~= "off" then apply(id) end
+    if unknown then
+        say("Palettes: that profile used a palette this version doesn't have, so Ember is on. Your layout is unchanged.")
+        apply("ember", true, true)
+    elseif id ~= "off" then
+        apply(id)
+    elseif hadLook and changed then
+        apply("off")
+    end
+    if capped then say("Base was darkened so text stays readable.") end
 end
 
 local function boot()
@@ -2211,7 +2331,7 @@ local function boot()
     d:RegisterModule("Palettes", {
         label = "Palettes",
         plugin = "Palettes",
-        defaults = { palette = "off", classAccent = false, only = false },
+        defaults = { palette = "off", classAccent = false, only = false, carried = false },
         OnEnable = onEnable,
         options = {
             pages = {
