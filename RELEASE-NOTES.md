@@ -1,15 +1,18 @@
-## Palettes v0.2.0
+## Palettes v0.3.0
 
-Swatches, Undo, and a Custom palette for Palettes, the DaylightUI plugin for World of Warcraft: Forever.
+Two new Dark palettes, Custom share codes, and micro-menu icons for Palettes, the DaylightUI plugin for World of Warcraft: Forever.
 
 ### Added
-- **Three-color swatches:** each row shows background, band and accent.
-- **Undo:** one step back to the previous palette, for this session. It greys out after you use it. If a pick is waiting for combat to end, the row shows **PENDING** and Undo cancels it.
-- **Custom:** mix your own colors. The dark base stays dark enough that text stays readable. Click Custom to apply your last saved colors and open the editor. **Back** leaves without saving, **Reset to Ember** asks first, and **Save** writes the colors. Custom follows **Save for this character only**, like every other palette.
+- **Vanilla and Forever:** two new palettes in Dark, after Sightline. Vanilla is dark oak and pewter chrome. Forever is near-black soot with weathered bronze trim.
+- **Share codes:** in the Custom editor, codes look like **PAL1-RRGGBB-RRGGBB**. **Copy** puts the draft on the clipboard when the game allows it. **Apply** loads the preview; **Save** is what applies it in game. A bad code shows **That isn't a Palettes share code.** and leaves your colors alone.
+- **Micro-menu icons** follow the palette accent while a palette is on and Daylight's micro-menu style is on. There is no new Palettes setting.
+
+### Changed
+- **Crownwall, Rogue, Gilded, Warrior, Deepforge and Gravelight** were retuned. Crownwall's description is now "Pale castle stone, banner blue."
 
 ### Install or update
 1. You need DaylightUI installed first.
-2. Download **Palettes-v0.2.0.zip** below.
+2. Download **Palettes-v0.3.0.zip** below.
 3. Unzip it into `Interface/AddOns`, replacing your old `Palettes` folder.
 4. In game, type `/reload`.
 
