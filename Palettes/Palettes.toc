@@ -6,6 +6,7 @@
 ## Version: 0.1.1
 ## Dependencies: DaylightUI
 ## SavedVariables: PalettesAccount
+## SavedVariablesPerCharacter: PalettesChar
 ## X-Website: https://github.com/odd-brew/daylight-palettes
 
 PalettesColors.lua
