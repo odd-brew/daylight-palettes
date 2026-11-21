@@ -1680,7 +1680,7 @@ local function buildCustomEditor(row)
                 local d = dui()
                 if type(d) ~= "table" or type(d.Set) ~= "function" then return end
                 d:Set("Palettes", "only", not scopeOn())
-                if onlySwitch.SetOn then onlySwitch:SetOn(scopeOn()) end
+                if onlySwitch.SetOn then onlySwitch.SetOn(scopeOn()) end
             end)
         end
     end
@@ -1784,7 +1784,7 @@ local function buildCustomEditor(row)
     if type(onlySwitch) == "table" and type(onlySwitch.SetOn) == "function" then
         local paint = showDraft
         showDraft = function()
-            onlySwitch:SetOn(scopeOn())
+            onlySwitch.SetOn(scopeOn())
             paint()
         end
     end
@@ -2091,7 +2091,8 @@ local function boot()
                                     if type(row.palettesRefresh) == "function" then pcall(row.palettesRefresh) end
                                 end, height = function(row) return row.palettesHeight or 430 end },
                                 { type = "toggle", key = "classAccent", label = "Accent follows class",
-                                    desc = "Uses your class color as the chrome accent. The shade keeps the class hue and moves only as far as it needs to clear 3:1 on this frame. Names, chat, and unit frames stay the game's colors." },
+                                    desc = "Uses your class color as the chrome accent. The shade keeps the class hue and moves only as far as it needs to clear 3:1 on this frame. Names, chat, and unit frames stay the game's colors.",
+                                    hidden = function() return editorOn == true end },
                                 { type = "toggle", key = "only", label = "Save for this character only",
                                     desc = "Off: this character uses your account palette. On: changes here apply only to this character.",
                                     hidden = function() return editorOn == true end },
@@ -2099,7 +2100,7 @@ local function boot()
                                     if type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
                                         DaylightUI:Set("Palettes", "palette", "off")
                                     end
-                                end },
+                                end, hidden = function() return editorOn == true end },
                             },
                         },
                     },

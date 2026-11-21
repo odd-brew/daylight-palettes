@@ -882,6 +882,169 @@ end
 if main:find("OptionsSliderTemplate", 1, true) or main:find("UIPanelButtonTemplate", 1, true) then
     fail("the editor should not use game slider or button templates")
 end
+if main:find("onlySwitch:SetOn", 1, true) then
+    fail("the editor switch must be called as a function, not a method")
+end
+
+-- The in-editor switch uses Daylight's plain SetOn(on). A colon call would
+-- pass the frame as the flag, so the switch would always look on.
+do
+    local function piece()
+        local w = {}
+        w.scripts = {}
+        function w:SetPoint() end
+        function w:SetSize() end
+        function w:SetWidth() end
+        function w:SetHeight() end
+        function w:SetAllPoints() end
+        function w:ClearAllPoints() end
+        function w:Hide() end
+        function w:Show() end
+        function w:SetShown() end
+        function w:SetText() end
+        function w:SetTextColor() end
+        function w:SetFont() end
+        function w:SetJustifyH() end
+        function w:SetWordWrap() end
+        function w:SetColorTexture() end
+        function w:SetTexture() end
+        function w:SetVertexColor() end
+        function w:SetAlpha() end
+        function w:SetFrameLevel() end
+        function w:GetFrameLevel() return 1 end
+        function w:EnableMouse() end
+        function w:SetOrientation() end
+        function w:SetMinMaxValues() end
+        function w:SetValueStep() end
+        function w:SetObeyStepOnDrag() end
+        function w:SetValue() end
+        function w:GetValue() return 0 end
+        function w:GetWidth() return 480 end
+        function w:GetHeight() return 28 end
+        function w:GetStringWidth() return 40 end
+        function w:SetScript(name, fn) w.scripts[name] = fn end
+        function w:CreateTexture() return piece() end
+        function w:CreateFontString() return piece() end
+        return w
+    end
+    local rowButtons = {}
+    local named = {}
+    local switches = {}
+    local settings = { palette = "ember", only = false, classAccent = false }
+    local module
+    local ui = {
+        API = { major = 1, minor = 7 },
+        OptionsPanel = { Refresh = function() end },
+        Style = {},
+    }
+    function ui:RegisterPlugin() return {} end
+    function ui:RegisterModule(_, spec) module = spec end
+    function ui:Get(_, key) return settings[key] end
+    function ui:Set(_, key, value) settings[key] = value end
+    ui.Widgets = {
+        Button = function(_, text)
+            local b = piece()
+            function b.FitWidth() end
+            named[text] = b
+            return b
+        end,
+        SliderLook = function()
+            return { track = piece(), fill = piece() }
+        end,
+        Switch = function()
+            local b = piece()
+            -- Same shape as Daylight: SetOn is a plain function, and the flag is its only argument.
+            function b.SetOn(on) b.on = on end
+            switches[#switches + 1] = b
+            return b
+        end,
+        Close = function() return piece() end,
+    }
+    local editorChunk, editorErr = loadfile(mainPath)
+    if not editorChunk then
+        fail("could not reload Palettes.lua: " .. tostring(editorErr))
+    else
+        setfenv(editorChunk, {
+            math = math, string = string, table = table, type = type,
+            pairs = pairs, ipairs = ipairs, pcall = pcall, tostring = tostring,
+            tonumber = tonumber, select = select, unpack = unpack, next = next, error = error,
+            _G = {},
+            DaylightUI = ui,
+            CreateFrame = function(kind)
+                local w = piece()
+                if kind == "Button" then rowButtons[#rowButtons + 1] = w end
+                return w
+            end,
+        })
+        local loaded, loadErr = pcall(editorChunk, "Palettes", ns)
+        local items = module and module.options and module.options.pages
+            and module.options.pages[1] and module.options.pages[1].groups
+            and module.options.pages[1].groups[1] and module.options.pages[1].groups[1].items
+        local function labeled(text)
+            if type(items) ~= "table" then return nil end
+            for i = 1, #items do
+                if items[i].label == text then return items[i] end
+            end
+        end
+        local build = labeled("Choices")
+        build = build and build.build
+        local row = piece()
+        if not loaded or type(build) ~= "function" then
+            fail("the editor harness did not register: " .. tostring(loadErr))
+        else
+            build(row)
+            local accentRow = labeled("Accent follows class")
+            local restoreRow = labeled("Restore Daylight colors")
+            local custom = rowButtons[1]
+            local switch = switches[1]
+            if type(row.palettesEditor) ~= "table" or type(custom) ~= "table"
+                or type(custom.scripts.OnClick) ~= "function" or type(switch) ~= "table"
+                or type(accentRow) ~= "table" or type(accentRow.hidden) ~= "function"
+                or type(restoreRow) ~= "table" or type(restoreRow.hidden) ~= "function" then
+                fail("the custom editor did not build")
+            else
+                check(accentRow.hidden(), false, "accent follows class shows while the list is open")
+                check(restoreRow.hidden(), false, "restore shows while the list is open")
+                local opened, openErr = pcall(custom.scripts.OnClick)
+                if not opened then fail("opening the editor: " .. tostring(openErr)) end
+                check(switch.on, false, "the editor switch shows off when Palettes.only is off")
+                settings.only = true
+                local painted, paintErr = pcall(row.palettesRefresh)
+                if not painted then fail("painting the editor: " .. tostring(paintErr)) end
+                check(switch.on, true, "the editor switch shows on when Palettes.only is on")
+                settings.only = false
+                local clicked, clickErr = pcall(switch.scripts.OnClick)
+                if not clicked then fail("clicking the editor switch: " .. tostring(clickErr)) end
+                check(settings.only, true, "clicking the editor switch turns Palettes.only on")
+                check(switch.on, true, "clicking the editor switch shows on")
+                pcall(switch.scripts.OnClick)
+                check(switch.on, false, "clicking the editor switch shows off")
+                check(accentRow.hidden(), true, "accent follows class hides while the editor is open")
+                check(restoreRow.hidden(), true, "restore hides while the editor is open")
+                local back = named["Back"]
+                if type(back) ~= "table" or type(back.scripts.OnClick) ~= "function" then
+                    fail("the editor has no Back button")
+                else
+                    local left, leftErr = pcall(back.scripts.OnClick)
+                    if not left then fail("Back: " .. tostring(leftErr)) end
+                    check(accentRow.hidden(), false, "accent follows class shows again after Back")
+                    check(restoreRow.hidden(), false, "restore shows again after Back")
+                end
+                local again, againErr = pcall(custom.scripts.OnClick)
+                if not again then fail("reopening the editor: " .. tostring(againErr)) end
+                local save = named["Save"]
+                if type(save) ~= "table" or type(save.scripts.OnClick) ~= "function" then
+                    fail("the editor has no Save button")
+                else
+                    local saved, saveErr = pcall(save.scripts.OnClick)
+                    if not saved then fail("Save: " .. tostring(saveErr)) end
+                    check(accentRow.hidden(), false, "accent follows class shows again after Save")
+                    check(restoreRow.hidden(), false, "restore shows again after Save")
+                end
+            end
+        end
+    end
+end
 
 if failures > 0 then
     io.stderr:write(failures .. " Palettes check(s) failed\n")
