@@ -195,7 +195,9 @@ end
 function ns.deriveCustom(spec)
     spec = ns.customSpec(spec)
     local base = spec.baseHex and fromHex(spec.baseHex)
-    if type(base) == "table" and labOf(base[1], base[2], base[3]) > 28.05 then base = nil end
+    -- A cap at L* 28 can round one step over 28. A hair past that is still
+    -- the cap. Anything lighter is rebuilt from the sliders.
+    if type(base) == "table" and labOf(base[1], base[2], base[3]) > 28.1 then base = nil end
     if type(base) ~= "table" then base = ns.colorAtL(spec.h, spec.s, spec.l) end
     local accent = spec.accentHex and fromHex(spec.accentHex)
     if type(accent) ~= "table" then accent = ns.colorAtL(spec.ah, spec.as, spec.al) end
@@ -310,6 +312,45 @@ end
 -- Ember's colors for the editor draft. Save is what writes them.
 function ns.resetCustomToEmber(account, char)
     return ns.emberCustomSpec()
+end
+
+local function bareHex(hex)
+    if type(hex) ~= "string" then return nil end
+    return string.match(string.upper(hex), "^#?(%x%x%x%x%x%x)$")
+end
+
+-- PAL1-RRGGBB-RRGGBB from the draft the editor is showing. Base, then accent.
+function ns.shareCode(spec)
+    local palette = ns.deriveCustom(spec)
+    local base = type(palette.background) == "table" and bareHex(palette.background.hex)
+    local accent = type(palette.c2) == "table" and bareHex(palette.c2.hex)
+    if not base or not accent then return nil end
+    return "PAL1-" .. base .. "-" .. accent
+end
+
+-- A code loads a new draft. A bad code returns nothing, so the caller leaves
+-- the current draft alone. A base lighter than L* 28 is dropped to 28 in Lab,
+-- which is the cap color the editor shows. The accent is not capped.
+function ns.applyShareCode(text)
+    if type(text) ~= "string" then return nil, "bad" end
+    local trimmed = string.match(text, "^%s*(.-)%s*$")
+    local raw = trimmed and string.upper(trimmed) or ""
+    local baseBody, accentBody = string.match(raw, "^PAL1%-#?(%x%x%x%x%x%x)%-#?(%x%x%x%x%x%x)$")
+    if not baseBody or type(ns.hexColor) ~= "function" then return nil, "bad" end
+    local base = ns.hexColor("#" .. baseBody)
+    local accent = ns.hexColor("#" .. accentBody)
+    if type(base) ~= "table" or type(accent) ~= "table" then return nil, "bad" end
+    local ah, as = rgbHsl(accent[1], accent[2], accent[3])
+    local baseL = labOf(base[1], base[2], base[3])
+    local accentL = labOf(accent[1], accent[2], accent[3])
+    local capped = baseL > 28
+    local shown = capped and shiftL(base, 28) or base
+    local h, s = rgbHsl(shown[1], shown[2], shown[3])
+    return ns.customSpec({
+        h = h, s = s, l = capped and 28 or baseL,
+        ah = ah, as = as, al = accentL,
+        baseHex = shown.hex, accentHex = accent.hex,
+    }), capped and "capped" or "applied"
 end
 
 -- Saving custom colors is a palette pick, so Undo can step back to the previous one.
