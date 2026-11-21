@@ -42,7 +42,14 @@
 local _, ns = ...
 
 local paintedId -- palette currently on screen, or nil when Daylight's own colors are showing
-local queued -- palette id waiting for combat to end
+-- previous is the one palette Undo can restore. It is not saved, so a /reload starts with Undo off.
+-- pending is a pick that is waiting for combat to end. It is not written until then.
+local history = { current = "off" }
+local heldPaint -- a same-palette repaint that is waiting for combat to end
+local listRow
+local undoButton
+local syncUndo
+local refreshList
 local applying -- true while we are writing, so our own saves are not treated as the player's edits
 local shutting -- true while the UI is logging out or reloading
 local warned -- the one chat line about a Daylight version we only partly understand
@@ -523,6 +530,8 @@ local function lift(path)
     notify()
     pcall(dressExtras)
     say("Palettes: " .. name .. " lifted. Daylight is using your Appearance colors again.")
+    ns.resetUndo(history, "off")
+    heldPaint = false
 end
 
 -- The player's class color. A class-color addon wins, then the game's color.
@@ -581,6 +590,15 @@ local function resolvedMap(frame)
         map.c1, map.c2, map.c3 = color, color, color
     end
     return map
+end
+
+-- The accent block on a row. Same color apply would write: the class shade
+-- while Accent follows class is on, otherwise the palette's own highlight.
+local function accentBlock(frame)
+    local color, _, accent = accentChoice(frame)
+    if type(accent) == "table" then return accent.c2 or color end
+    if color then return color end
+    if type(frame) == "table" then return frame.c2 end
 end
 
 -- The name tab is private. Style.GetShell is public, and so is the Paint
@@ -866,19 +884,32 @@ local function watchFrames()
     end
 end
 
+local function queueLine(id)
+    say("Palettes: " .. paletteName(id) .. " queued until combat ends.")
+end
+
 local function apply(id, fromQueue)
     if not known(id) then return end
     if not fromQueue and inCombat() then
-        queued = id
-        say("Palettes: " .. paletteName(id) .. " queued until combat ends.")
+        if id ~= history.current then
+            history.pending = id
+            heldPaint = false
+            queueLine(id)
+        else
+            heldPaint = true
+        end
+        if refreshList then refreshList() end
         return
     end
-    queued = nil
+    history.pending = nil
+    heldPaint = false
     applying = true
     skipped = nil
     if id == "off" then
         restore(false)
+        history.current = "off"
         applying = false
+        if refreshList then refreshList() end
         return
     end
     local p = ns.byId[id]
@@ -894,11 +925,13 @@ local function apply(id, fromQueue)
     override("windowTint", "custom")
     pcall(refreshLook, map)
     paintedId = id
+    history.current = id
     applying = false
     notify()
     pcall(dressExtras)
     warnMissing()
     say("Palettes: " .. p.name .. " is on. Your layout is unchanged.")
+    if refreshList then refreshList() end
 end
 
 -- PalettesAccount is the palette every character uses until they opt out.
@@ -967,6 +1000,77 @@ function ns.setPalette(account, char, id)
     account.palette = id
     char.palette = nil
     char.classAccent = nil
+end
+
+-- Undo is one step, and only for this session. previous is nil at login.
+-- A combat pick stays in pending until combat ends, so cancelling it writes nothing.
+function ns.undoReady(state)
+    return type(state) == "table" and (state.pending ~= nil or state.previous ~= nil)
+end
+
+function ns.resetUndo(state, id)
+    if type(state) ~= "table" then return end
+    state.current = id or "off"
+    state.previous = nil
+    state.pending = nil
+end
+
+function ns.choosePalette(state, account, char, id, duringCombat)
+    if type(state) ~= "table" then return end
+    id = fallbackId(id) or "off"
+    if duringCombat then
+        if id ~= state.current then
+            state.pending = id
+            -- Saved now, so a reload keeps the pick. The screen waits for combat.
+            if type(account) == "table" and type(char) == "table" then
+                ns.setPalette(account, char, id)
+            end
+        else
+            state.pending = nil
+        end
+        return state.current
+    end
+    state.pending = nil
+    if id ~= state.current then
+        state.previous = state.current
+        state.current = id
+        if type(account) == "table" and type(char) == "table" then
+            ns.setPalette(account, char, id)
+        end
+    end
+    return state.current
+end
+
+function ns.undoPalette(state, account, char)
+    if type(state) ~= "table" then return end
+    if state.pending ~= nil then
+        state.pending = nil
+        -- The waiting pick was saved early. Put the palette on screen back.
+        if type(account) == "table" and type(char) == "table" then
+            ns.setPalette(account, char, state.current)
+        end
+        return state.current
+    end
+    if state.previous == nil then return state.current end
+    state.current = state.previous
+    state.previous = nil
+    if type(account) == "table" and type(char) == "table" then
+        ns.setPalette(account, char, state.current)
+    end
+    return state.current
+end
+
+function ns.finishCombat(state, account, char)
+    if type(state) ~= "table" then return end
+    local id = state.pending
+    state.pending = nil
+    if id == nil or id == state.current then return state.current end
+    state.previous = state.current
+    state.current = id
+    if type(account) == "table" and type(char) == "table" then
+        ns.setPalette(account, char, id)
+    end
+    return state.current
 end
 
 function ns.setClassAccent(account, char, on)
@@ -1057,10 +1161,6 @@ function ns.migrateLogin(account, char, db)
     return activeLook(account, char)
 end
 
-local function rememberPick(id)
-    ns.setPalette(ns.accountTable(), ns.charTable(), id)
-end
-
 -- SettingChanged is (scope, path, value). scope is "general" or a module name.
 local function onSetting(scope, path)
     if applying or shutting then return end
@@ -1073,8 +1173,22 @@ local function onSetting(scope, path)
             d:Set("Palettes", "palette", id)
             applying = false
         end
-        rememberPick(id)
-        apply(id)
+        if inCombat() then
+            ns.choosePalette(history, ns.accountTable(), ns.charTable(), id, true)
+            if history.pending then
+                heldPaint = false
+                queueLine(history.pending)
+            end
+            applying = true
+            if type(d.Set) == "function" and d:Get("Palettes", "palette") ~= history.current then
+                d:Set("Palettes", "palette", history.current)
+            end
+            applying = false
+            if refreshList then refreshList() end
+            return
+        end
+        ns.choosePalette(history, ns.accountTable(), ns.charTable(), id, false)
+        apply(id, true)
         return
     end
     if scope == "Palettes" and path == "only" then
@@ -1085,13 +1199,19 @@ local function onSetting(scope, path)
         if beforeId ~= id then d:Set("Palettes", "palette", id) end
         if beforeAccent ~= (accent == true) then d:Set("Palettes", "classAccent", accent == true) end
         applying = false
+        if id ~= beforeId then
+            history.current = id
+            history.previous = nil
+            history.pending = nil
+            heldPaint = false
+        end
         if id ~= beforeId or (accent == true) ~= beforeAccent then apply(id) end
         return
     end
     if scope == "Palettes" and path == "classAccent" then
         ns.setClassAccent(ns.accountTable(), ns.charTable(), d:Get("Palettes", "classAccent") == true)
         local id = d:Get("Palettes", "palette")
-        if known(id) and id ~= "off" then apply(id) end
+        if known(id) and id ~= "off" then apply(id) elseif refreshList then refreshList() end
         return
     end
     if scope ~= "general" or not paintedId then return end
@@ -1114,8 +1234,8 @@ end
 local function statusLine()
     local d = dui()
     local id = "off"
-    if queued then
-        return "Palettes: " .. paletteName(queued) .. " queued until combat ends."
+    if history.pending and history.pending ~= history.current then
+        return "Palettes: " .. paletteName(history.pending) .. " queued until combat ends."
     end
     if type(d) == "table" and type(d.Get) == "function" then
         local saved = d:Get("Palettes", "palette")
@@ -1170,7 +1290,8 @@ local function slash(msg)
 end
 
 -- The Plugins page draws its own list. Daylight's dropdown can preview a font
--- or a bar texture file. It has no per-row color or icon, so the swatches stay here.
+-- or a bar texture file. It has no per-row color, so each theme row draws its
+-- background, band, and accent here.
 local function uiFont(fs, from, size, color)
     local file, current
     if type(from) == "table" and type(from.GetFont) == "function" then file, current = from:GetFont() end
@@ -1199,12 +1320,6 @@ local function blankText(parent)
     return fs
 end
 
-local function swatch(parent)
-    local tex = parent:CreateTexture(nil, "ARTWORK")
-    tex:SetSize(14, 14)
-    return tex
-end
-
 local function paintSwatch(tex, color)
     if type(tex) ~= "table" or type(color) ~= "table" or type(tex.SetColorTexture) ~= "function" then return end
     tex:SetColorTexture(color[1], color[2], color[3], 1)
@@ -1219,12 +1334,6 @@ local function offColor(key)
     if key == "text" then return type(look.INK) == "table" and copy3(look.INK.TEXT) or nil end
     if key == "c2" then return copy3(look.ACCENT) end
     if key == "border" then return copy3(look.BORDER) end
-end
-
-local function rowColor(id, key)
-    if id == "off" then return offColor(key) end
-    local p = ns.byId[id]
-    return p and p[key] or nil
 end
 
 local function currentId()
@@ -1267,41 +1376,52 @@ local function buildList(row)
         return fs
     end
 
-    local function addChoice(id, name, mood)
+    local function addChoice(id, name, mood, withSwatch)
         local button = CreateFrame("Button", nil, row)
         button:SetPoint("TOPLEFT", row, "TOPLEFT", 4, y)
         button:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, y)
         button:SetHeight(28)
-        local bg = button:CreateTexture(nil, "BACKGROUND")
-        bg:SetAllPoints(button)
-        local marker = button:CreateTexture(nil, "ARTWORK")
-        marker:SetSize(10, 10)
-        marker:SetPoint("LEFT", button, "LEFT", 8, 0)
+        local wash = button:CreateTexture(nil, "BACKGROUND")
+        wash:SetAllPoints(button)
+        local edge, bgSwatch, bandSwatch, accentSwatch
         local nameText = blankText(button)
-        nameText:SetPoint("LEFT", marker, "RIGHT", 8, 0)
+        if withSwatch then
+            -- One pixel of the border color keeps a dark band from disappearing.
+            -- The accent block is a little wider than the background and the band.
+            edge = button:CreateTexture(nil, "BORDER")
+            edge:SetSize(44, 16)
+            edge:SetPoint("LEFT", button, "LEFT", 8, 0)
+            bgSwatch = button:CreateTexture(nil, "ARTWORK")
+            bgSwatch:SetSize(12, 14)
+            bgSwatch:SetPoint("LEFT", edge, "LEFT", 1, 0)
+            bandSwatch = button:CreateTexture(nil, "ARTWORK")
+            bandSwatch:SetSize(12, 14)
+            bandSwatch:SetPoint("LEFT", bgSwatch, "RIGHT", 1, 0)
+            accentSwatch = button:CreateTexture(nil, "ARTWORK")
+            accentSwatch:SetSize(16, 14)
+            accentSwatch:SetPoint("LEFT", bandSwatch, "RIGHT", 1, 0)
+            nameText:SetPoint("LEFT", edge, "RIGHT", 8, 0)
+        else
+            nameText:SetPoint("LEFT", button, "LEFT", 8, 0)
+        end
         nameText:SetWidth(120)
         nameText:SetJustifyH("LEFT")
         nameText:SetWordWrap(false)
         local moodText = blankText(button)
         moodText:SetPoint("LEFT", nameText, "RIGHT", 6, 0)
-        moodText:SetPoint("RIGHT", button, "RIGHT", -108, 0)
+        moodText:SetPoint("RIGHT", button, "RIGHT", -88, 0)
         moodText:SetJustifyH("LEFT")
         moodText:SetWordWrap(false)
         local onText = blankText(button)
         onText:SetPoint("RIGHT", button, "RIGHT", -8, 0)
-        local swatches = {}
-        for i = 1, #ns.swatchKeys do
-            local tex = swatch(button)
-            tex:SetPoint("RIGHT", onText, "LEFT", -8 - (5 - i) * 18, 0)
-            swatches[i] = tex
-        end
         button:SetScript("OnClick", function()
             local d = dui()
             if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
         end)
         entries[#entries + 1] = {
-            id = id, name = name, mood = mood, bg = bg, marker = marker,
-            nameText = nameText, moodText = moodText, onText = onText, swatches = swatches,
+            id = id, name = name, mood = mood, wash = wash,
+            edge = edge, bgSwatch = bgSwatch, bandSwatch = bandSwatch, accentSwatch = accentSwatch,
+            nameText = nameText, moodText = moodText, onText = onText,
         }
         y = y - 28
     end
@@ -1312,12 +1432,20 @@ local function buildList(row)
         headers[#headers + 1] = addHeader(group.label)
         for i = 1, #group.ids do
             local p = ns.byId[group.ids[i]]
-            addChoice(p.id, p.name, p.mood)
+            addChoice(p.id, p.name, p.mood, true)
         end
     end
     headers[#headers + 1] = addHeader("Restore")
-    addChoice(ns.off.id, ns.off.name, ns.off.mood)
+    addChoice(ns.off.id, ns.off.name, ns.off.mood, false)
+    local combatNote = blankText(row)
+    combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 12, y)
+    combatNote:SetPoint("TOPRIGHT", row, "TOPRIGHT", -12, y)
+    combatNote:SetJustifyH("LEFT")
+    combatNote:SetText("Applies when combat ends.")
+    if combatNote.SetShown then combatNote:SetShown(false) end
+    y = y - 18
     row.palettesHeight = -y + 8
+    listRow = row
 
     function row.palettesRefresh()
         local id = currentId()
@@ -1329,6 +1457,8 @@ local function buildList(row)
         local choiceColor = nil
         if p then choiceColor = accentChoice(p) end
         if choiceColor then accent = choiceColor end
+        local pending = history.pending
+        local waitingPick = pending ~= nil and pending ~= id
         uiFont(note, ink, 11, (p and p.off) or { 0.55, 0.51, 0.45 })
         for i = 1, #headers do
             uiFont(headers[i], ink, 11, accent)
@@ -1337,21 +1467,30 @@ local function buildList(row)
         for i = 1, #entries do
             local entry = entries[i]
             local on = entry.id == id
-            if type(entry.bg.SetColorTexture) == "function" then
-                local wash = on and (p and p.control or window) or window
-                entry.bg:SetColorTexture(wash[1], wash[2], wash[3], on and 0.55 or 0)
+            local waiting = waitingPick and entry.id == pending
+            if type(entry.wash.SetColorTexture) == "function" then
+                local fill = (on or waiting) and (p and p.control or window) or window
+                entry.wash:SetColorTexture(fill[1], fill[2], fill[3], on and 0.55 or (waiting and 0.35 or 0))
             end
-            paintSwatch(entry.marker, on and accent or (p and p.border or offColor("border") or labelColor))
             uiFont(entry.nameText, ink, 13, textColor)
             uiFont(entry.moodText, ink, 12, labelColor)
-            uiFont(entry.onText, ink, 12, accent)
+            uiFont(entry.onText, ink, 12, waiting and labelColor or accent)
             entry.nameText:SetText(entry.name)
             entry.moodText:SetText(entry.mood)
-            entry.onText:SetText(on and "[On]" or "")
-            for s = 1, #entry.swatches do
-                paintSwatch(entry.swatches[s], rowColor(entry.id, ns.swatchKeys[s]) or window)
+            entry.onText:SetText(waiting and "Pending" or (on and "[On]" or ""))
+            if entry.bgSwatch then
+                local palette = ns.byId[entry.id]
+                paintSwatch(entry.edge, (palette and palette.border) or { 0.05, 0.05, 0.05 })
+                paintSwatch(entry.bgSwatch, palette and palette.background)
+                paintSwatch(entry.bandSwatch, palette and palette.band)
+                paintSwatch(entry.accentSwatch, palette and accentBlock(palette))
             end
         end
+        uiFont(combatNote, ink, 12, labelColor)
+        if combatNote.SetShown then
+            combatNote:SetShown(waitingPick or heldPaint == true)
+        end
+        if syncUndo then syncUndo() end
     end
     row.palettesRefresh()
     end
@@ -1397,6 +1536,8 @@ local function onEnable(_, db)
     -- A saved choice from the removed setting is dropped, so the palette accent is its own.
     if type(db) == "table" then db.mixAccent = nil end
     local id, accent, onlyOn = ns.migrateLogin(account, char, db)
+    ns.resetUndo(history, id)
+    heldPaint = false
     if type(db) == "table" then
         db.own = nil
         db.everyCharacter = nil
@@ -1486,6 +1627,116 @@ local function boot()
             })
         end
     end
+    if syncUndo then syncUndo() end
+end
+
+-- Undo sits beside Reset page. It is one step back, not a return to Daylight's colors.
+local undoHooked
+
+local function undoClick()
+    if not ns.undoReady(history) then return end
+    if history.pending ~= nil then
+        ns.undoPalette(history, ns.accountTable(), ns.charTable())
+        if refreshList then refreshList() end
+        return
+    end
+    local id = ns.undoPalette(history, ns.accountTable(), ns.charTable())
+    local d = dui()
+    applying = true
+    if type(d) == "table" and type(d.Set) == "function" then
+        d:Set("Palettes", "palette", id)
+    end
+    applying = false
+    if inCombat() then
+        heldPaint = true
+        if refreshList then refreshList() end
+    else
+        apply(id, true)
+    end
+end
+
+local function placeUndo(panel)
+    local page = type(panel.Current) == "function" and panel.Current()
+    local onPage = page == "Palettes.main"
+    if undoButton.SetShown then
+        undoButton:SetShown(onPage)
+    elseif onPage and undoButton.Show then
+        undoButton:Show()
+    elseif undoButton.Hide then
+        undoButton:Hide()
+    end
+    if not onPage then return end
+    local reset = type(panel.ResetButton) == "function" and panel.ResetButton()
+    local header = type(panel.Header) == "function" and panel.Header()
+    local anchor = reset
+    local test = type(panel.TestSwitch) == "function" and panel.TestSwitch()
+    local design = type(panel.DesignSwitch) == "function" and panel.DesignSwitch()
+    if type(design) == "table" and design.IsShown and design:IsShown() then
+        anchor = design
+    elseif type(test) == "table" and test.IsShown and test:IsShown() then
+        anchor = test
+    end
+    if undoButton.ClearAllPoints then undoButton:ClearAllPoints() end
+    if type(anchor) == "table" and anchor.IsShown and anchor:IsShown() then
+        undoButton:SetPoint("RIGHT", anchor, "LEFT", -8, 0)
+    elseif type(header) == "table" then
+        undoButton:SetPoint("TOPRIGHT", header, "TOPRIGHT", -16, 0)
+    end
+    local off = not ns.undoReady(history)
+    if undoButton.SetOff then
+        undoButton.SetOff(off)
+    elseif undoButton.SetEnabled then
+        undoButton:SetEnabled(not off)
+    end
+end
+
+syncUndo = function()
+    local panel = type(DaylightUI) == "table" and DaylightUI.OptionsPanel
+    if type(panel) ~= "table" then return end
+    if not undoHooked and type(panel.Show) == "function" then
+        undoHooked = true
+        local show = panel.Show
+        panel.Show = function(...)
+            local a, b, c, d = show(...)
+            syncUndo()
+            return a, b, c, d
+        end
+        local refresh = panel.Refresh
+        if type(refresh) == "function" then
+            panel.Refresh = function(...)
+                local a, b, c, d = refresh(...)
+                syncUndo()
+                return a, b, c, d
+            end
+        end
+    end
+    if not undoButton then
+        local header = type(panel.Header) == "function" and panel.Header()
+        local widgets = type(DaylightUI.Widgets) == "table" and DaylightUI.Widgets
+        if type(header) ~= "table" or type(widgets) ~= "table" or type(widgets.Button) ~= "function" then
+            return
+        end
+        undoButton = widgets.Button(header, "Undo", 24)
+        if type(undoButton) ~= "table" then
+            undoButton = nil
+            return
+        end
+        if undoButton.FitWidth then undoButton.FitWidth(72) end
+        undoButton:SetScript("OnClick", function()
+            if not pcall(undoClick) then
+                say("Palettes: something went wrong, and no palette was changed.")
+            end
+        end)
+    end
+    placeUndo(panel)
+end
+
+refreshList = function()
+    if type(listRow) == "table" and type(listRow.palettesRefresh) == "function" then
+        pcall(listRow.palettesRefresh)
+    else
+        syncUndo()
+    end
 end
 
 -- A failure while listening must not stop the UI from loading.
@@ -1502,10 +1753,26 @@ local function listen()
             if paintedId and snap then pcall(savedColors) end
             return
         end
-        if event == "PLAYER_REGEN_ENABLED" and queued then
-            local id = queued
-            queued = nil
-            apply(id, true)
+        if event == "PLAYER_REGEN_ENABLED" then
+            local waiting = history.pending
+            local repaint = heldPaint
+            if waiting ~= nil then
+                local id = ns.finishCombat(history, ns.accountTable(), ns.charTable())
+                local d = dui()
+                applying = true
+                if type(d) == "table" and type(d.Set) == "function" and type(d.Get) == "function"
+                    and d:Get("Palettes", "palette") ~= id then
+                    d:Set("Palettes", "palette", id)
+                end
+                applying = false
+                apply(id, true)
+                if refreshList then refreshList() end
+            elseif repaint then
+                heldPaint = false
+                local id = history.current
+                if known(id) then apply(id, true) end
+                if refreshList then refreshList() end
+            end
             return
         end
         if event == "ADDON_LOADED" and name == "DaylightUI_Skins" and paintedId then

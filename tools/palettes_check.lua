@@ -301,6 +301,9 @@ end
 if not main:find("Applies immediately out of combat.", 1, true) then
     fail("missing combat note")
 end
+if not main:find("Applies when combat ends.", 1, true) then
+    fail("missing combat-end note")
+end
 if main:find("Live sample", 1, true) then
     fail("the live sample bar should be gone")
 end
@@ -585,6 +588,92 @@ else
     check(sharedAccentC, true, "a different class accent is kept")
     check(sharedOnlyC, true, "a different class accent ticks the box")
     check(sharedC.palette, "dusk", "the override stores the palette that was showing")
+end
+
+-- Undo is one step, for this session. A combat pick can be cancelled before it applies.
+if type(ns.choosePalette) ~= "function" or type(ns.undoPalette) ~= "function"
+    or type(ns.finishCombat) ~= "function" or type(ns.undoReady) ~= "function" then
+    fail("undo functions are missing")
+else
+    local account = { palette = "ember", classAccent = false, seeded = true }
+    local char = { only = false, ready = true }
+    local state = { current = "ember" }
+    check(ns.undoReady(state), false, "undo starts off")
+    ns.choosePalette(state, account, char, "mage", false)
+    check(state.current, "mage", "mage is selected")
+    check(state.previous, "ember", "undo remembers ember")
+    check(account.palette, "mage", "mage is saved on the account")
+    check(char.palette, nil, "an account pick does not write a character palette")
+    check(ns.undoReady(state), true, "undo is on after a pick")
+    check(ns.undoPalette(state, account, char), "ember", "undo restores ember")
+    check(state.current, "ember", "ember is selected again")
+    check(account.palette, "ember", "undo saves ember on the account")
+    check(char.palette, nil, "account undo does not write a character palette")
+    check(ns.undoReady(state), false, "undo is off after one use")
+    ns.undoPalette(state, account, char)
+    check(state.current, "ember", "a second undo does nothing")
+    check(account.palette, "ember", "a second undo does not change the account")
+
+    local fight = { current = "ember" }
+    local fightAccount = { palette = "ember", classAccent = false, seeded = true }
+    local fightChar = { only = false, ready = true }
+    ns.choosePalette(fight, fightAccount, fightChar, "mage", true)
+    check(fight.current, "ember", "a combat pick stays on ember")
+    check(fight.pending, "mage", "a combat pick is waiting")
+    check(fightAccount.palette, "mage", "a combat pick is saved for after combat")
+    check(fightChar.palette, nil, "a combat pick on the account does not write a character palette")
+    check(ns.undoReady(fight), true, "undo can cancel a combat pick")
+    ns.undoPalette(fight, fightAccount, fightChar)
+    check(fight.pending, nil, "undo clears the combat pick")
+    check(fight.current, "ember", "undo leaves ember selected")
+    check(fightAccount.palette, "ember", "undo puts the saved palette back")
+    check(fightChar.palette, nil, "cancelling a combat pick does not write a character palette")
+    check(ns.undoReady(fight), false, "undo is off after cancelling a combat pick")
+    ns.finishCombat(fight, fightAccount, fightChar)
+    check(fight.current, "ember", "combat end applies nothing after undo")
+    check(fight.pending, nil, "combat end has nothing waiting")
+    check(fightAccount.palette, "ember", "combat end saves nothing after undo")
+    check(fightChar.palette, nil, "combat end does not write a character palette")
+
+    local landed = { current = "ember" }
+    local landedAccount = { palette = "ember", classAccent = false, seeded = true }
+    local landedChar = { only = false, ready = true }
+    ns.choosePalette(landed, landedAccount, landedChar, "mage", true)
+    ns.finishCombat(landed, landedAccount, landedChar)
+    check(landed.current, "mage", "combat end applies the waiting pick")
+    check(landedAccount.palette, "mage", "combat end saves the waiting pick")
+    check(ns.undoReady(landed), true, "undo can step back after combat")
+
+    local scoped = { palette = "tide", classAccent = false, seeded = true }
+    local mine = { only = true, palette = "ember", classAccent = false, ready = true }
+    local mineState = { current = "ember" }
+    ns.choosePalette(mineState, scoped, mine, "mage", false)
+    check(scoped.palette, "tide", "a character pick leaves the account palette")
+    check(mine.palette, "mage", "a character pick writes PalettesChar")
+    check(mine.only, true, "a character pick leaves the box ticked")
+    ns.undoPalette(mineState, scoped, mine)
+    check(scoped.palette, "tide", "character undo leaves the account palette")
+    check(scoped.classAccent, false, "character undo leaves the account accent")
+    check(mine.palette, "ember", "character undo restores PalettesChar")
+    check(mine.only, true, "character undo leaves the box ticked")
+    check(mine.classAccent, false, "character undo leaves the character accent")
+    check(mineState.current, "ember", "character undo selects ember again")
+    check(ns.undoReady(mineState), false, "character undo is one step")
+
+    local fightMine = { current = "ember" }
+    local fightScoped = { palette = "tide", classAccent = false, seeded = true }
+    local fightCharOnly = { only = true, palette = "ember", classAccent = true, ready = true }
+    ns.choosePalette(fightMine, fightScoped, fightCharOnly, "mage", true)
+    check(fightScoped.palette, "tide", "a character combat pick leaves the account palette")
+    check(fightCharOnly.palette, "mage", "a character combat pick writes PalettesChar")
+    ns.undoPalette(fightMine, fightScoped, fightCharOnly)
+    ns.finishCombat(fightMine, fightScoped, fightCharOnly)
+    check(fightScoped.palette, "tide", "character combat undo leaves the account palette")
+    check(fightScoped.classAccent, false, "character combat undo leaves the account accent")
+    check(fightCharOnly.palette, "ember", "character combat undo restores PalettesChar")
+    check(fightCharOnly.only, true, "character combat undo leaves the box ticked")
+    check(fightCharOnly.classAccent, true, "character combat undo leaves the character accent")
+    check(fightMine.current, "ember", "character combat undo applies nothing when combat ends")
 end
 
 if failures > 0 then

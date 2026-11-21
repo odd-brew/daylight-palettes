@@ -374,9 +374,6 @@ ns.groups = {
 }
 ns.off = { id = "off", name = "Daylight (off)", mood = "Restore Daylight's own colors." }
 
--- Swatch order on each row: window, panel, band, highlight, text.
-ns.swatchKeys = { "window", "background", "band", "c2", "text" }
-
 -- The game's class colors (RAID_CLASS_COLORS colorStr). Chrome accent only.
 -- Names, chat, and unit frames keep these exact colors.
 ns.classes = {
