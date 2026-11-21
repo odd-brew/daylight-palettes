@@ -1,9 +1,9 @@
 ## Palettes v0.1.0
 
-First public release of Palettes, a plugin for DaylightUI on World of Warcraft: Forever. It recolors DaylightUI's windows with one of 28 dark palettes and leaves your layout, class colors and combat colors alone.
+First public release of Palettes, a plugin for DaylightUI on World of Warcraft: Forever. It recolors DaylightUI's windows with one of 33 dark palettes and leaves your layout, class colors and combat colors alone.
 
 ### Highlights
-- **28 dark palettes:** 13 Dark, 4 Class themes and 11 Realm themes
+- **33 dark palettes:** 13 Dark, 9 Class themes and 11 Realm themes
 - **Accent follows class:** tint the accent to a readable shade of your class color
 - **Accent from:** mix in another palette's accent
 - **Per character or everywhere:** your pick
