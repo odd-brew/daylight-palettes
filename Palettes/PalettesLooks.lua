@@ -9,7 +9,7 @@ local _, ns = ...
 
 local NEED_STYLES = "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available."
 local BOTH = "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes."
-local GLOW_HINT = "Glow colour follows your accent colour. Change it in Daylight's accent setting, or with Palettes for DaylightUI."
+local GLOW_HINT = "Glow colour follows your accent colour. Change it on the Colours tab."
 
 local function unitSizes(spec)
     local frames = { "player", "target", "focus" }
@@ -65,11 +65,11 @@ end
 local FRAMES = {
     { id = "lintel", name = "Lintel", spec = { label = "Lintel", desc = "A named beam over a solid bar.", row = true } },
     { id = "sill", name = "Sill", spec = { label = "Sill", desc = "The name tab stays; power sits as a thin sill under the bar.", line = true } },
-    { id = "stamp", name = "Stamp", spec = { label = "Stamp", desc = "A tight name row and a thin power line, ring kept small.", row = true, line = true, ring = 0.35 } },
-    { id = "trestle", name = "Trestle", spec = { label = "Trestle", desc = "A full portrait on a named board, power hung as a rail.", row = true, line = true } },
+    { id = "stamp", name = "Stamp", spec = { label = "Stamp", desc = "A tight name row and a thin power line.", row = true, line = true, ring = 0.35 } },
+    { id = "trestle", name = "Trestle", spec = { label = "Trestle", desc = "A named board, with power hung as a rail.", row = true, line = true } },
     { id = "flagon", name = "Flagon", spec = { label = "Flagon", desc = "A small boss and a deep cup, the name cut into the lip.", row = true, ring = 0.35, sizes = unitSizes({ height = 32 }) } },
     { id = "signboard", name = "Signboard", spec = { label = "Signboard", desc = "A hanging boss on a tall board, with a hairline rail along the bottom.", row = true, ring = 1, sizes = unitSizes({ height = 10, tabHeight = 28 }) } },
-    { id = "trough", name = "Trough", spec = { label = "Trough", desc = "A full boss, a thin health lip, and power carried in a deep trough underneath.", line = true, ring = 1, sizes = unitSizes({ height = 11, powerHeight = 14 }) } },
+    { id = "trough", name = "Trough", spec = { label = "Trough", desc = "A full boss, a thin health lip, power in a deep trough.", line = true, ring = 1, sizes = unitSizes({ height = 11, powerHeight = 14 }) } },
 }
 
 local GLOWS = {
@@ -165,23 +165,24 @@ local view
 local refreshers = {}
 local looksPending
 
-local THEME_INTRO = "Themes set a palette, a frame style and a glow. Palettes, frames and glows can each be picked on their own."
-local LOOKS_INTRO = "Frames and glows can each be picked on their own. A Theme on the Themes page sets all three."
+local THEME_INTRO = "Each preset is a ready-made pairing of a Colours palette with a Looks frame and glow. Pick one, then change any part on the Colours or Looks tab."
+local LOOKS_INTRO = "A preset on the Presets tab sets all three."
 local PAGE_NOTE = "Starts off on first login · /looks"
 local FRAME_HEAD = "FRAME STYLES"
 local GLOW_HEAD = "GLOW STYLES"
-local THEME_HEAD = "THEMES"
+local THEME_HEAD = "PRESETS"
 
 local CREAM = { 0.95, 0.91, 0.86, 1 }
 local DIM = { 0.62, 0.56, 0.48, 1 }
 local ON_INK = { 0.93, 0.84, 0.68, 1 }
-local RED = { 0.48, 0.17, 0.15, 1 }
 local CHIP_EDGE = { 0.45, 0.38, 0.30, 1 }
 local CHIP_FILL = { 0.16, 0.15, 0.14, 1 }
 local BOX_EDGE = { 0.55, 0.50, 0.44, 1 }
 local BOX_FILL = { 0.10, 0.10, 0.11, 1 }
 local BOX_ON = { 0.62, 0.52, 0.36, 1 }
-local ROW_ON = { 0.28, 0.24, 0.20, 0.95 }
+local ROW_REST = { 0.208, 0.169, 0.141, 1 }
+local ROW_HOVER = { 0.243, 0.184, 0.141, 1 }
+local ROW_PICK = { 0.357, 0.255, 0.141, 1 }
 local HINT_EDGE = { 0.35, 0.32, 0.28, 1 }
 local CARD_EDGE = { 0.16, 0.16, 0.19, 1 }
 local CARD_FILL = { 0.12, 0.12, 0.14, 1 }
@@ -192,7 +193,7 @@ local PRESET_HEAD_H = 18
 local PRESET_H = 88
 local STYLE_H = 26
 local HEAD_H = 18
-local HINT_H = 58
+local HINT_H = 26
 
 local DAYLIGHT_FRAME = "daylight"
 local DAYLIGHT_GLOW = "circle"
@@ -244,10 +245,9 @@ local function partLabel(kind, id)
     return "—"
 end
 
-local function themeParts(theme)
-    return partLabel("palette", theme.palette)
-        .. " · " .. partLabel("frame", theme.frame)
-        .. " · " .. partLabel("glow", theme.glow)
+local function themePills(theme)
+    return partLabel("palette", theme.palette),
+        partLabel("frame", theme.frame) .. " + " .. partLabel("glow", theme.glow)
 end
 
 function ns.frameById(id)
@@ -1032,6 +1032,13 @@ function ns.restoreDaylightFull()
     end
 end
 
+-- One labelled reset per tab. The options page draws the button in the tab row.
+ns.tabReset = {
+    { tab = "Presets", label = "Restore Daylight", run = ns.restoreDaylightFull },
+    { tab = "Colours", label = "Reset Colours", run = ns.restoreColoursOnly },
+    { tab = "Looks", label = "Reset Looks", run = ns.restoreLooksOnly },
+}
+
 function ns.applyLiveShare(parsed)
     if type(parsed) ~= "table" or parsed.kind ~= "pal2" or parsed.custom == true then return false end
     local theme = parsed.theme and themeById(parsed.theme) or nil
@@ -1154,7 +1161,38 @@ local function guardLine()
     if not ns.looksApiOk() then return NEED_STYLES end
 end
 
+function ns.lookMark()
+    local frame = wornFrame() or "daylight"
+    local glow = soleGlow() or "daylight"
+    local pending = ""
+    if type(looksPending) == "table" then
+        pending = tostring(looksPending.kind) .. ":" .. tostring(looksPending.id)
+    end
+    return frame .. "/" .. glow .. "/" .. pending
+end
+
+local looksSlashRun
+
 function ns.looksSlash(msg)
+    local function run()
+        looksSlashRun(msg)
+    end
+    if type(ns.withReloadAction) ~= "function" then
+        run()
+        return
+    end
+    local beforeLook = ns.lookMark()
+    local beforePal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+    ns.withReloadAction(function()
+        run()
+        local afterPal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+        if ns.lookMark() ~= beforeLook or afterPal ~= beforePal then
+            if type(ns.requestReload) == "function" then ns.requestReload() end
+        end
+    end)
+end
+
+function looksSlashRun(msg)
     local blocked = guardLine()
     if blocked then
         say(blocked)
@@ -1234,19 +1272,6 @@ local function flat(parent, layer, color)
     return t
 end
 
-local function redButton(parent, text, onClick)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetSize(72, 22)
-    flat(b, "BACKGROUND", RED)
-    local fs = uiFont(b, 12, CREAM)
-    fs:ClearAllPoints()
-    fs:SetPoint("CENTER", b, "CENTER", 0, 0)
-    if type(fs.SetJustifyH) == "function" then fs:SetJustifyH("CENTER") end
-    fs:SetText(text)
-    b:SetScript("OnClick", function() onClick() end)
-    return b
-end
-
 local function paintChip(tex, color)
     if type(tex) ~= "table" or type(color) ~= "table" or type(tex.SetColorTexture) ~= "function" then return end
     if type(color[1]) ~= "number" or type(color[2]) ~= "number" or type(color[3]) ~= "number" then return end
@@ -1309,26 +1334,48 @@ local function hookSize(row, place)
     place()
 end
 
-local function restoreItem(label, onClick)
-    return {
-        type = "custom",
-        label = label,
-        build = function(row)
-            if row.made or type(CreateFrame) ~= "function" then return end
-            row.made = true
-            local caption = uiFont(row, 12, DIM)
-            caption:SetText(label)
-            local button = redButton(row, "Restore", onClick)
-            row.restoreButton = button
-            hookSize(row, function()
-                button:ClearAllPoints()
-                caption:ClearAllPoints()
-                button:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -4)
-                caption:SetPoint("RIGHT", button, "LEFT", -8, 0)
-            end)
-        end,
-        height = function() return 32 end,
-    }
+-- warcraft.wiki.gg: CheckButton:SetCheckedTexture, Forever and Vanilla.
+-- The stock art is Interface\Buttons\UI-CheckBox-Check. A font glyph is not
+-- in every game font, so the row uses this texture.
+local CHECK_PATH = "Interface\\Buttons\\UI-CheckBox-Check"
+
+local function drawCheck(parent)
+    local tex = parent:CreateTexture(nil, "OVERLAY")
+    tex:SetSize(16, 16)
+    if type(tex.SetTexture) == "function" then
+        tex:SetTexture(CHECK_PATH)
+    end
+    if tex.Hide then tex:Hide() end
+    return tex
+end
+
+local function makePill(parent, label)
+    local hold = CreateFrame("Frame", nil, parent)
+    hold:SetHeight(16)
+    local edge = hold:CreateTexture(nil, "BACKGROUND")
+    if type(edge.SetColorTexture) == "function" then
+        edge:SetColorTexture(0.55, 0.40, 0.22, 1)
+    end
+    if edge.SetAllPoints then edge:SetAllPoints() end
+    local fill = hold:CreateTexture(nil, "BORDER")
+    if type(fill.SetColorTexture) == "function" then
+        fill:SetColorTexture(0.24, 0.17, 0.12, 1)
+    end
+    if fill.SetPoint then
+        fill:SetPoint("TOPLEFT", hold, "TOPLEFT", 1, -1)
+        fill:SetPoint("BOTTOMRIGHT", hold, "BOTTOMRIGHT", -1, 1)
+    end
+    local fs = uiFont(hold, 11, CREAM)
+    fs:SetText(label)
+    local width = 12 + string.len(label) * 6
+    if type(fs.GetStringWidth) == "function" then
+        local sw = fs:GetStringWidth()
+        if type(sw) == "number" and sw > 8 then width = sw + 12 end
+    end
+    hold:SetWidth(width)
+    fs:ClearAllPoints()
+    fs:SetPoint("CENTER", hold, "CENTER", 0, 0)
+    return hold, fs
 end
 
 local function styleRows(row, entries)
@@ -1340,7 +1387,7 @@ local function styleRows(row, entries)
         hold:SetHeight(entry.rowH or STYLE_H)
         local hi = hold:CreateTexture(nil, "BACKGROUND")
         if type(hi.SetColorTexture) == "function" then
-            hi:SetColorTexture(ROW_ON[1], ROW_ON[2], ROW_ON[3], ROW_ON[4])
+            hi:SetColorTexture(ROW_REST[1], ROW_REST[2], ROW_REST[3], ROW_REST[4])
         end
         hi:SetAllPoints()
         hi:Hide()
@@ -1351,11 +1398,10 @@ local function styleRows(row, entries)
         local desc = uiFont(hold, 11, DIM)
         desc:SetText(entry.desc)
         if type(desc.SetWordWrap) == "function" then desc:SetWordWrap(false) end
-        local partsText
-        if entry.parts then
-            partsText = uiFont(hold, 11, CREAM)
-            partsText:SetText(entry.parts)
-            if type(partsText.SetWordWrap) == "function" then partsText:SetWordWrap(false) end
+        local pillA, pillAText, pillB, pillBText
+        if entry.paletteName then
+            pillA, pillAText = makePill(hold, entry.paletteName)
+            pillB, pillBText = makePill(hold, entry.lookName)
         end
         local swatch, preview
         if entry.palette then
@@ -1363,50 +1409,139 @@ local function styleRows(row, entries)
         end
         local key = uiFont(hold, 11, DIM)
         key:SetText(entry.key)
+        if key.Hide then key:Hide() end
+        local cue = hold:CreateTexture(nil, "OVERLAY")
+        cue:SetWidth(3)
+        cue:SetPoint("TOPLEFT", hold, "TOPLEFT", 0, 0)
+        cue:SetPoint("BOTTOMLEFT", hold, "BOTTOMLEFT", 0, 0)
+        if cue.Hide then cue:Hide() end
+        local check = drawCheck(hold)
         local onText = uiFont(hold, 12, ON_INK)
-        onText:SetText("[On]")
+        onText:SetText("")
         onText:Hide()
+        local hoverText = uiFont(hold, 11, CREAM)
+        hoverText:SetText("HOVER")
+        hoverText:Hide()
         local line = {
             id = entry.id, kind = entry.kind, name = name, baseName = entry.name,
-            parts = entry.parts, mood = entry.desc, preview = preview, rowH = entry.rowH,
+            mood = entry.desc, preview = preview, rowH = entry.rowH,
+            button = hold, paletteId = entry.palette,
+            palettePill = pillAText, lookPill = pillBText,
         }
         line.key = key
+        line.desc = desc
         line.onText = onText
+        line.hoverText = hoverText
+        line.check = check
+        line.cue = cue
+        local function tint(fs, color)
+            if type(fs) == "table" and type(fs.SetTextColor) == "function" and type(color) == "table" then
+                fs:SetTextColor(color[1], color[2], color[3], color[4] or 1)
+            end
+        end
+        local function paletteOf(id)
+            if type(id) ~= "string" or type(ns.byId) ~= "table" then return nil end
+            local palette = ns.byId[id]
+            if type(palette) ~= "table" then return nil end
+            return palette
+        end
+        local function paintRow()
+            local own = paletteOf(line.paletteId)
+            local screenId = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+            local screen = paletteOf(screenId)
+            local surface = screen or own
+            local rest = (surface and (surface.window or surface.background)) or ROW_REST
+            local hover = (surface and (surface.control or surface.band)) or ROW_HOVER
+            local color = rest
+            local light
+            local edge
+            if line.markOn or line.markPending then
+                local source = own or screen
+                local accent = (source and source.c2) or { 0.91, 0.63, 0.29 }
+                local window = (source and (source.window or source.background)) or ROW_REST
+                local inks = {}
+                if source and source.title then inks[#inks + 1] = source.title end
+                if source and source.text then inks[#inks + 1] = source.text end
+                inks[#inks + 1] = CREAM
+                if source then
+                    color, light = ns.accentWash(accent, window, inks)
+                else
+                    color, light = ROW_PICK, CREAM
+                end
+                edge = accent
+            elseif line.hover then
+                color = hover
+            end
+            line.washColor = color
+            line.ink = light
+            if type(hi.SetColorTexture) == "function" then
+                hi:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
+            end
+            if hi.Show then hi:Show() end
+            if key.Hide then key:Hide() end
+            if check.Hide then check:Hide() end
+            if cue.Hide then cue:Hide() end
+            if light then
+                tint(name, light)
+                tint(desc, light)
+                tint(onText, light)
+                if type(check.SetVertexColor) == "function" then
+                    check:SetVertexColor(light[1], light[2], light[3], 1)
+                end
+                if type(cue.SetColorTexture) == "function" then
+                    cue:SetColorTexture(edge[1], edge[2], edge[3], 1)
+                end
+                if cue.Show then cue:Show() end
+            else
+                tint(name, CREAM)
+                tint(desc, DIM)
+            end
+            if line.markPending then
+                onText:SetText("PENDING")
+                onText:Show()
+                if hoverText.Hide then hoverText:Hide() end
+            elseif line.markOn then
+                if onText.Hide then onText:Hide() end
+                if check.Show then check:Show() end
+                if hoverText.Hide then hoverText:Hide() end
+            elseif line.hover then
+                if onText.Hide then onText:Hide() end
+                hoverText:Show()
+            else
+                if onText.Hide then onText:Hide() end
+                if hoverText.Hide then hoverText:Hide() end
+            end
+        end
         function line.SetOn(on, pending)
             line.markOn = on and true or false
             line.markPending = pending and true or false
-            local marked = line.markOn or line.markPending
-            if marked then hi:Show() else hi:Hide() end
-            if on and not pending then onText:SetText("[On]") end
-            if pending then onText:SetText("PENDING") end
-            if marked then
-                if key.Hide then key:Hide() end
-                onText:ClearAllPoints()
-                onText:SetPoint("RIGHT", hold, "RIGHT", -4, 0)
-                onText:Show()
-            else
-                if key.Show then key:Show() end
-                if onText.Hide then onText:Hide() end
-            end
+            paintRow()
+        end
+        function line.SetHover(on)
+            line.hover = on and true or false
+            paintRow()
         end
         local function pick() entry.select() end
         hold:SetScript("OnClick", pick)
+        hold:SetScript("OnEnter", function() line.SetHover(true) end)
+        hold:SetScript("OnLeave", function() line.SetHover(false) end)
         row.lines[#row.lines + 1] = line
         built[#built + 1] = {
-            hold = hold, icon = icon, name = name, desc = desc, parts = partsText,
-            swatch = swatch, key = key, onText = onText, line = line,
+            hold = hold, icon = icon, name = name, desc = desc,
+            pillA = pillA, pillB = pillB, swatch = swatch, key = key,
+            onText = onText, hoverText = hoverText, check = check, line = line,
         }
     end
     return built
 end
 
-local function placeStyles(row, intro, heads, rows, hintText, combatNote)
+local function placeStyles(row, intro, heads, rows, hintText, combatNote, introH)
     local w = row:GetWidth()
     if type(w) ~= "number" or w < 120 then w = 760 end
     intro:ClearAllPoints()
     intro:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
     intro:SetWidth(w)
-    local y = INTRO_H
+    local y = introH or INTRO_H
     local function placeHead(fs)
         fs:ClearAllPoints()
         fs:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -y)
@@ -1428,29 +1563,37 @@ local function placeStyles(row, intro, heads, rows, hintText, combatNote)
             end
             s.name:ClearAllPoints()
             s.desc:ClearAllPoints()
-            if s.parts then
-                local textW = math.max(80, w - textX - 120)
-                s.name:SetPoint("TOPLEFT", s.hold, "TOPLEFT", textX, -4)
-                s.name:SetWidth(textW)
-                s.parts:ClearAllPoints()
-                s.parts:SetPoint("TOPLEFT", s.name, "BOTTOMLEFT", 0, -1)
-                s.parts:SetWidth(textW)
-                s.desc:SetPoint("TOPLEFT", s.parts, "BOTTOMLEFT", 0, -1)
-                s.desc:SetWidth(textW)
+            if s.pillA then
+                s.name:SetPoint("TOPLEFT", s.hold, "TOPLEFT", textX, -6)
+                local nameW = 96
+                if type(s.name.GetStringWidth) == "function" then
+                    local sw = s.name:GetStringWidth()
+                    if type(sw) == "number" and sw > 24 then nameW = sw + 4 end
+                end
+                s.name:SetWidth(nameW)
+                s.pillA:ClearAllPoints()
+                s.pillA:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
+                s.pillB:ClearAllPoints()
+                s.pillB:SetPoint("LEFT", s.pillA, "RIGHT", 6, 0)
+                s.desc:SetPoint("TOPLEFT", s.name, "BOTTOMLEFT", 0, -4)
+                s.desc:SetWidth(math.max(80, w - textX - 36))
             else
                 s.name:SetPoint("LEFT", s.icon, "RIGHT", 8, 0)
                 s.name:SetWidth(160)
                 s.desc:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
-                s.desc:SetWidth(math.max(40, w - 160 - 36 - 150))
+                s.desc:SetWidth(math.max(40, w - 160 - 36 - 72))
             end
             s.key:ClearAllPoints()
             s.onText:ClearAllPoints()
-            if s.line.markOn or s.line.markPending then
-                if s.key.Hide then s.key:Hide() end
-                s.onText:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
-            else
-                if s.key.Show then s.key:Show() end
-                s.key:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
+            if s.key.Hide then s.key:Hide() end
+            s.onText:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
+            if s.check then
+                s.check:ClearAllPoints()
+                s.check:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
+            end
+            if s.hoverText then
+                s.hoverText:ClearAllPoints()
+                s.hoverText:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
             end
             y = y + (s.line.rowH or STYLE_H)
         end
@@ -1489,6 +1632,7 @@ local function buildListPage(row, spec)
     if spec.hint then
         local hold = CreateFrame("Frame", nil, row)
         hold:SetHeight(HINT_H)
+        -- One line of hint, then the list ends. The old 58px well left a blank band.
         flat(hold, "BACKGROUND", HINT_EDGE)
         local hintFill = hold:CreateTexture(nil, "BORDER")
         if type(hintFill.SetColorTexture) == "function" then
@@ -1499,7 +1643,8 @@ local function buildListPage(row, spec)
         local text = uiFont(hold, 11, DIM)
         text:SetText(spec.hint)
         text:SetWordWrap(true)
-        text:SetPoint("TOPLEFT", hold, "TOPLEFT", 8, -8)
+        text:SetPoint("LEFT", hold, "LEFT", 8, 0)
+        text:SetPoint("RIGHT", hold, "RIGHT", -8, 0)
         hint = { hold = hold, text = text }
     end
     local combatNote = uiFont(row, 12, ON_INK)
@@ -1509,12 +1654,19 @@ local function buildListPage(row, spec)
         local waiting = type(looksPending) == "table"
         if combatNote.SetShown then combatNote:SetShown(waiting) end
         local shownId, changed, pendingTheme = ns.shownTheme()
+        local function stagedOn(kind, id, real)
+            local staged = ns.staged
+            if type(staged) == "table" and staged.kind == kind then
+                return staged.id == id
+            end
+            return real and true or false
+        end
         for i = 1, #row.lines do
             local line = row.lines[i]
             local pending = rowPending(line.kind, line.id)
             local on = false
             if line.kind == "theme" then
-                on = shownId == line.id and not pendingTheme
+                on = stagedOn("theme", line.id, shownId == line.id and not pendingTheme)
                 if line.name and line.name.SetText then
                     if shownId == line.id and changed then
                         line.name:SetText(line.baseName .. " (changed)")
@@ -1523,13 +1675,13 @@ local function buildListPage(row, spec)
                     end
                 end
             elseif line.kind == "frame" then
-                on = spec.frameOn(line.id)
+                on = stagedOn("frame", line.id, spec.frameOn(line.id))
             else
-                on = spec.glowOn(line.id)
+                on = stagedOn("glow", line.id, spec.glowOn(line.id))
             end
             line.SetOn(on and true or false, pending)
         end
-        placeStyles(row, intro, heads, groups, hint, combatNote)
+        placeStyles(row, intro, heads, groups, hint, combatNote, spec.introH)
     end
     hookSize(row, function()
         if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
@@ -1540,13 +1692,13 @@ local function buildListPage(row, spec)
     end
 end
 
-local function listHeight(sections, withHint)
+local function listHeight(sections, withHint, introH)
     local rowsH = 0
     for i = 1, #sections do
         local section = sections[i]
         rowsH = rowsH + #section.rows * (section.rowH or STYLE_H)
     end
-    return INTRO_H + #sections * HEAD_H + rowsH + (withHint and (HINT_H + 12) or 8) + 22
+    return (introH or INTRO_H) + #sections * HEAD_H + rowsH + (withHint and (HINT_H + 4) or 4) + 8
 end
 
 local function hiddenStyles()
@@ -1557,41 +1709,51 @@ function ns.themesPage()
     local rows = {}
     for i = 1, #THEMES do
         local theme = THEMES[i]
+        local paletteName, lookName = themePills(theme)
         rows[#rows + 1] = {
             kind = "theme", id = theme.id, name = theme.name, desc = theme.mood,
-            parts = themeParts(theme), palette = theme.palette, rowH = THEME_H,
+            paletteName = paletteName, lookName = lookName,
+            palette = theme.palette,
+            rowH = THEME_H,
             key = "Looks:" .. theme.id, icon = ICONS[theme.frame],
-            select = function() applyTheme(theme) end,
+            select = function()
+                local id, changed, pending = ns.shownTheme()
+                local live = id == theme.id and not changed and not pending
+                if type(ns.stagePick) == "function" then
+                    ns.stagePick("theme", theme.id, function() applyTheme(theme) end, live)
+                else
+                    applyTheme(theme)
+                end
+                refreshLooks()
+            end,
         }
     end
     local spec = {
         intro = THEME_INTRO,
+        introH = 44,
         frameOn = function() return false end,
         glowOn = function() return false end,
         sections = { { head = THEME_HEAD, rows = rows, rowH = THEME_H } },
     }
-    local reset = restoreItem("Restore Daylight", ns.restoreDaylightFull)
-    reset.hidden = hiddenStyles
     return {
         id = "themes",
-        label = "Themes",
+        label = "Presets",
         desc = THEME_INTRO,
         groups = {
-            { tab = "Themes", label = "Restore", bare = true, wide = true, items = { reset } },
             {
-                tab = "Themes",
-                label = "Themes",
+                tab = "Presets",
+                label = "Presets",
                 wide = true,
                 items = {
                     {
                         type = "custom",
-                        label = "Themes",
+                        label = "Presets",
                         hidden = hiddenStyles,
                         build = function(row) buildListPage(row, spec) end,
                         update = function(row)
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
-                        height = function() return listHeight(spec.sections, false) end,
+                        height = function() return listHeight(spec.sections, false, spec.introH) end,
                     },
                 },
             },
@@ -1612,7 +1774,15 @@ function ns.looksPage()
         frames[#frames + 1] = {
             kind = "frame", id = frame.id, name = frame.name, desc = frame.spec.desc,
             key = "Looks:" .. frame.id, icon = ICONS[frame.id],
-            select = function() applyFrame(frame.id) end,
+            select = function()
+                local live = wornFrame() == frame.id
+                if type(ns.stagePick) == "function" then
+                    ns.stagePick("frame", frame.id, function() applyFrame(frame.id) end, live)
+                else
+                    applyFrame(frame.id)
+                end
+                refreshLooks()
+            end,
         }
     end
     for i = 1, #GLOWS do
@@ -1620,11 +1790,20 @@ function ns.looksPage()
         glows[#glows + 1] = {
             kind = "glow", id = glow.id, name = glow.name, desc = glow.mood,
             key = "Looks:" .. glow.id, icon = ICONS[glow.id],
-            select = function() applyGlow(glow.id) end,
+            select = function()
+                local live = soleGlow() == glow.id
+                if type(ns.stagePick) == "function" then
+                    ns.stagePick("glow", glow.id, function() applyGlow(glow.id) end, live)
+                else
+                    applyGlow(glow.id)
+                end
+                refreshLooks()
+            end,
         }
     end
     local spec = {
         intro = LOOKS_INTRO,
+        introH = 22,
         hint = GLOW_HINT,
         frameOn = frameOn,
         glowOn = glowOn,
@@ -1633,14 +1812,11 @@ function ns.looksPage()
             { head = GLOW_HEAD, rows = glows },
         },
     }
-    local reset = restoreItem("Restore looks", ns.restoreLooksOnly)
-    reset.hidden = hiddenStyles
     return {
         id = "looks",
         label = "Looks",
-        desc = "Frame styles and glow styles. Colours stay on the Colours tab.",
+        desc = LOOKS_INTRO,
         groups = {
-            { tab = "Looks", label = "Restore", bare = true, wide = true, items = { reset } },
             {
                 tab = "Looks",
                 label = "Looks",
@@ -1654,7 +1830,7 @@ function ns.looksPage()
                         update = function(row)
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
-                        height = function() return listHeight(spec.sections, true) end,
+                        height = function() return listHeight(spec.sections, true, spec.introH) end,
                     },
                 },
             },

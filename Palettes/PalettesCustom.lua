@@ -213,7 +213,7 @@ function ns.deriveCustom(spec)
     local text = ink(hue, sat, 0.50, 0.40, 0.91)
     return {
         id = "custom", name = "Custom", group = "custom",
-        mood = "Your own colors.",
+        mood = "Your own background, band and accent, saved at this character.",
         background = base,
         band = at(4, 32, 0),
         bandLit = at(14, 42, 0),
