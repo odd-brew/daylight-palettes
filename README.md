@@ -44,7 +44,7 @@ Palettes starts switched off, so your first login looks exactly like DaylightUI.
 
 Plugins > Palettes is one page with three tabs:
 
-- **Themes** lists ten Themes. Each one sets a palette, a frame style and a glow. Hearthnight is Ember, Lintel and Wick. The others are Harvestide, Tidemark, Old Road, Vigil, Snug, Bellows, Drawwell, Settle and After Hours. Click a row, or type `/looks hearthnight`. Chat says **Palettes: Hearthnight is on. Your layout is unchanged.**
+- **Themes** lists ten Themes. Each one sets a palette, a frame style and a glow. A row shows the frame glyph, the palette's background, band and accent, the name, a parts line such as **Ember · Lintel · Wick**, and the mood. Hearthnight is Ember, Lintel and Wick. The others are Harvestide, Tidemark, Old Road, Vigil, Snug, Bellows, Drawwell, Settle and After Hours. Click a row, or type `/looks hearthnight`. Chat says **Palettes: Hearthnight is on. Your layout is unchanged.**
 - **Colours** is the palette list, with swatches, Accent follows class, Save for this character only, and a Share code row. Picking a palette, including from Appearance > Palette or `/palettes ember`, changes colours only.
 - **Looks** lists the seven frame styles and three glow styles. Click one, or type `/looks lintel` or `/looks wick`.
 

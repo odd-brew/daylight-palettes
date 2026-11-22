@@ -187,6 +187,7 @@ local CARD_EDGE = { 0.16, 0.16, 0.19, 1 }
 local CARD_FILL = { 0.12, 0.12, 0.14, 1 }
 
 local INTRO_H = 28
+local THEME_H = 54
 local PRESET_HEAD_H = 18
 local PRESET_H = 88
 local STYLE_H = 26
@@ -227,6 +228,26 @@ local function themeById(id)
     for i = 1, #THEMES do
         if THEMES[i].id == id then return THEMES[i] end
     end
+end
+
+local function partLabel(kind, id)
+    if type(id) ~= "string" or id == "" or id == "none" then return "—" end
+    local row
+    if kind == "palette" then
+        row = type(ns.byId) == "table" and ns.byId[id] or nil
+    elseif kind == "frame" then
+        row = frameById(id)
+    else
+        row = glowById(id)
+    end
+    if type(row) == "table" and type(row.name) == "string" and row.name ~= "" then return row.name end
+    return "—"
+end
+
+local function themeParts(theme)
+    return partLabel("palette", theme.palette)
+        .. " · " .. partLabel("frame", theme.frame)
+        .. " · " .. partLabel("glow", theme.glow)
 end
 
 function ns.frameById(id)
@@ -1226,6 +1247,39 @@ local function redButton(parent, text, onClick)
     return b
 end
 
+local function paintChip(tex, color)
+    if type(tex) ~= "table" or type(color) ~= "table" or type(tex.SetColorTexture) ~= "function" then return end
+    if type(color[1]) ~= "number" or type(color[2]) ~= "number" or type(color[3]) ~= "number" then return end
+    tex:SetColorTexture(color[1], color[2], color[3], 1)
+end
+
+-- Same three blocks as a Colours row: background, band, accent, on the palette border.
+local function paletteSwatches(parent, paletteId)
+    local hold = CreateFrame("Frame", nil, parent)
+    hold:SetSize(44, 16)
+    local edge = hold:CreateTexture(nil, "BORDER")
+    edge:SetAllPoints()
+    local bg = hold:CreateTexture(nil, "ARTWORK")
+    bg:SetSize(12, 14)
+    bg:SetPoint("LEFT", hold, "LEFT", 1, 0)
+    local band = hold:CreateTexture(nil, "ARTWORK")
+    band:SetSize(12, 14)
+    band:SetPoint("LEFT", bg, "RIGHT", 1, 0)
+    local accent = hold:CreateTexture(nil, "ARTWORK")
+    accent:SetSize(16, 14)
+    accent:SetPoint("LEFT", band, "RIGHT", 1, 0)
+    local palette = type(ns.byId) == "table" and ns.byId[paletteId] or nil
+    local preview
+    if type(palette) == "table" then
+        paintChip(edge, palette.border or { 0.05, 0.05, 0.05 })
+        paintChip(bg, palette.background)
+        paintChip(band, palette.band)
+        paintChip(accent, palette.c2)
+        preview = { palette.background, palette.band, palette.c2 }
+    end
+    return hold, preview
+end
+
 local function drawIcon(parent, parts)
     local f = CreateFrame("Frame", nil, parent)
     f:SetSize(36, 18)
@@ -1283,7 +1337,7 @@ local function styleRows(row, entries)
     for i = 1, #entries do
         local entry = entries[i]
         local hold = CreateFrame("Button", nil, row)
-        hold:SetHeight(STYLE_H)
+        hold:SetHeight(entry.rowH or STYLE_H)
         local hi = hold:CreateTexture(nil, "BACKGROUND")
         if type(hi.SetColorTexture) == "function" then
             hi:SetColorTexture(ROW_ON[1], ROW_ON[2], ROW_ON[3], ROW_ON[4])
@@ -1297,12 +1351,25 @@ local function styleRows(row, entries)
         local desc = uiFont(hold, 11, DIM)
         desc:SetText(entry.desc)
         if type(desc.SetWordWrap) == "function" then desc:SetWordWrap(false) end
+        local partsText
+        if entry.parts then
+            partsText = uiFont(hold, 11, CREAM)
+            partsText:SetText(entry.parts)
+            if type(partsText.SetWordWrap) == "function" then partsText:SetWordWrap(false) end
+        end
+        local swatch, preview
+        if entry.palette then
+            swatch, preview = paletteSwatches(hold, entry.palette)
+        end
         local key = uiFont(hold, 11, DIM)
         key:SetText(entry.key)
         local onText = uiFont(hold, 12, ON_INK)
         onText:SetText("[On]")
         onText:Hide()
-        local line = { id = entry.id, kind = entry.kind, name = name, baseName = entry.name }
+        local line = {
+            id = entry.id, kind = entry.kind, name = name, baseName = entry.name,
+            parts = entry.parts, mood = entry.desc, preview = preview, rowH = entry.rowH,
+        }
         line.key = key
         line.onText = onText
         function line.SetOn(on, pending)
@@ -1325,7 +1392,10 @@ local function styleRows(row, entries)
         local function pick() entry.select() end
         hold:SetScript("OnClick", pick)
         row.lines[#row.lines + 1] = line
-        built[#built + 1] = { hold = hold, icon = icon, name = name, desc = desc, key = key, onText = onText, line = line }
+        built[#built + 1] = {
+            hold = hold, icon = icon, name = name, desc = desc, parts = partsText,
+            swatch = swatch, key = key, onText = onText, line = line,
+        }
     end
     return built
 end
@@ -1350,12 +1420,29 @@ local function placeStyles(row, intro, heads, rows, hintText, combatNote)
             s.hold:SetWidth(w)
             s.icon:ClearAllPoints()
             s.icon:SetPoint("LEFT", s.hold, "LEFT", 0, 0)
+            local textX = 44
+            if s.swatch then
+                s.swatch:ClearAllPoints()
+                s.swatch:SetPoint("LEFT", s.icon, "RIGHT", 6, 0)
+                textX = 94
+            end
             s.name:ClearAllPoints()
-            s.name:SetPoint("LEFT", s.icon, "RIGHT", 8, 0)
-            s.name:SetWidth(160)
             s.desc:ClearAllPoints()
-            s.desc:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
-            s.desc:SetWidth(math.max(40, w - 160 - 36 - 150))
+            if s.parts then
+                local textW = math.max(80, w - textX - 120)
+                s.name:SetPoint("TOPLEFT", s.hold, "TOPLEFT", textX, -4)
+                s.name:SetWidth(textW)
+                s.parts:ClearAllPoints()
+                s.parts:SetPoint("TOPLEFT", s.name, "BOTTOMLEFT", 0, -1)
+                s.parts:SetWidth(textW)
+                s.desc:SetPoint("TOPLEFT", s.parts, "BOTTOMLEFT", 0, -1)
+                s.desc:SetWidth(textW)
+            else
+                s.name:SetPoint("LEFT", s.icon, "RIGHT", 8, 0)
+                s.name:SetWidth(160)
+                s.desc:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
+                s.desc:SetWidth(math.max(40, w - 160 - 36 - 150))
+            end
             s.key:ClearAllPoints()
             s.onText:ClearAllPoints()
             if s.line.markOn or s.line.markPending then
@@ -1365,7 +1452,7 @@ local function placeStyles(row, intro, heads, rows, hintText, combatNote)
                 if s.key.Show then s.key:Show() end
                 s.key:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
             end
-            y = y + STYLE_H
+            y = y + (s.line.rowH or STYLE_H)
         end
     end
     for i = 1, #heads do
@@ -1454,9 +1541,12 @@ local function buildListPage(row, spec)
 end
 
 local function listHeight(sections, withHint)
-    local n = 0
-    for i = 1, #sections do n = n + #sections[i].rows end
-    return INTRO_H + #sections * HEAD_H + n * STYLE_H + (withHint and (HINT_H + 12) or 8) + 22
+    local rowsH = 0
+    for i = 1, #sections do
+        local section = sections[i]
+        rowsH = rowsH + #section.rows * (section.rowH or STYLE_H)
+    end
+    return INTRO_H + #sections * HEAD_H + rowsH + (withHint and (HINT_H + 12) or 8) + 22
 end
 
 local function hiddenStyles()
@@ -1469,6 +1559,7 @@ function ns.themesPage()
         local theme = THEMES[i]
         rows[#rows + 1] = {
             kind = "theme", id = theme.id, name = theme.name, desc = theme.mood,
+            parts = themeParts(theme), palette = theme.palette, rowH = THEME_H,
             key = "Looks:" .. theme.id, icon = ICONS[theme.frame],
             select = function() applyTheme(theme) end,
         }
@@ -1477,7 +1568,7 @@ function ns.themesPage()
         intro = THEME_INTRO,
         frameOn = function() return false end,
         glowOn = function() return false end,
-        sections = { { head = THEME_HEAD, rows = rows } },
+        sections = { { head = THEME_HEAD, rows = rows, rowH = THEME_H } },
     }
     local reset = restoreItem("Restore Daylight", ns.restoreDaylightFull)
     reset.hidden = hiddenStyles

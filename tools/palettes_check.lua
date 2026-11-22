@@ -1712,6 +1712,24 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     local builtTheme, themeErr = pcall(themeBody.build, themeRow)
     if not builtTheme then fail("themes tab did not build: " .. tostring(themeErr)) end
     check(type(themeRow.lines) == "table" and #themeRow.lines or 0, 10, "ten theme rows")
+    local hearth = themeRow.lines[1]
+    local lastTheme = themeRow.lines[10]
+    check(hearth.baseName, "Hearthnight", "theme order still starts with Hearthnight")
+    check(lastTheme.baseName, "After Hours", "theme order still ends with After Hours")
+    check(hearth.parts, "Ember · Lintel · Wick", "hearthnight names its palette, frame and glow")
+    check(lastTheme.parts, "Carmine Night · Signboard · Latch", "after hours names its palette, frame and glow")
+    check(hearth.mood, "A winter hearth of campfire gold: a named beam and a quiet corner flame.", "hearthnight keeps its mood")
+    check(type(hearth.preview) == "table" and #hearth.preview or 0, 3, "a theme row shows three swatches")
+    check(hearth.preview[1], ns.byId.ember.background, "the first swatch is the palette background")
+    check(hearth.preview[2], ns.byId.ember.band, "the second swatch is the band")
+    check(hearth.preview[3], ns.byId.ember.c2, "the third swatch is the accent")
+    check(row.lines[1].parts, nil, "a frame row has no parts line")
+    account.theme = "hearthnight"
+    account.themeChanged = true
+    palDb.palette = "tide"
+    if type(themeRow.UpdateLooks) == "function" then themeRow.UpdateLooks() end
+    check(hearth.name.words, "Hearthnight (changed)", "a changed theme still renames the row")
+    check(hearth.parts, "Ember · Lintel · Wick", "changed leaves the parts line")
 else
     fail("themes tab has no body")
 end
