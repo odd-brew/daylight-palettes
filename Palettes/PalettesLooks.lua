@@ -1419,9 +1419,6 @@ local function styleRows(row, entries)
         local onText = uiFont(hold, 12, ON_INK)
         onText:SetText("")
         onText:Hide()
-        local hoverText = uiFont(hold, 11, CREAM)
-        hoverText:SetText("HOVER")
-        hoverText:Hide()
         local line = {
             id = entry.id, kind = entry.kind, name = name, baseName = entry.name,
             mood = entry.desc, preview = preview, rowH = entry.rowH,
@@ -1431,7 +1428,6 @@ local function styleRows(row, entries)
         line.key = key
         line.desc = desc
         line.onText = onText
-        line.hoverText = hoverText
         line.check = check
         line.cue = cue
         local function tint(fs, color)
@@ -1499,17 +1495,11 @@ local function styleRows(row, entries)
             if line.markPending then
                 onText:SetText("PENDING")
                 onText:Show()
-                if hoverText.Hide then hoverText:Hide() end
             elseif line.markOn then
                 if onText.Hide then onText:Hide() end
                 if check.Show then check:Show() end
-                if hoverText.Hide then hoverText:Hide() end
-            elseif line.hover then
-                if onText.Hide then onText:Hide() end
-                hoverText:Show()
             else
                 if onText.Hide then onText:Hide() end
-                if hoverText.Hide then hoverText:Hide() end
             end
         end
         function line.SetOn(on, pending)
@@ -1529,7 +1519,7 @@ local function styleRows(row, entries)
         built[#built + 1] = {
             hold = hold, icon = icon, name = name, desc = desc,
             pillA = pillA, pillB = pillB, swatch = swatch, key = key,
-            onText = onText, hoverText = hoverText, check = check, line = line,
+            onText = onText, check = check, line = line,
         }
     end
     return built
@@ -1590,10 +1580,6 @@ local function placeStyles(row, intro, heads, rows, hintText, combatNote, introH
             if s.check then
                 s.check:ClearAllPoints()
                 s.check:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
-            end
-            if s.hoverText then
-                s.hoverText:ClearAllPoints()
-                s.hoverText:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
             end
             y = y + (s.line.rowH or STYLE_H)
         end

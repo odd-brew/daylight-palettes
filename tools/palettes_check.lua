@@ -1743,8 +1743,10 @@ if type(body) == "table" and type(body.build) == "function" then
     active.SetOn(false, false)
     check(active.key.shown, false, "style keys stay off the row")
     active.SetHover(true)
-    check(active.hoverText.words, "HOVER", "a hovered row says HOVER")
-    check(active.hoverText.shown, true, "the hover mark is visible")
+    check(active.hover, true, "a hovered row still tracks hover")
+    check(active.hoverText, nil, "a hovered row has no HOVER fontstring")
+    check(active.onText.words == "HOVER", false, "a hovered row does not say HOVER")
+    check(type(active.washColor) == "table", true, "hover still paints the row highlight")
     active.SetHover(false)
     local beforeStyle = sets.UnitFrames["look.style"]
     local lintel = row.lines[1]
@@ -2105,6 +2107,62 @@ ns.looksSlash("off")
 check(popupCount(), looksOff + 1, "/looks off asks to reload when it restores Looks")
 ns.looksSlash("off")
 check(popupCount(), looksOff + 1, "a no-op /looks off does not ask again")
+
+if main:find('"HOVER"', 1, true) or looksSource:find('"HOVER"', 1, true) then
+    fail("HOVER is still written as text")
+end
+do
+    local frame = { scripts = {} }
+    function frame:SetScript(name, fn) self.scripts[name] = fn end
+    function frame:GetScript(name) return self.scripts[name] end
+    local scroll = { points = {}, level = 4, strata = "MEDIUM" }
+    function scroll:GetNumPoints() return #self.points end
+    function scroll:GetPoint(i)
+        local p = self.points[i]
+        return p[1], p[2], p[3], p[4], p[5]
+    end
+    function scroll:ClearAllPoints() self.points = {} end
+    function scroll:SetPoint(point, rel, relPoint, x, y)
+        self.points[#self.points + 1] = { point, rel, relPoint, x, y }
+    end
+    function scroll:GetFrameLevel() return self.level end
+    function scroll:GetFrameStrata() return self.strata end
+    scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 40, -90)
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28, 22)
+    local page = {}
+    function page:GetParent() return scroll end
+    local panel = {
+        Current = function() return "Palettes.main" end,
+        Frame = function() return frame end,
+        PageFrame = function(id) return id == "Palettes.main" and page or nil end,
+    }
+    frame:SetScript("OnSizeChanged", function()
+        scroll:ClearAllPoints()
+        scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 40, -90)
+        scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28, 22)
+    end)
+    local reserve = ns.liftPageScroll(panel)
+    check(reserve, ns.footerReserve(), "the scroll keeps a footer gap")
+    local bottom
+    for i = 1, #scroll.points do
+        if scroll.points[i][1] == "BOTTOMRIGHT" then bottom = scroll.points[i] end
+    end
+    check(type(bottom) == "table" and bottom[2] == frame, true, "the scroll bottom stays on the window")
+    check(type(bottom) == "table" and bottom[4], -28, "the scroll keeps its right inset")
+    local above = type(bottom) == "table" and type(bottom[5]) == "number" and bottom[5] > 22
+    check(above, true, "the content bottom sits above the footer")
+    check(type(bottom) == "table" and bottom[5], reserve, "the gap is the footer height plus its inset")
+    frame.scripts.OnSizeChanged(frame, 900, 600)
+    bottom = nil
+    for i = 1, #scroll.points do
+        if scroll.points[i][1] == "BOTTOMRIGHT" then bottom = scroll.points[i] end
+    end
+    check(type(bottom) == "table" and bottom[5], reserve, "a resize keeps the content above the footer")
+    panel.Current = function() return "home" end
+    local before = #scroll.points
+    check(ns.liftPageScroll(panel), nil, "other pages keep Daylight's scroll")
+    check(#scroll.points, before, "leaving the page does not move the scroll")
+end
 
 if failures > 0 then
     io.stderr:write(failures .. " Palettes check(s) failed\n")
