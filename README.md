@@ -15,7 +15,7 @@ Made for World of Warcraft: Forever.
 - **Undo:** one step back to the previous palette, for this session. It is not a return to Daylight's colors, and it greys out after you use it or when nothing has changed yet.
 - **Accent follows class:** tints the window accent to a shade of your class color, adjusted just enough to stay readable.
 - **Account-wide by default:** one palette for all your characters, or save a different one for a single character.
-- **Restore anytime:** one button, or `/palettes off`, puts DaylightUI's own colors back.
+- **Restore anytime:** one button, `/palettes off`, or `/looks off`, puts DaylightUI's own colors back. If Palettes has changed the frame style or glows, that same Restore puts those back too.
 - **Daylight profiles:** importing or switching a Daylight profile also brings its palette, Accent follows class, and Custom colors. **Save for this character only** stays your own switch. A profile with no Palettes settings keeps your current look.
 
 Vanilla is dark oak and pewter chrome. Forever is near-black soot with weathered bronze trim. Sightline uses slate blue and amber, chosen with color-blind players in mind.
@@ -38,7 +38,13 @@ Palettes starts switched off, so your first login looks exactly like DaylightUI.
 
 - **Plugins page:** open DaylightUI's options and go to **Plugins > Palettes**. Each palette shows a three-color swatch and a one-line description. Click one to use it. **Custom** sits above Dark: click it to apply your last saved colors and open the editor.
 - **Appearance page:** DaylightUI's **Appearance** page has a **Palette** dropdown that stays in sync with the Plugins page, including Custom.
-- **Slash command:** type `/palettes` followed by a palette name, like `/palettes ember`, `/palettes custom` or `/palettes carmine night`. Type `/palettes` on its own to see which palette is on and the full list of names. `/palettes off` restores DaylightUI's colors.
+- **Slash command:** type `/palettes` followed by a palette name, like `/palettes ember`, `/palettes custom` or `/palettes carmine night`. Type `/palettes` on its own to see which palette is on and the full list of names. `/palettes off` restores DaylightUI's colors and, when Palettes has changed them, the frame style and glows.
+
+### Frame styles and glows
+
+Plugins > Palettes has a **Looks** page. It lists five presets, seven frame styles and three glow styles. A preset pairs a frame and a glow only. It never changes colours. Click a style, or type `/looks lintel` or `/looks wick`. `/looks` on its own says what is on. Colors stay on the Palettes page: `/palettes ember` still changes colours only.
+
+On an older DaylightUI that can recolor but cannot take frame and glow styles, the Looks page stays hidden and `/looks` says only colors are available. If the standalone Looks add-on is also enabled, turn it off. These styles now live in Palettes.
 
 **Undo** sits in the Plugins > Palettes header. Use it to step back one palette, or to cancel a pick that's still waiting for combat to end.
 
@@ -63,8 +69,8 @@ On **Plugins > Palettes**:
 | Setting | What it does |
 | --- | --- |
 | Accent follows class | Uses a shade of your class color as the window accent. Names, chat and unit frames keep the game's class colors. |
-| Save for this character only | Off: this character uses your account palette. On: changes here apply only to this character, including Accent follows class and Custom colors. Unticking it clears this character's own pick and goes back to the account palette. |
-| Restore Daylight colors | Switches off whichever palette is active, account or character, and puts DaylightUI's own colors back. |
+| Save for this character only | Off: this character uses your account palette. On: changes here apply only to this character, including Accent follows class, Custom colors, the frame style, the glow and the Restore snapshot. Unticking it clears this character's own pick and goes back to the account palette. |
+| Restore Daylight | Switches off whichever palette is active, account or character, and puts DaylightUI's own colors back. When Palettes has changed the frame style or glows, it puts those back too. |
 
 ## Known limits
 
