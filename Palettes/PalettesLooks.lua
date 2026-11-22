@@ -175,7 +175,6 @@ local THEME_HEAD = "PRESETS"
 local CREAM = { 0.95, 0.91, 0.86, 1 }
 local DIM = { 0.62, 0.56, 0.48, 1 }
 local ON_INK = { 0.93, 0.84, 0.68, 1 }
-local RED = { 0.48, 0.17, 0.15, 1 }
 local CHIP_EDGE = { 0.45, 0.38, 0.30, 1 }
 local CHIP_FILL = { 0.16, 0.15, 0.14, 1 }
 local BOX_EDGE = { 0.55, 0.50, 0.44, 1 }
@@ -246,10 +245,9 @@ local function partLabel(kind, id)
     return "—"
 end
 
-local function themeParts(theme)
-    return partLabel("palette", theme.palette)
-        .. " · " .. partLabel("frame", theme.frame)
-        .. " · " .. partLabel("glow", theme.glow)
+local function themePills(theme)
+    return partLabel("palette", theme.palette),
+        partLabel("frame", theme.frame) .. " + " .. partLabel("glow", theme.glow)
 end
 
 function ns.frameById(id)
@@ -1243,19 +1241,6 @@ local function flat(parent, layer, color)
     return t
 end
 
-local function redButton(parent, text, onClick)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetSize(72, 22)
-    flat(b, "BACKGROUND", RED)
-    local fs = uiFont(b, 12, CREAM)
-    fs:ClearAllPoints()
-    fs:SetPoint("CENTER", b, "CENTER", 0, 0)
-    if type(fs.SetJustifyH) == "function" then fs:SetJustifyH("CENTER") end
-    fs:SetText(text)
-    b:SetScript("OnClick", function() onClick() end)
-    return b
-end
-
 local function paintChip(tex, color)
     if type(tex) ~= "table" or type(color) ~= "table" or type(tex.SetColorTexture) ~= "function" then return end
     if type(color[1]) ~= "number" or type(color[2]) ~= "number" or type(color[3]) ~= "number" then return end
@@ -1318,26 +1303,48 @@ local function hookSize(row, place)
     place()
 end
 
-local function restoreItem(label, onClick)
-    return {
-        type = "custom",
-        label = label,
-        build = function(row)
-            if row.made or type(CreateFrame) ~= "function" then return end
-            row.made = true
-            local caption = uiFont(row, 12, DIM)
-            caption:SetText(label)
-            local button = redButton(row, "Restore", onClick)
-            row.restoreButton = button
-            hookSize(row, function()
-                button:ClearAllPoints()
-                caption:ClearAllPoints()
-                button:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -4)
-                caption:SetPoint("RIGHT", button, "LEFT", -8, 0)
-            end)
-        end,
-        height = function() return 32 end,
-    }
+-- warcraft.wiki.gg: CheckButton:SetCheckedTexture, Forever and Vanilla.
+-- The stock art is Interface\Buttons\UI-CheckBox-Check. A font glyph is not
+-- in every game font, so the row uses this texture.
+local CHECK_PATH = "Interface\\Buttons\\UI-CheckBox-Check"
+
+local function drawCheck(parent)
+    local tex = parent:CreateTexture(nil, "OVERLAY")
+    tex:SetSize(16, 16)
+    if type(tex.SetTexture) == "function" then
+        tex:SetTexture(CHECK_PATH)
+    end
+    if tex.Hide then tex:Hide() end
+    return tex
+end
+
+local function makePill(parent, label)
+    local hold = CreateFrame("Frame", nil, parent)
+    hold:SetHeight(16)
+    local edge = hold:CreateTexture(nil, "BACKGROUND")
+    if type(edge.SetColorTexture) == "function" then
+        edge:SetColorTexture(0.55, 0.40, 0.22, 1)
+    end
+    if edge.SetAllPoints then edge:SetAllPoints() end
+    local fill = hold:CreateTexture(nil, "BORDER")
+    if type(fill.SetColorTexture) == "function" then
+        fill:SetColorTexture(0.24, 0.17, 0.12, 1)
+    end
+    if fill.SetPoint then
+        fill:SetPoint("TOPLEFT", hold, "TOPLEFT", 1, -1)
+        fill:SetPoint("BOTTOMRIGHT", hold, "BOTTOMRIGHT", -1, 1)
+    end
+    local fs = uiFont(hold, 11, CREAM)
+    fs:SetText(label)
+    local width = 12 + string.len(label) * 6
+    if type(fs.GetStringWidth) == "function" then
+        local sw = fs:GetStringWidth()
+        if type(sw) == "number" and sw > 8 then width = sw + 12 end
+    end
+    hold:SetWidth(width)
+    fs:ClearAllPoints()
+    fs:SetPoint("CENTER", hold, "CENTER", 0, 0)
+    return hold, fs
 end
 
 local function rowChrome()
@@ -1370,11 +1377,10 @@ local function styleRows(row, entries)
         local desc = uiFont(hold, 11, DIM)
         desc:SetText(entry.desc)
         if type(desc.SetWordWrap) == "function" then desc:SetWordWrap(false) end
-        local partsText
-        if entry.parts then
-            partsText = uiFont(hold, 11, CREAM)
-            partsText:SetText(entry.parts)
-            if type(partsText.SetWordWrap) == "function" then partsText:SetWordWrap(false) end
+        local pillA, pillAText, pillB, pillBText
+        if entry.paletteName then
+            pillA, pillAText = makePill(hold, entry.paletteName)
+            pillB, pillBText = makePill(hold, entry.lookName)
         end
         local swatch, preview
         if entry.palette then
@@ -1383,6 +1389,7 @@ local function styleRows(row, entries)
         local key = uiFont(hold, 11, DIM)
         key:SetText(entry.key)
         if key.Hide then key:Hide() end
+        local check = drawCheck(hold)
         local onText = uiFont(hold, 12, ON_INK)
         onText:SetText("")
         onText:Hide()
@@ -1391,29 +1398,34 @@ local function styleRows(row, entries)
         hoverText:Hide()
         local line = {
             id = entry.id, kind = entry.kind, name = name, baseName = entry.name,
-            parts = entry.parts, mood = entry.desc, preview = preview, rowH = entry.rowH,
-            button = hold,
+            mood = entry.desc, preview = preview, rowH = entry.rowH,
+            button = hold, accent = entry.accent,
+            palettePill = pillAText, lookPill = pillBText,
         }
         line.key = key
         line.onText = onText
         line.hoverText = hoverText
+        line.check = check
         local function paintRow()
             local rest, hover, pick = rowChrome()
+            if line.accent then pick = line.accent end
             local color = rest
             if line.markOn or line.markPending then color = pick
             elseif line.hover then color = hover end
+            line.washColor = color
             if type(hi.SetColorTexture) == "function" then
                 hi:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
             end
             if hi.Show then hi:Show() end
             if key.Hide then key:Hide() end
+            if check.Hide then check:Hide() end
             if line.markPending then
                 onText:SetText("PENDING")
                 onText:Show()
                 if hoverText.Hide then hoverText:Hide() end
             elseif line.markOn then
-                onText:SetText("✓")
-                onText:Show()
+                if onText.Hide then onText:Hide() end
+                if check.Show then check:Show() end
                 if hoverText.Hide then hoverText:Hide() end
             elseif line.hover then
                 if onText.Hide then onText:Hide() end
@@ -1438,8 +1450,9 @@ local function styleRows(row, entries)
         hold:SetScript("OnLeave", function() line.SetHover(false) end)
         row.lines[#row.lines + 1] = line
         built[#built + 1] = {
-            hold = hold, icon = icon, name = name, desc = desc, parts = partsText,
-            swatch = swatch, key = key, onText = onText, hoverText = hoverText, line = line,
+            hold = hold, icon = icon, name = name, desc = desc,
+            pillA = pillA, pillB = pillB, swatch = swatch, key = key,
+            onText = onText, hoverText = hoverText, check = check, line = line,
         }
     end
     return built
@@ -1473,15 +1486,20 @@ local function placeStyles(row, intro, heads, rows, hintText, combatNote, introH
             end
             s.name:ClearAllPoints()
             s.desc:ClearAllPoints()
-            if s.parts then
-                local textW = math.max(80, w - textX - 120)
-                s.name:SetPoint("TOPLEFT", s.hold, "TOPLEFT", textX, -4)
-                s.name:SetWidth(textW)
-                s.parts:ClearAllPoints()
-                s.parts:SetPoint("TOPLEFT", s.name, "BOTTOMLEFT", 0, -1)
-                s.parts:SetWidth(textW)
-                s.desc:SetPoint("TOPLEFT", s.parts, "BOTTOMLEFT", 0, -1)
-                s.desc:SetWidth(textW)
+            if s.pillA then
+                s.name:SetPoint("TOPLEFT", s.hold, "TOPLEFT", textX, -6)
+                local nameW = 96
+                if type(s.name.GetStringWidth) == "function" then
+                    local sw = s.name:GetStringWidth()
+                    if type(sw) == "number" and sw > 24 then nameW = sw + 4 end
+                end
+                s.name:SetWidth(nameW)
+                s.pillA:ClearAllPoints()
+                s.pillA:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
+                s.pillB:ClearAllPoints()
+                s.pillB:SetPoint("LEFT", s.pillA, "RIGHT", 6, 0)
+                s.desc:SetPoint("TOPLEFT", s.name, "BOTTOMLEFT", 0, -4)
+                s.desc:SetWidth(math.max(80, w - textX - 36))
             else
                 s.name:SetPoint("LEFT", s.icon, "RIGHT", 8, 0)
                 s.name:SetWidth(160)
@@ -1492,6 +1510,10 @@ local function placeStyles(row, intro, heads, rows, hintText, combatNote, introH
             s.onText:ClearAllPoints()
             if s.key.Hide then s.key:Hide() end
             s.onText:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
+            if s.check then
+                s.check:ClearAllPoints()
+                s.check:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
+            end
             if s.hoverText then
                 s.hoverText:ClearAllPoints()
                 s.hoverText:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
@@ -1610,9 +1632,12 @@ function ns.themesPage()
     local rows = {}
     for i = 1, #THEMES do
         local theme = THEMES[i]
+        local paletteName, lookName = themePills(theme)
         rows[#rows + 1] = {
             kind = "theme", id = theme.id, name = theme.name, desc = theme.mood,
-            parts = themeParts(theme), palette = theme.palette, rowH = THEME_H,
+            paletteName = paletteName, lookName = lookName,
+            palette = theme.palette, accent = type(ns.byId) == "table" and ns.byId[theme.palette] and ns.byId[theme.palette].c2 or nil,
+            rowH = THEME_H,
             key = "Looks:" .. theme.id, icon = ICONS[theme.frame],
             select = function()
                 local id, changed, pending = ns.shownTheme()

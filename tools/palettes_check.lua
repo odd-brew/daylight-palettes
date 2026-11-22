@@ -1151,7 +1151,7 @@ do
         function w:SetJustifyH() end
         function w:SetWordWrap() end
         function w:SetColorTexture() end
-        function w:SetTexture() end
+        function w:SetTexture(path) w.texture = path end
         function w:SetVertexColor() end
         function w:SetAlpha() end
         function w:SetFrameLevel() end
@@ -1416,7 +1416,8 @@ local function piece()
     function w:SetFont() end
     function w:SetJustifyH() end
     function w:SetWordWrap() end
-    function w:SetColorTexture() end
+    function w:SetColorTexture(r, g, b, a) w.color = { r, g, b, a } end
+    function w:SetTexture(path) w.texture = path end
     function w:SetFrameLevel() end
     function w:GetFrameLevel() return 1 end
     function w:EnableMouse() end
@@ -1713,8 +1714,9 @@ if type(body) == "table" and type(body.build) == "function" then
     local active = row.lines[1]
     active.SetOn(true, false)
     check(active.key.shown, false, "the picked row hides its key")
-    check(active.onText.words, "✓", "the picked row shows a check")
-    check(active.onText.shown, true, "the check is visible")
+    check(active.check.texture, "Interface\\Buttons\\UI-CheckBox-Check", "the check is the game texture")
+    check(active.check.shown, true, "the check is visible")
+    check(active.onText.shown, false, "the picked row does not use a font glyph")
     active.SetOn(false, true)
     check(active.key.shown, false, "a waiting row hides its key")
     check(active.onText.words, "PENDING", "a waiting row shows PENDING")
@@ -1738,6 +1740,21 @@ if type(body) == "table" and type(body.build) == "function" then
         check(committed, true, "apply commits the staged pick")
         check(sets.UnitFrames["look.style"], "Looks:lintel", "apply writes the frame")
         check(said[#said], "popup:PALETTES_RELOAD", "apply asks to reload")
+        looksEnv.InCombatLockdown = function() return true end
+        local saidBefore = #said
+        row.lines[2].button.scripts.OnClick()
+        ns.commitStaged()
+        check(sets.UnitFrames["look.style"], "Looks:lintel", "combat apply does not write yet")
+        local poppedEarly = false
+        for i = saidBefore + 1, #said do
+            if said[i] == "popup:PALETTES_RELOAD" then poppedEarly = true end
+        end
+        check(poppedEarly, false, "combat apply waits to ask for a reload")
+        looksEnv.InCombatLockdown = function() return false end
+        ns.finishLooksCombat()
+        ns.finishQueuedReload(true)
+        check(sets.UnitFrames["look.style"], "Looks:sill", "combat end paints the queued frame")
+        check(said[#said], "popup:PALETTES_RELOAD", "the reload popup follows the paint")
         local entered = false
         local menuButton = piece()
         function menuButton:GetScript(name)
@@ -1772,20 +1789,26 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     local lastTheme = themeRow.lines[10]
     check(hearth.baseName, "Hearthnight", "theme order still starts with Hearthnight")
     check(lastTheme.baseName, "After Hours", "theme order still ends with After Hours")
-    check(hearth.parts, "Ember · Lintel · Wick", "hearthnight names its palette, frame and glow")
-    check(lastTheme.parts, "Carmine Night · Signboard · Latch", "after hours names its palette, frame and glow")
+    check(hearth.palettePill and hearth.palettePill.words, "Ember", "hearthnight's palette pill")
+    check(hearth.lookPill and hearth.lookPill.words, "Lintel + Wick", "hearthnight's frame and glow pill")
+    check(lastTheme.palettePill and lastTheme.palettePill.words, "Carmine Night", "after hours' palette pill")
+    check(lastTheme.lookPill and lastTheme.lookPill.words, "Signboard + Latch", "after hours' frame and glow pill")
     check(hearth.mood, "A winter hearth of campfire gold: a named beam and a quiet corner flame.", "hearthnight keeps its mood")
     check(type(hearth.preview) == "table" and #hearth.preview or 0, 3, "a theme row shows three swatches")
     check(hearth.preview[1], ns.byId.ember.background, "the first swatch is the palette background")
     check(hearth.preview[2], ns.byId.ember.band, "the second swatch is the band")
     check(hearth.preview[3], ns.byId.ember.c2, "the third swatch is the accent")
-    check(row.lines[1].parts, nil, "a frame row has no parts line")
+    check(row.lines[1].palettePill, nil, "a frame row has no pills")
     account.theme = "hearthnight"
     account.themeChanged = true
     palDb.palette = "tide"
     if type(themeRow.UpdateLooks) == "function" then themeRow.UpdateLooks() end
     check(hearth.name.words, "Hearthnight (changed)", "a changed theme still renames the row")
-    check(hearth.parts, "Ember · Lintel · Wick", "changed leaves the parts line")
+    check(hearth.palettePill.words, "Ember", "changed leaves the palette pill")
+    check(hearth.lookPill.words, "Lintel + Wick", "changed leaves the look pill")
+    hearth.SetOn(true, false)
+    local ember = ns.byId.ember.c2
+    check(type(hearth.washColor) == "table" and math.abs(hearth.washColor[1] - ember[1]) < 0.001, true, "a picked preset fills with the palette accent")
 else
     fail("themes tab has no body")
 end

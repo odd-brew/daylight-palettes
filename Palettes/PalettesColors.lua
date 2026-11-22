@@ -375,7 +375,7 @@ sheet({
     title = C("#F9F6F6"), text = C("#EEE5E3"), label = C("#B28376"), off = C("#AF8579"),
 })
 
--- Headings in the Appearance menu, and the restore row under them.
+-- Headings in the Appearance menu. The Colours tab has no off row; Reset Colours is that path.
 ns.groups = {
     { key = "_dark", label = "Dark", ids = {
         "ember", "tide", "dusk", "ash", "pine",

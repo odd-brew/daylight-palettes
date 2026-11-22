@@ -2266,7 +2266,7 @@ local function buildList(row)
     end
 
     local function addChoice(id, name, mood, withSwatch)
-        local wide = id == "custom" or id == ns.off.id
+        local wide = id == "custom"
         if wide then closeColumn() end
         local button = CreateFrame("Button", nil, row)
         local half = math.floor((rowWidth() - 12) / 2)
@@ -2315,6 +2315,14 @@ local function buildList(row)
         moodText:SetWordWrap(false)
         local onText = blankText(button)
         onText:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+        local check = button:CreateTexture(nil, "OVERLAY")
+        check:SetSize(16, 16)
+        check:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+        if type(check.SetTexture) == "function" then
+            -- Same stock check as CheckButton:SetCheckedTexture. See warcraft.wiki.gg.
+            check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        end
+        if check.Hide then check:Hide() end
         button:SetScript("OnClick", function()
             if id == "custom" and type(row.palettesEditor) == "table" then
                 editorOn = true
@@ -2354,7 +2362,7 @@ local function buildList(row)
         entries[#entries + 1] = {
             id = id, name = name, mood = mood, wash = wash, button = button,
             edge = edge, bgSwatch = bgSwatch, bandSwatch = bandSwatch, accentSwatch = accentSwatch,
-            nameText = nameText, moodText = moodText, onText = onText,
+            nameText = nameText, moodText = moodText, onText = onText, check = check,
         }
         if wide or col == 1 then
             y = y - 32
@@ -2377,8 +2385,6 @@ local function buildList(row)
             addChoice(p.id, p.name, p.mood, true)
         end
     end
-    headers[#headers + 1] = addHeader("Restore")
-    addChoice(ns.off.id, ns.off.name, ns.off.mood, false)
     closeColumn()
     local combatNote = blankText(row)
     combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 12, y)
@@ -2417,14 +2423,16 @@ local function buildList(row)
             end
             local waiting = waitingPick and entry.id == pending
             local hot = entry.hot and not on and not waiting
+            local rowPalette = ns.byId[entry.id]
+            local rowAccent = (rowPalette and accentBlock(rowPalette)) or (rowPalette and rowPalette.c2) or accent
             if type(entry.wash.SetColorTexture) == "function" then
                 local fill = window
                 local alpha = 0.85
                 if on or waiting then
-                    fill = (p and p.control) or window
+                    fill = rowAccent
                     alpha = 1
                 elseif hot then
-                    fill = (p and p.band) or window
+                    fill = (rowPalette and rowPalette.band) or (p and p.band) or window
                     alpha = 0.95
                 end
                 entry.wash:SetColorTexture(fill[1], fill[2], fill[3], alpha)
@@ -2434,10 +2442,12 @@ local function buildList(row)
             uiFont(entry.onText, ink, 12, waiting and labelColor or accent)
             entry.nameText:SetText(entry.name)
             entry.moodText:SetText(entry.mood)
+            if entry.check and entry.check.Hide then entry.check:Hide() end
             if waiting then
                 entry.onText:SetText("PENDING")
             elseif on then
-                entry.onText:SetText("✓")
+                entry.onText:SetText("")
+                if entry.check and entry.check.Show then entry.check:Show() end
             elseif hot then
                 entry.onText:SetText("HOVER")
             else
@@ -2809,6 +2819,37 @@ function ns.stagePick(kind, id, commit, live)
 end
 
 local RELOAD_WHICH = "PALETTES_RELOAD"
+local reloadArmed = false
+
+local function queuedWrite()
+    if not inCombat() then return false end
+    if history.pending ~= nil or heldPaint == true then return true end
+    if type(ns.looksWaiting) == "function" and ns.looksWaiting() then return true end
+    return false
+end
+
+local function showReload()
+    if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
+    if type(ns.askReload) == "function" then pcall(ns.askReload) end
+end
+
+-- Apply and the tab resets arm this. A slash command does not. The popup
+-- waits until combat ends when the write itself waited.
+function ns.finishQueuedReload(painted)
+    if not reloadArmed or inCombat() then return false end
+    reloadArmed = false
+    if painted == false then return false end
+    showReload()
+    return true
+end
+
+local function afterWrite()
+    if queuedWrite() then
+        reloadArmed = true
+        return
+    end
+    showReload()
+end
 
 function ns.askReload()
     local dialogs = StaticPopupDialogs
@@ -2847,10 +2888,7 @@ function ns.commitStaged()
     if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
     ns.staged = nil
     staged.commit()
-    if not inCombat() then
-        if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
-        if type(ns.askReload) == "function" then pcall(ns.askReload) end
-    end
+    afterWrite()
     if type(ns.notePreview) == "function" then ns.notePreview() end
     if refreshList then refreshList() end
     if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
@@ -2887,10 +2925,7 @@ local function runTabReset(tab)
     elseif tab == "Colours" and type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
         DaylightUI:Set("Palettes", "palette", "off")
     end
-    if not inCombat() then
-        if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
-        if type(ns.askReload) == "function" then pcall(ns.askReload) end
-    end
+    afterWrite()
     if refreshList then refreshList() end
     if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
 end
@@ -3097,6 +3132,8 @@ local function listen()
         if event == "PLAYER_REGEN_ENABLED" then
             local waiting = history.pending
             local repaint = heldPaint
+            local looksQueued = type(ns.looksWaiting) == "function" and ns.looksWaiting()
+            local painted = waiting ~= nil or repaint == true or looksQueued == true
             if waiting ~= nil then
                 local id = ns.finishCombat(history, ns.accountTable(), ns.charTable())
                 local d = dui()
@@ -3122,6 +3159,7 @@ local function listen()
                 if refreshList then refreshList() end
             end
             if type(ns.finishLooksCombat) == "function" then pcall(ns.finishLooksCombat) end
+            if reloadArmed then ns.finishQueuedReload(painted) end
             return
         end
         if event == "ADDON_LOADED" and name == "Looks" and type(ns.noteLooksAddon) == "function" then
