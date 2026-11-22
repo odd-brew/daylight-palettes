@@ -1161,7 +1161,38 @@ local function guardLine()
     if not ns.looksApiOk() then return NEED_STYLES end
 end
 
+function ns.lookMark()
+    local frame = wornFrame() or "daylight"
+    local glow = soleGlow() or "daylight"
+    local pending = ""
+    if type(looksPending) == "table" then
+        pending = tostring(looksPending.kind) .. ":" .. tostring(looksPending.id)
+    end
+    return frame .. "/" .. glow .. "/" .. pending
+end
+
+local looksSlashRun
+
 function ns.looksSlash(msg)
+    local function run()
+        looksSlashRun(msg)
+    end
+    if type(ns.withReloadAction) ~= "function" then
+        run()
+        return
+    end
+    local beforeLook = ns.lookMark()
+    local beforePal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+    ns.withReloadAction(function()
+        run()
+        local afterPal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+        if ns.lookMark() ~= beforeLook or afterPal ~= beforePal then
+            if type(ns.requestReload) == "function" then ns.requestReload() end
+        end
+    end)
+end
+
+function looksSlashRun(msg)
     local blocked = guardLine()
     if blocked then
         say(blocked)

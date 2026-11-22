@@ -1425,11 +1425,30 @@ function ns.adoptProfile(account, char, db)
 end
 
 -- SettingChanged is (scope, path, value). scope is "general" or a module name.
+local function paletteMoved(beforeCur, beforePend)
+    if history.current ~= beforeCur then return true end
+    if history.pending ~= beforePend and history.pending ~= nil then return true end
+    return false
+end
+
+local onSettingRun
+
 local function onSetting(scope, path)
     if applying or shutting or ns.writingLooks then return end
+    if type(ns.withReloadAction) ~= "function" then
+        onSettingRun(scope, path)
+        return
+    end
+    ns.withReloadAction(function()
+        onSettingRun(scope, path)
+    end)
+end
+
+function onSettingRun(scope, path)
     local d = dui()
     if type(d) ~= "table" or type(d.Get) ~= "function" then return end
     if scope == "Palettes" and path == "palette" then
+        local beforeCur, beforePend = history.current, history.pending
         local id = fallbackId(d:Get("Palettes", "palette")) or "off"
         if d:Get("Palettes", "palette") ~= id and type(d.Set) == "function" then
             applying = true
@@ -1451,10 +1470,16 @@ local function onSetting(scope, path)
             end
             applying = false
             if refreshList then refreshList() end
+            if paletteMoved(beforeCur, beforePend) and type(ns.requestReload) == "function" then
+                ns.requestReload()
+            end
             return
         end
         ns.choosePalette(history, ns.accountTable(), ns.charTable(), id, false)
         apply(id, true)
+        if paletteMoved(beforeCur, beforePend) and type(ns.requestReload) == "function" then
+            ns.requestReload()
+        end
         return
     end
     if scope == "Palettes" and path == "only" then
@@ -1504,7 +1529,9 @@ local function onSetting(scope, path)
         d:Set("Palettes", "glow", glowStored)
         d:Set("Palettes", "carried", true)
         applying = false
-        if id ~= beforeId or (accent == true) ~= beforeAccent then apply(id)
+        if id ~= beforeId or (accent == true) ~= beforeAccent then
+            apply(id)
+            if type(ns.requestReload) == "function" then ns.requestReload() end
         elseif cleared and refreshList then refreshList() end
         return
     end
@@ -1515,9 +1542,14 @@ local function onSetting(scope, path)
         return
     end
     if scope == "Palettes" and path == "classAccent" then
-        ns.setClassAccent(ns.accountTable(), ns.charTable(), d:Get("Palettes", "classAccent") == true)
+        local nextAccent = d:Get("Palettes", "classAccent") == true
+        local account, char = ns.accountTable(), ns.charTable()
+        local beforeAccent = type(account) == "table" and account.classAccent == true
+        if type(char) == "table" and char.only == true then beforeAccent = char.classAccent == true end
+        ns.setClassAccent(account, char, nextAccent)
         local id = d:Get("Palettes", "palette")
         if known(id) and id ~= "off" then apply(id) elseif refreshList then refreshList() end
+        if beforeAccent ~= nextAccent and type(ns.requestReload) == "function" then ns.requestReload() end
         return
     end
     if scope == "ActionBars" and path == "microIconColor" then
@@ -1580,7 +1612,20 @@ local function statusLine()
     return "Palettes: off. Type /palettes " .. joinOr(names) .. "."
 end
 
+local slashRun
+
 local function slash(msg)
+    local function run()
+        slashRun(msg)
+    end
+    if type(ns.withReloadAction) == "function" then
+        ns.withReloadAction(run)
+    else
+        run()
+    end
+end
+
+function slashRun(msg)
     if not ready then
         say("Palettes: Daylight UI isn't ready, so no palette was changed.")
         return
@@ -2164,36 +2209,53 @@ local function buildCustomEditor(row)
     end)
     save:SetScript("OnClick", function()
         if type(customDraft) ~= "table" or type(ns.saveCustom) ~= "function" then return end
-        local during = inCombat()
-        ns.saveCustom(history, ns.accountTable(), ns.charTable(), customDraft, during)
-        editorOn = false
-        if during then
-            syncSetting(history.current or "off")
-            if history.pending then
-                heldPaint = false
-                queueLine(history.pending)
-            elseif history.current == "custom" then
-                heldPaint = true
-            end
-            if refreshList then refreshList() end
-            return
-        end
-        syncSetting("custom")
-        apply("custom", true)
-        local d = dui()
-        if type(d) == "table" and type(d.Set) == "function" then
+        local function commit()
             local account, char = ns.accountTable(), ns.charTable()
-            local slot
-            if char.only == true and type(char.custom) == "table" then
-                slot = char.custom
-            elseif type(account.custom) == "table" then
-                slot = account.custom
+            local before = type(ns.readCustom) == "function" and ns.readCustom(account, char) or nil
+            local beforeId = history.current
+            local hadLook = type(ns.shareLook) == "table"
+            local during = inCombat()
+            ns.saveCustom(history, account, char, customDraft, during)
+            editorOn = false
+            local changed = hadLook or beforeId ~= "custom" or history.pending == "custom"
+            if type(ns.readCustom) == "function" and type(ns.shareCode) == "function" then
+                local after = ns.readCustom(account, char)
+                if ns.shareCode(before) ~= ns.shareCode(after) then changed = true end
             end
-            local stored = slot and type(ns.customSpec) == "function" and ns.customSpec(slot) or nil
-            applying = true
-            d:Set("Palettes", "custom", stored)
-            d:Set("Palettes", "carried", true)
-            applying = false
+            if during then
+                syncSetting(history.current or "off")
+                if history.pending then
+                    heldPaint = false
+                    queueLine(history.pending)
+                elseif history.current == "custom" then
+                    heldPaint = true
+                    changed = true
+                end
+                if refreshList then refreshList() end
+            else
+                syncSetting("custom")
+                apply("custom", true)
+                local d = dui()
+                if type(d) == "table" and type(d.Set) == "function" then
+                    local slot
+                    if char.only == true and type(char.custom) == "table" then
+                        slot = char.custom
+                    elseif type(account.custom) == "table" then
+                        slot = account.custom
+                    end
+                    local stored = slot and type(ns.customSpec) == "function" and ns.customSpec(slot) or nil
+                    applying = true
+                    d:Set("Palettes", "custom", stored)
+                    d:Set("Palettes", "carried", true)
+                    applying = false
+                end
+            end
+            if changed then ns.requestReload() end
+        end
+        if type(ns.withReloadAction) == "function" then
+            ns.withReloadAction(commit)
+        else
+            commit()
         end
     end)
     local function applyReset()
@@ -2872,12 +2934,39 @@ function ns.finishQueuedReload(painted)
     return true
 end
 
-local function afterWrite()
+local actionDepth = 0
+local reloadWanted = false
+
+-- One user action can write from several places. The popup waits until the
+-- action finishes, and a second call in that same action does not open another.
+function ns.requestReload()
+    if actionDepth > 0 then
+        reloadWanted = true
+        return
+    end
     if queuedWrite() then
         reloadArmed = true
         return
     end
     showReload()
+end
+
+function ns.withReloadAction(fn)
+    actionDepth = actionDepth + 1
+    local ok, err = pcall(fn)
+    actionDepth = actionDepth - 1
+    if actionDepth < 0 then actionDepth = 0 end
+    if actionDepth == 0 and reloadWanted then
+        reloadWanted = false
+        if queuedWrite() then
+            reloadArmed = true
+        else
+            showReload()
+        end
+    elseif actionDepth == 0 then
+        reloadWanted = false
+    end
+    if not ok then error(err, 0) end
 end
 
 function ns.askReload()
@@ -2916,8 +3005,10 @@ function ns.commitStaged()
     local staged = ns.staged
     if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
     ns.staged = nil
-    staged.commit()
-    afterWrite()
+    ns.withReloadAction(function()
+        staged.commit()
+        ns.requestReload()
+    end)
     if type(ns.notePreview) == "function" then ns.notePreview() end
     if refreshList then refreshList() end
     if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
@@ -2943,18 +3034,25 @@ local function resetLabel(tab)
 end
 
 local function runTabReset(tab)
-    ns.staged = nil
-    local rows = ns.tabReset
-    if type(rows) == "table" then
-        for i = 1, #rows do
-            if rows[i].tab == tab and type(rows[i].run) == "function" then
-                rows[i].run()
+    ns.withReloadAction(function()
+        local beforeLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
+        local beforeCur, beforePend = history.current, history.pending
+        ns.staged = nil
+        local rows = ns.tabReset
+        if type(rows) == "table" then
+            for i = 1, #rows do
+                if rows[i].tab == tab and type(rows[i].run) == "function" then
+                    rows[i].run()
+                end
             end
+        elseif tab == "Colours" and type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
+            DaylightUI:Set("Palettes", "palette", "off")
         end
-    elseif tab == "Colours" and type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
-        DaylightUI:Set("Palettes", "palette", "off")
-    end
-    afterWrite()
+        local afterLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
+        if beforeLook ~= afterLook or paletteMoved(beforeCur, beforePend) then
+            ns.requestReload()
+        end
+    end)
     if refreshList then refreshList() end
     if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
 end

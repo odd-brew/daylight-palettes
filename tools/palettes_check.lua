@@ -1172,6 +1172,7 @@ do
         return w
     end
     local rowButtons = {}
+    local editorPopups = {}
     local named = {}
     local switches = {}
     local settings = { palette = "ember", only = false, classAccent = false }
@@ -1217,6 +1218,8 @@ do
             tonumber = tonumber, select = select, unpack = unpack, next = next, error = error,
             _G = {},
             DaylightUI = ui,
+            StaticPopupDialogs = {},
+            StaticPopup_Show = function(which) editorPopups[#editorPopups + 1] = which end,
             CreateFrame = function(kind)
                 local w = piece()
                 if kind == "Button" then rowButtons[#rowButtons + 1] = w end
@@ -1331,6 +1334,12 @@ do
                     if not saved then fail("Save: " .. tostring(saveErr)) end
                     check(accentRow.hidden(), false, "accent follows class shows again after Save")
                     check(restoreRow.hidden(), false, "restore shows again after Save")
+                    check(#editorPopups, 1, "saving Custom asks to reload once")
+                    local againOpen, againOpenErr = pcall(custom.scripts.OnClick)
+                    if not againOpen then fail("reopening custom after save: " .. tostring(againOpenErr)) end
+                    local savedAgain, savedAgainErr = pcall(save.scripts.OnClick)
+                    if not savedAgain then fail("saving Custom again: " .. tostring(savedAgainErr)) end
+                    check(#editorPopups, 1, "saving the same Custom colors does not ask again")
                 end
             end
         end
@@ -2013,6 +2022,53 @@ ns.adoptProfile(unknownTheme, unknownChar, unknownDb)
 check(unknownTheme.palette, "ember", "an unknown profile palette still falls back to ember")
 check(unknownTheme.theme, "snug", "an unknown profile palette does not apply its theme")
 check(unknownTheme.frame, "flagon", "an unknown profile palette does not apply its frame")
+
+local function popupCount()
+    local n = 0
+    for i = 1, #said do
+        if said[i] == "popup:PALETTES_RELOAD" then n = n + 1 end
+    end
+    return n
+end
+looksEnv.StaticPopupDialogs = looksEnv.StaticPopupDialogs or {}
+if type(looksEnv.StaticPopup_Show) ~= "function" then
+    looksEnv.StaticPopup_Show = function(which) said[#said + 1] = "popup:" .. which end
+end
+if type(ui.module) == "table" and type(ui.module.OnEnable) == "function" then
+    ui.module.OnEnable(nil, palDb)
+end
+local quiet = popupCount()
+ns.looksSlash("")
+check(popupCount(), quiet, "a blank /looks does not ask to reload")
+ns.looksSlash("nope")
+check(popupCount(), quiet, "an unknown /looks does not ask to reload")
+sets.UnitFrames["look.style"] = "daylight"
+ns.looksSlash("lintel")
+check(popupCount(), quiet + 1, "/looks lintel asks to reload once")
+ns.looksSlash("lintel")
+check(popupCount(), quiet + 1, "repeating /looks lintel does not ask again")
+looksEnv.SlashCmdList.PALETTES("")
+check(popupCount(), quiet + 1, "a blank /palettes does not ask to reload")
+looksEnv.SlashCmdList.PALETTES("dusk")
+check(palDb.palette, "dusk", "/palettes dusk writes the palette")
+check(popupCount(), quiet + 2, "/palettes dusk asks to reload once")
+looksEnv.SlashCmdList.PALETTES("dusk")
+check(popupCount(), quiet + 2, "repeating /palettes dusk does not ask again")
+ui:Set("Palettes", "palette", "ash")
+check(palDb.palette, "ash", "an Appearance pick writes the palette")
+check(popupCount(), quiet + 3, "an Appearance palette pick asks to reload once")
+ui:Set("Palettes", "palette", "ash")
+check(popupCount(), quiet + 3, "the same Appearance pick does not ask again")
+ns.looksSlash("hearthnight")
+check(popupCount(), quiet + 4, "a theme command asks to reload once")
+looksEnv.InCombatLockdown = function() return true end
+ns.looksSlash("sill")
+check(popupCount(), quiet + 4, "a combat /looks waits to ask")
+looksEnv.InCombatLockdown = function() return false end
+ns.finishLooksCombat()
+ns.finishQueuedReload(true)
+check(sets.UnitFrames["look.style"], "Looks:sill", "combat end paints the slash frame")
+check(popupCount(), quiet + 5, "the slash reload follows the paint")
 
 if failures > 0 then
     io.stderr:write(failures .. " Palettes check(s) failed\n")

@@ -47,7 +47,7 @@ Palettes starts switched off, so your first login looks exactly like DaylightUI.
 Plugins > Palettes is one page with three tabs: **Presets**, **Colours** and **Looks**.
 
 - **Presets** lists ten presets. Each one sets a palette, a frame style and a glow. A row shows the frame glyph, the palette's background, band and accent, the name, two pills such as **Ember** and **Lintel + Wick**, and the mood. Hearthnight is Ember, Lintel and Wick. The others are Harvestide, Tidemark, Old Road, Vigil, Snug, Bellows, Drawwell, Settle and After Hours. Click a row to preview it, then **Apply**, or type `/looks hearthnight`. Chat says **Palettes: Hearthnight is on. Your layout is unchanged.**
-- **Colours** is the palette list, with swatches, Accent follows class, Save for this character only, and a Share code row. A row click previews. **Apply** saves it. **Reset Colours** is how you turn colours off from this tab. Appearance > Palette and `/palettes ember` or `/palettes off` still change colours immediately.
+- **Colours** is the palette list, with swatches, Accent follows class, Save for this character only, and a Share code row. A row click previews. **Apply** saves it. **Reset Colours** is how you turn colours off from this tab. Appearance > Palette, `/palettes ember`, and `/palettes off` still change colours immediately, then ask you to reload.
 - **Looks** lists the seven frame styles and three glow styles. Click one to preview it, then **Apply**, or type `/looks lintel` or `/looks wick`. The saved keys stay `Looks:lintel` and `Looks:wick`; the page does not print them on the row.
 
 If you change any one part of a preset, its row reads **Hearthnight (changed)**. Picking that preset again clears the mark. `/looks` reports the same mark.
@@ -70,7 +70,7 @@ A **Share code** row sits in the editor and on the Colours tab. Custom colour co
 
 - **Back** leaves the editor without saving.
 - **Reset to Ember** asks first (**Reset Custom to Ember?**). Confirming copies Ember's colors into the editor; **Save** is what writes them. Custom stays selected.
-- **Save** writes your colors and applies them. In combat, that apply waits until combat ends.
+- **Save** writes your colors and applies them, then asks you to reload. In combat, that apply and the reload prompt wait until combat ends.
 
 Custom follows **Save for this character only**, like every other palette.
 
