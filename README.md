@@ -1,6 +1,6 @@
 # Palettes (DaylightUI Plugin)
 
-Palettes recolors DaylightUI's windows, panels, borders, accent and text with one of 35 dark palettes, or a Custom palette you mix yourself. Your layout doesn't move, and class and combat colors stay exactly as DaylightUI paints them, so fights stay readable.
+Palettes recolors DaylightUI's windows, panels, borders, accent and text with one of 35 dark palettes, or a Custom palette you mix yourself. It also adds frame styles, glow styles and Themes that set a palette, frame and glow in one click. Your layout doesn't move, and class and combat colors stay exactly as DaylightUI paints them, so fights stay readable.
 
 Made for World of Warcraft: Forever.
 
@@ -10,6 +10,8 @@ Made for World of Warcraft: Forever.
   - **Dark (15):** Ember, Tide, Dusk, Ash, Pine, Forgeglow, Nightglass, Vesper, Carmine Night, Gilded, Phosphor, Ink, Sightline, Vanilla, Forever
   - **Class themes (9):** Warrior, Mage, Paladin, Priest, Hunter, Rogue, Shaman, Warlock, Druid
   - **Realm themes (11):** Keepstone, Ironbanner, Sapphire Crown, Crownwall, Deepforge, Starshade, Cogspark, Rustbrand, Gravelight, Plainsong, Junglefire
+- **10 Themes:** each one sets a palette, a frame style and a glow together. Change any part and it shows as changed.
+- **7 frame styles and 3 glow styles:** these used to be the Looks add-on and now live in Palettes.
 - **Custom:** mix your own colors, or paste a share code. The dark base is kept dark enough that text stays readable, and the accent is yours to choose.
 - **Three-color swatches:** each palette row shows background, band and accent.
 - **Undo:** one step back to the previous palette, for this session. It is not a return to Daylight's colors, and it greys out after you use it or when nothing has changed yet.
@@ -28,7 +30,7 @@ While a palette is on and Daylight's micro-menu style is on, micro-menu icons fo
 
 ## Install
 
-1. Download `Palettes-v0.3.1.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
+1. Download `Palettes-v0.4.0.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
 2. Unzip it into your game's `Interface/AddOns` folder, so you end up with `Interface/AddOns/Palettes`.
 3. Start the game, or type `/reload` if it's already running.
 
@@ -88,7 +90,7 @@ On **Plugins > Palettes**:
 - **A v0.3.0 export with Palettes off.** Importing that profile does not turn Palettes off; you keep your current look. Exports from 0.3.1 do turn Palettes off when that's what was shared.
 - **Some text changes color after a /reload.**
 - **Editing DaylightUI's Accent or Window tint switches the palette off.** Palettes steps aside so your own colors win. Pick a palette again to bring it back.
-- **Some things never change color:** class, reaction, power, item quality and money colors, plus game text. That's on purpose.
+- **Some things never change color:** class, reaction, power, item quality and money colors, plus tooltips and chat. That's on purpose.
 - **Needs a recent DaylightUI.** If your DaylightUI is too old, Palettes prints a chat line and leaves your colors alone.
 - **Partial support on some DaylightUI versions.** If a DaylightUI update changes a window Palettes doesn't know, Palettes skips that piece and says so in chat once.
 - **It's an early version.** Expect rough edges.

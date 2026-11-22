@@ -1,21 +1,22 @@
 # Changelog
 
-## [Unreleased]
+## [0.4.0] - 2026-11-22
 
 ### Added
 - Frame styles and glow styles from Looks now live in Palettes. The seven frames are Lintel, Sill, Stamp, Trestle, Flagon, Signboard and Trough. The three glows are Wick, Draught and Latch. The saved keys stay `Looks:lintel`, `Looks:wick` and so on.
 - Ten Themes, separate from the colour palettes: Hearthnight, Harvestide, Tidemark, Old Road, Vigil, Snug, Bellows, Drawwell, Settle and After Hours. A Theme sets a palette, a frame style and a glow. Each Themes row shows that palette, frame and glow by name, and the palette's background, band and accent beside the frame glyph. Pick one on Plugins > Palettes > Themes, or with `/looks hearthnight`. `/palettes` still takes palette names only.
-- Plugins > Palettes is one page with three tabs: Themes, Colours and Looks. Each tab's first row is its reset. Restore Daylight puts colours, the frame style and the glows back and clears the Theme. Restore colours puts colours back only. Restore looks puts the saved frame style and glows back only, and leaves a look set in Daylight's own menus alone when Palettes has no snapshot. On an older Daylight that cannot take frame and glow styles, only the Colours tab shows.
+- Plugins > Palettes is one page with three tabs: Themes, Colours and Looks. Each tab's first row is its reset. Restore Daylight puts colours, the frame style and the glows back and clears the Theme. Restore colours puts colours back only. Restore looks puts the saved frame style and glows back only, and leaves a look set in Daylight's own menus alone when Palettes has no snapshot.
 - Share codes are versioned. PAL2 carries the Theme name when one is on, plus the palette, frame and glow, for example `PAL2-hearthnight-ember-lintel-wick`. Copy and Apply sit on the Colours tab. PAL1 and `PAL2-C` still load Custom colours; a `PAL2-C` frame and glow apply when you Save. A bad code shows "That isn't a Palettes share code."
-
-- On Daylight plugin API 1.7 or 1.8, colors still work and Themes, frames and glows stay hidden. The plugin still needs API 1.7.
-- If the standalone Looks add-on is also loaded, Palettes keeps colors, does not register those styles again, and asks you to turn Looks off.
 
 ### Changed
 - Changing one part of a Theme (a palette, a frame, a glow, or Custom colours) keeps the Theme name and shows it as "Hearthnight (changed)". Picking that Theme again, or applying a code that matches it exactly, clears the mark. If the current palette, frame and glow already match a Theme, that Theme shows as on.
-- Restore Daylight, `/palettes off` and `/looks off` put Daylight's colors, frame style and glows back, and clear the Theme. With no saved look they leave the frame and glows alone. A pick made in combat waits until combat ends. Restore colours and Restore looks each put back only their own part, and mark a Theme changed when one was on. Restore looks with no snapshot changes nothing.
+- Restore Daylight, `/palettes off` and `/looks off` put Daylight's colours, frame style and glows back, and clear the Theme. With no saved look they leave the frame and glows alone. A pick made in combat waits until combat ends. Restore colours and Restore looks each put back only their own part, and mark a Theme changed when one was on. Restore looks with no snapshot changes nothing.
 - The Theme, the frame, the glow and the Restore snapshot follow Save for this character only, and travel with a Daylight profile the same way a palette does. A profile with no Theme, frame or glow keys leaves those alone.
-- The add-on notes and the in-game blurb now cover colors, frame styles and glow styles. Class and combat colors stay Daylight's.
+- The add-on notes and the in-game blurb now cover colours, frame styles and glow styles. Class and combat colours stay Daylight's.
+
+### Notes
+- On Daylight plugin API 1.7 or 1.8, colours still work and only the Colours tab shows; Themes, frames and glows stay hidden. Palettes still needs API 1.7 or later.
+- If the standalone Looks add-on is also loaded, Palettes keeps colours, does not register those styles again, and asks you to turn Looks off.
 
 ## [0.3.1] - 2026-11-21
 
