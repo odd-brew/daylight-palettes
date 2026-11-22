@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.1] - 2026-11-22
+
+### Changed
+- The first tab on Plugins > Palettes is now **Presets** (it was Themes). The tabs are Presets, Colours and Looks.
+- Clicking a row on any tab previews it. **Apply** saves it. The picked row fills with your accent, darkened so the text stays readable, and shows a check mark. Preset rows show their palette and their frame + glow as two pills.
+- Each tab has one reset in the tab row: **Restore Daylight** on Presets (colours, frame, glows and the preset), **Reset Colours** on Colours (colours only) and **Reset Looks** on Looks (the saved frame and glows only). The separate "off" row on Colours is gone; Reset Colours turns colours off from that tab.
+- Copy and spacing fixes across the page.
+
+### Fixed
+- Game Menu buttons (Options, Log Out, Exit Game) now pick up your colours. Apply, a Custom Save, Appearance > Palette and slash commands try to restyle them right away, then ask "Reload to finish applying your changes?" with **Reload now** and **Later**. Until you reload, those buttons may keep their old colours until you hover them. A change made in combat waits to ask until combat ends.
+
 ## [0.4.0] - 2026-11-22
 
 ### Added
