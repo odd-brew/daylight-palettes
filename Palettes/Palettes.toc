@@ -8,6 +8,9 @@
 ## SavedVariables: PalettesAccount
 ## SavedVariablesPerCharacter: PalettesChar
 ## X-Website: https://github.com/odd-brew/daylight-palettes
+# PLACEHOLDER is not a CurseForge project. The release workflow refuses it
+# until this line is the real Palettes project id.
+## X-Curse-Project-ID: PLACEHOLDER
 
 PalettesColors.lua
 PalettesCustom.lua
