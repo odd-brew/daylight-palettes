@@ -2548,8 +2548,6 @@ local function buildList(row)
             elseif on then
                 entry.onText:SetText("")
                 if entry.check and entry.check.Show then entry.check:Show() end
-            elseif hot then
-                entry.onText:SetText("HOVER")
             else
                 entry.onText:SetText("")
             end
@@ -3077,6 +3075,82 @@ local resetButtons
 local applyButton
 local previewNote
 
+-- Apply sits on the window. Daylight's scroll (and its backdrop) otherwise
+-- runs to the same bottom edge and paints over the button. Leave a gap of
+-- the button height plus its inset, and keep the button above that scroll.
+local FOOTER_BUTTON_H = 24
+local FOOTER_BOTTOM = 14
+local FOOTER_GAP = 8
+local footerResizeHooked
+
+function ns.footerReserve()
+    return FOOTER_BOTTOM + FOOTER_BUTTON_H + FOOTER_GAP
+end
+
+function ns.liftPageScroll(panel)
+    if type(panel) ~= "table" then return nil end
+    if type(panel.Current) == "function" and panel.Current() ~= "Palettes.main" then return nil end
+    local frame = type(panel.Frame) == "function" and panel.Frame()
+    local page = type(panel.PageFrame) == "function" and panel.PageFrame("Palettes.main")
+    if type(frame) ~= "table" or type(page) ~= "table" or type(page.GetParent) ~= "function" then
+        return nil
+    end
+    local scroll = page:GetParent()
+    if type(scroll) ~= "table" or scroll == frame or type(scroll.SetPoint) ~= "function" then
+        return nil
+    end
+    local topRel, topPoint, topX, topY, rightX
+    if type(scroll.GetNumPoints) == "function" and type(scroll.GetPoint) == "function" then
+        local n = scroll:GetNumPoints() or 0
+        for i = 1, n do
+            local point, rel, relPoint, x, y = scroll:GetPoint(i)
+            if point == "TOPLEFT" then
+                topRel, topPoint, topX, topY = rel, relPoint, x, y
+            elseif point == "BOTTOMRIGHT" and type(x) == "number" then
+                rightX = x
+            end
+        end
+    end
+    local reserve = ns.footerReserve()
+    if type(scroll.ClearAllPoints) == "function" then scroll:ClearAllPoints() end
+    if topRel ~= nil then
+        scroll:SetPoint("TOPLEFT", topRel, topPoint, topX, topY)
+    end
+    scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", rightX or -16, reserve)
+    local level = 8
+    if type(scroll.GetFrameLevel) == "function" then
+        local n = scroll:GetFrameLevel()
+        if type(n) == "number" then level = n + 5 end
+    end
+    if type(applyButton) == "table" then
+        if type(applyButton.SetFrameLevel) == "function" then
+            applyButton:SetFrameLevel(level)
+        end
+        if type(applyButton.SetFrameStrata) == "function" and type(scroll.GetFrameStrata) == "function" then
+            local strata = scroll:GetFrameStrata()
+            if type(strata) == "string" and strata ~= "" then
+                applyButton:SetFrameStrata(strata)
+            end
+        end
+    end
+    if type(previewNote) == "table" and type(applyButton) == "table"
+        and type(previewNote.SetParent) == "function" then
+        local parent
+        if type(previewNote.GetParent) == "function" then parent = previewNote:GetParent() end
+        if parent ~= applyButton then previewNote:SetParent(applyButton) end
+    end
+    if not footerResizeHooked and type(frame.SetScript) == "function" then
+        footerResizeHooked = true
+        local old
+        if type(frame.GetScript) == "function" then old = frame:GetScript("OnSizeChanged") end
+        frame:SetScript("OnSizeChanged", function(self, ...)
+            if type(old) == "function" then old(self, ...) end
+            ns.liftPageScroll(panel)
+        end)
+    end
+    return reserve
+end
+
 local function placeChrome(panel)
     local page = type(panel.Current) == "function" and panel.Current()
     local onPage = page == "Palettes.main"
@@ -3105,6 +3179,7 @@ local function placeChrome(panel)
         elseif preview and previewNote.Show then previewNote:Show()
         elseif previewNote.Hide then previewNote:Hide() end
     end
+    ns.liftPageScroll(panel)
 end
 
 local function placeUndo(panel)
@@ -3212,6 +3287,9 @@ syncUndo = function()
             end
             if type(previewNote) == "table" and previewNote.SetText then
                 previewNote:SetText("Previewing your pick.")
+                if type(previewNote.SetParent) == "function" then
+                    previewNote:SetParent(applyButton)
+                end
                 if previewNote.ClearAllPoints then previewNote:ClearAllPoints() end
                 previewNote:SetPoint("RIGHT", applyButton, "LEFT", -10, 0)
             end
