@@ -30,7 +30,7 @@ While a palette is on and Daylight's micro-menu style is on, micro-menu icons fo
 
 ## Install
 
-1. Download `Palettes-v0.4.0.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
+1. Download `Palettes-v0.4.1.zip` from the [latest release](https://github.com/odd-brew/daylight-palettes/releases/latest).
 2. Unzip it into your game's `Interface/AddOns` folder, so you end up with `Interface/AddOns/Palettes`.
 3. Start the game, or type `/reload` if it's already running.
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.1] - 2026-11-22
+
+### Changed
+- The Themes tab is now Presets.
+- Clicking a row picks it. Apply commits it.
+- A picked row is easier to read.
+- Game Menu buttons restyle on Apply.
+- After a real change, Apply, Custom Save, `/palettes`, `/looks`, and Appearance picks ask "Reload to finish applying your changes?" Reload now reloads. Later dismisses. The prompt waits until combat ends.
+- Copy and layout fixes.
+
 ## [0.4.0] - 2026-11-22
 
 ### Added
