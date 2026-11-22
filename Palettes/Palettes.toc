@@ -8,6 +8,7 @@
 ## SavedVariables: PalettesAccount
 ## SavedVariablesPerCharacter: PalettesChar
 ## X-Website: https://github.com/odd-brew/daylight-palettes
+## X-Curse-Project-ID: 1820278
 
 PalettesColors.lua
 PalettesCustom.lua

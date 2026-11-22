@@ -6,7 +6,10 @@ name: Release
 # change-gate runs first. It passes only when Jira has an
 # Approved OPS Change whose summary or description contains the tag.
 # The release job then builds Palettes-v<version>.zip from the Palettes
-# folder and publishes a GitHub release. There is no CurseForge or Wago upload.
+# folder and publishes a GitHub release. It uploads that same zip to the
+# Palettes CurseForge project. The project id is ## X-Curse-Project-ID in
+# Palettes.toc. The token is the CF_API_KEY repository secret. A missing
+# token or a placeholder project id fails the upload. There is no Wago upload.
 
 on:
   push:
@@ -186,3 +189,82 @@ jobs:
           gh release create "$TAG" "Palettes-v${ver}.zip" \
             --title "$TAG" \
             --notes-file RELEASE-NOTES.md
+
+      - name: Upload to CurseForge
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+            echo "curl and jq are required. Upload blocked."
+            exit 1
+          fi
+          ver="${TAG#palettes-v}"
+          zip="Palettes-v${ver}.zip"
+          if [ ! -f "$zip" ] || [ ! -f RELEASE-NOTES.md ] || [ ! -f Palettes/Palettes.toc ]; then
+            echo "CurseForge upload is missing the zip, release notes, or toc. Upload blocked."
+            exit 1
+          fi
+          if [ -z "${CF_API_KEY:-}" ]; then
+            echo "Repository secret CF_API_KEY is required. Upload blocked."
+            exit 1
+          fi
+          project=$(awk -F: '/^## X-Curse-Project-ID:/ { gsub(/[ \t\r]/, "", $2); print $2; exit }' Palettes/Palettes.toc)
+          if ! printf '%s' "$project" | grep -Eq '^[1-9][0-9]+$'; then
+            echo "CurseForge project id is missing or still a placeholder (${project:-empty}). Upload blocked."
+            exit 1
+          fi
+          iface=$(awk -F: '/^## Interface:/ { gsub(/[ \t\r]/, "", $2); print $2; exit }' Palettes/Palettes.toc)
+          if ! printf '%s' "$iface" | grep -Eq '^[0-9]{5,}$'; then
+            echo "TOC Interface line is not a Forever interface number. Upload blocked."
+            exit 1
+          fi
+          # Same split the BigWigs packager uses: 16001 becomes 1.60.1.
+          major=$((10#${iface:0:${#iface}-4}))
+          minor=$((10#${iface: -4:2}))
+          patch=$((10#${iface: -2:2}))
+          game_name="${major}.${minor}.${patch}"
+          # Forever's CurseForge game version type. The packager uses this for -g forever.
+          forever_type=88568
+          versions=$(curl -sS --connect-timeout 10 --max-time 30 \
+            -H "x-api-token: ${CF_API_KEY}" \
+            "https://wow.curseforge.com/api/game/wow/versions") || {
+            echo "CurseForge game version list failed. Upload blocked."
+            exit 1
+          }
+          if ! game_id=$(printf '%s' "$versions" | jq -r --arg name "$game_name" --argjson type "$forever_type" '
+            if type != "array" then empty
+            else first(.[] | select(.gameVersionTypeID == $type and .name == $name) | .id) // empty
+            end
+          '); then
+            echo "CurseForge game version list was not usable. Upload blocked."
+            exit 1
+          fi
+          if ! printf '%s' "$game_id" | grep -Eq '^[1-9][0-9]*$'; then
+            echo "CurseForge has no Forever game version ${game_name}. Upload blocked."
+            exit 1
+          fi
+          meta=$(jq -n \
+            --rawfile log RELEASE-NOTES.md \
+            --arg name "Palettes v${ver}" \
+            --argjson gid "$game_id" \
+            '{displayName: $name, gameVersions: [$gid], releaseType: "release", changelog: $log, changelogType: "markdown"}')
+          code=$(printf '%s' "$meta" | curl -sS --retry 3 --retry-delay 10 \
+            -o curseforge-upload.json -w "%{http_code}" \
+            -H "x-api-token: ${CF_API_KEY}" \
+            -F "metadata=<-" \
+            -F "file=@${zip}" \
+            "https://wow.curseforge.com/api/projects/${project}/upload-file") || {
+            echo "CurseForge upload request failed. Upload blocked."
+            exit 1
+          }
+          if [ "$code" != "200" ]; then
+            echo "CurseForge upload failed (HTTP ${code}) for project ${project}. Upload blocked."
+            if [ -s curseforge-upload.json ]; then
+              jq -c '.' curseforge-upload.json 2>/dev/null || true
+            fi
+            exit 1
+          fi
+          echo "CurseForge upload succeeded for project ${project}, Forever ${game_name}."

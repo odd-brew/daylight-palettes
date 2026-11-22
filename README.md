@@ -106,6 +106,14 @@ On **Plugins > Palettes**:
 - what happened instead (a screenshot or the error text helps a lot)
 - your Palettes and DaylightUI versions, and the palette you were using
 
+## Release
+
+Pushing a `palettes-v*` tag runs `.github/workflows/release.yml`. The Approved OPS Change check runs first. The release job builds `Palettes-v<version>.zip`, with the `Palettes` folder at the top of the zip, and publishes the GitHub release from `RELEASE-NOTES.md`.
+
+That same zip is uploaded to the Palettes project on CurseForge. The project id is `## X-Curse-Project-ID` in `Palettes/Palettes.toc` (`1820278`). The upload refuses a missing or non-numeric id. The token is the `CF_API_KEY` repository secret. There is no Wago upload.
+
+The CurseForge game version is WoW: Forever. `## Interface: 16001` is read as `1.60.1`, the same split the BigWigs packager uses for `-g forever`, and CurseForge's Forever list (version type 88568) must contain that name. A missing match stops the upload.
+
 ## License
 
 See [LICENSE](LICENSE).
