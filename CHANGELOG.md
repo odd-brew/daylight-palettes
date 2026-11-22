@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.2] - 2026-11-22
+
+### Fixed
+- The Apply button is no longer cut off on the Presets, Colours and Looks tabs. The options list now stops above it, including after you resize the window.
+- Hovered rows no longer show a stray "HOVER" label.
+
 ## [0.4.1] - 2026-11-22
 
 ### Changed
