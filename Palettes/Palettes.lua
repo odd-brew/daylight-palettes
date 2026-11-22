@@ -1618,11 +1618,21 @@ local function slash(msg)
     local function run()
         slashRun(msg)
     end
-    if type(ns.withReloadAction) == "function" then
-        ns.withReloadAction(run)
-    else
+    if type(ns.withReloadAction) ~= "function" then
         run()
+        return
     end
+    -- A palette that is already off can still restore Looks. Count that too.
+    local beforeLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
+    local beforePal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+    ns.withReloadAction(function()
+        run()
+        local afterPal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+        local lookChanged = type(ns.lookMark) == "function" and ns.lookMark() ~= beforeLook
+        if lookChanged or afterPal ~= beforePal then
+            if type(ns.requestReload) == "function" then ns.requestReload() end
+        end
+    end)
 end
 
 function slashRun(msg)
@@ -2229,7 +2239,6 @@ local function buildCustomEditor(row)
                     queueLine(history.pending)
                 elseif history.current == "custom" then
                     heldPaint = true
-                    changed = true
                 end
                 if refreshList then refreshList() end
             else

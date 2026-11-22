@@ -1173,6 +1173,7 @@ do
     end
     local rowButtons = {}
     local editorPopups = {}
+    local editorCombat = false
     local named = {}
     local switches = {}
     local settings = { palette = "ember", only = false, classAccent = false }
@@ -1220,6 +1221,7 @@ do
             DaylightUI = ui,
             StaticPopupDialogs = {},
             StaticPopup_Show = function(which) editorPopups[#editorPopups + 1] = which end,
+            InCombatLockdown = function() return editorCombat end,
             CreateFrame = function(kind)
                 local w = piece()
                 if kind == "Button" then rowButtons[#rowButtons + 1] = w end
@@ -1339,7 +1341,15 @@ do
                     if not againOpen then fail("reopening custom after save: " .. tostring(againOpenErr)) end
                     local savedAgain, savedAgainErr = pcall(save.scripts.OnClick)
                     if not savedAgain then fail("saving Custom again: " .. tostring(savedAgainErr)) end
-                    check(#editorPopups, 1, "saving the same Custom colors does not ask again")
+                    check(#editorPopups, 1, "a no-op Custom Save out of combat does not ask to reload")
+                    editorCombat = true
+                    local combatOpen, combatOpenErr = pcall(custom.scripts.OnClick)
+                    if not combatOpen then fail("reopening custom in combat: " .. tostring(combatOpenErr)) end
+                    local combatSave, combatSaveErr = pcall(save.scripts.OnClick)
+                    if not combatSave then fail("no-op Custom Save in combat: " .. tostring(combatSaveErr)) end
+                    editorCombat = false
+                    if type(ns.finishQueuedReload) == "function" then ns.finishQueuedReload(true) end
+                    check(#editorPopups, 1, "a no-op Custom Save in combat does not ask to reload")
                 end
             end
         end
@@ -2069,6 +2079,32 @@ ns.finishLooksCombat()
 ns.finishQueuedReload(true)
 check(sets.UnitFrames["look.style"], "Looks:sill", "combat end paints the slash frame")
 check(popupCount(), quiet + 5, "the slash reload follows the paint")
+
+char.only = false
+char.looks = nil
+sets.UnitFrames["look.style"] = "Looks:sill"
+sets.general.buttonGlow = "Looks:wick"
+sets.Nameplates.targetLight = "Looks:wick"
+account.looks = { frame = "daylight", glow = "circle", light = "none" }
+if palDb.palette ~= "off" then ns.restoreColoursOnly() end
+check(palDb.palette, "off", "colours are already off before /palettes off")
+check(sets.UnitFrames["look.style"], "Looks:sill", "Reset Colours leaves the frame")
+local offBase = popupCount()
+looksEnv.SlashCmdList.PALETTES("off")
+check(sets.UnitFrames["look.style"], "daylight", "/palettes off restores the saved frame")
+check(sets.general.buttonGlow, "circle", "/palettes off restores the saved glow")
+check(popupCount(), offBase + 1, "/palettes off asks to reload when it restores Looks")
+looksEnv.SlashCmdList.PALETTES("off")
+check(popupCount(), offBase + 1, "a no-op /palettes off does not ask again")
+sets.UnitFrames["look.style"] = "Looks:sill"
+sets.general.buttonGlow = "Looks:wick"
+sets.Nameplates.targetLight = "Looks:wick"
+account.looks = { frame = "daylight", glow = "circle", light = "none" }
+local looksOff = popupCount()
+ns.looksSlash("off")
+check(popupCount(), looksOff + 1, "/looks off asks to reload when it restores Looks")
+ns.looksSlash("off")
+check(popupCount(), looksOff + 1, "a no-op /looks off does not ask again")
 
 if failures > 0 then
     io.stderr:write(failures .. " Palettes check(s) failed\n")
