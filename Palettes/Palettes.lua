@@ -248,8 +248,9 @@ local function warnMissing()
 end
 
 local function capture()
-    if snap then return type(style()) == "table" end
-    if type(style()) ~= "table" then return false end
+    local look = style()
+    if snap then return type(look) == "table" end
+    if type(look) ~= "table" then return false end
     snap = {}
     shownChrome, shownInk = {}, {}
     local keys = {
@@ -517,8 +518,16 @@ local function restore(quiet)
     local looksBack = false
     local armed = ns.restoreLooksToo == true
     ns.restoreLooksToo = nil
+    ns.coloursOnlyRestore = nil
     if armed and type(ns.restoreLooks) == "function" then
         looksBack = ns.restoreLooks(quiet) == true
+    end
+    if armed then
+        ns.clearingTheme = true
+        if type(ns.clearTheme) == "function" then ns.clearTheme() end
+        ns.clearingTheme = false
+    elseif type(ns.notePalette) == "function" then
+        ns.notePalette("off")
     end
     if not quiet then
         notify()
@@ -565,6 +574,7 @@ local function lift(path)
     notify()
     pcall(dressExtras)
     say("Palettes: " .. name .. " lifted. Daylight is using your Appearance colors again.")
+    if type(ns.notePalette) == "function" then ns.notePalette("off") end
     ns.resetUndo(history, "off")
     heldPaint = false
 end
@@ -972,10 +982,12 @@ local function apply(id, fromQueue, quietLine)
     notify()
     pcall(dressExtras)
     warnMissing()
-    if not quietLine then
+    if type(ns.notePalette) == "function" and not ns.applyingTheme then ns.notePalette(id) end
+    if not quietLine and not ns.quietPalette then
         say("Palettes: " .. p.name .. " is on. Your layout is unchanged.")
     end
     if refreshList then refreshList() end
+    if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
 end
 
 -- PalettesAccount is the palette every character uses until they opt out.
@@ -1051,7 +1063,8 @@ end
 -- A combat pick is saved early so a reload keeps it. Cancelling writes the
 -- palette on screen back over that waiting id.
 function ns.undoReady(state)
-    return type(state) == "table" and (state.pending ~= nil or state.previous ~= nil)
+    if type(ns.looksWaiting) == "function" and ns.looksWaiting() then return true end
+    return type(state) == "table" and (state.pending ~= nil or state.previous ~= nil or state.lookUndo ~= nil)
 end
 
 function ns.resetUndo(state, id)
@@ -1059,6 +1072,7 @@ function ns.resetUndo(state, id)
     state.current = id or "off"
     state.previous = nil
     state.pending = nil
+    state.lookUndo = nil
 end
 
 function ns.clearPending(state, account, char)
@@ -1070,9 +1084,32 @@ function ns.clearPending(state, account, char)
     return true
 end
 
+function ns.pushUndo(shot)
+    if type(shot) ~= "table" then return end
+    history.lookUndo = shot
+    if shot.kind == "frame" or shot.kind == "glow" or shot.kind == "looks" then
+        history.previous = nil
+    end
+end
+
+function ns.rememberUndo(kind)
+    if ns.applyingTheme then return end
+    if type(ns.captureUndo) ~= "function" then return end
+    history.lookUndo = ns.captureUndo(kind)
+    if kind == "frame" or kind == "glow" or kind == "looks" then
+        history.previous = nil
+    end
+end
+
 function ns.choosePalette(state, account, char, id, duringCombat)
     if type(state) ~= "table" then return end
     id = fallbackId(id) or "off"
+    if ns.undoHold then
+        state.lookUndo = ns.undoHold
+        ns.undoHold = nil
+    elseif not duringCombat and state == history and type(ns.captureUndo) == "function" then
+        state.lookUndo = ns.captureUndo("palette")
+    end
     if duringCombat then
         if id ~= state.current then
             state.pending = id
@@ -1099,11 +1136,18 @@ end
 function ns.undoPalette(state, account, char)
     if type(state) ~= "table" then return end
     if ns.clearPending(state, account, char) then return state.current end
-    if state.previous == nil then return state.current end
-    state.current = state.previous
-    state.previous = nil
-    if type(account) == "table" and type(char) == "table" then
-        ns.setPalette(account, char, state.current)
+    local shot = state.lookUndo
+    state.lookUndo = nil
+    if state.previous == nil and shot == nil then return state.current end
+    if state.previous ~= nil then
+        state.current = state.previous
+        state.previous = nil
+        if type(account) == "table" and type(char) == "table" then
+            ns.setPalette(account, char, state.current)
+        end
+    end
+    if type(shot) == "table" and type(ns.applyUndoShot) == "function" then
+        ns.applyUndoShot(shot)
     end
     return state.current
 end
@@ -1159,6 +1203,10 @@ function ns.setOnly(account, char, on)
             else
                 char.looks = nil
             end
+            char.theme = account.theme
+            char.themeChanged = account.themeChanged == true
+            char.frame = account.frame
+            char.glow = account.glow
         end
         char.only = true
     else
@@ -1167,6 +1215,10 @@ function ns.setOnly(account, char, on)
         char.classAccent = nil
         char.custom = nil
         char.looks = nil
+        char.theme = nil
+        char.themeChanged = nil
+        char.frame = nil
+        char.glow = nil
     end
     char.ready = true
     return activeLook(account, char)
@@ -1308,6 +1360,12 @@ function ns.adoptProfile(account, char, db)
     if type(ns.takeLooks) == "function" then
         ns.takeLooks(account, char, db, hadLook, onlyOn)
     end
+    if unknown then
+        -- An unknown palette falls back to Ember colors only.
+    elseif type(ns.takeTheme) == "function" then
+        ns.takeTheme(account, char, db, onlyOn)
+        if type(ns.applyProfileLook) == "function" then ns.applyProfileLook(db) end
+    end
     local changed = savedId ~= id or (savedAccent == true) ~= (accent == true)
     return id, accent == true, onlyOn, unknown, capped, hadLook, changed
 end
@@ -1376,9 +1434,20 @@ local function onSetting(scope, path)
         elseif looksStored ~= false then
             looksStored = nil
         end
+        local themeStored = char.only == true and char.theme or account.theme
+        if themeStored == nil then themeStored = false end
+        local themeChanged = char.only == true and char.themeChanged == true or char.only ~= true and account.themeChanged == true
+        local frameStored = char.only == true and char.frame or account.frame
+        if frameStored == nil then frameStored = false end
+        local glowStored = char.only == true and char.glow or account.glow
+        if glowStored == nil then glowStored = false end
         applying = true
         d:Set("Palettes", "custom", stored)
         d:Set("Palettes", "looks", looksStored)
+        d:Set("Palettes", "theme", themeStored)
+        d:Set("Palettes", "themeChanged", themeChanged)
+        d:Set("Palettes", "frame", frameStored)
+        d:Set("Palettes", "glow", glowStored)
         d:Set("Palettes", "carried", true)
         applying = false
         if id ~= beforeId or (accent == true) ~= beforeAccent then apply(id)
@@ -1867,7 +1936,7 @@ local function buildCustomEditor(row)
     end
     local shareLabel = line(editor, "Share code", "TOPLEFT", editor, "TOPLEFT", 16, -332)
     if type(W.Input) == "function" then
-        shareField = W.Input(editor, { height = 22, maxLetters = 24 })
+        shareField = W.Input(editor, { height = 22, maxLetters = 80 })
     elseif type(CreateFrame) == "function" then
         shareField = CreateFrame("EditBox", nil, editor)
     end
@@ -1931,6 +2000,15 @@ local function buildCustomEditor(row)
         applyButton:SetScript("OnClick", function()
             if type(shareField) ~= "table" or type(ns.applyShareCode) ~= "function" then return end
             local text = shareField.GetText and shareField:GetText() or ""
+            local parsed = type(ns.parseShare) == "function" and ns.parseShare(text) or nil
+            if type(parsed) == "table" and parsed.kind == "pal2" and parsed.custom ~= true then
+                if type(ns.applyLiveShare) == "function" and ns.applyLiveShare(parsed) then
+                    setShareNote("")
+                else
+                    setShareNote("That isn't a Palettes share code.")
+                end
+                return
+            end
             local nextSpec, status = ns.applyShareCode(text)
             if type(nextSpec) ~= "table" then
                 setShareNote("That isn't a Palettes share code.")
@@ -2168,7 +2246,6 @@ local function buildList(row)
                 editorOn = false
             end
             local d = dui()
-            if id == "off" and type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
             if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
             if refreshList then refreshList() end
         end)
@@ -2343,6 +2420,10 @@ local function onEnable(_, db)
         end
         if type(db) == "table" then d:Set("Palettes", "custom", db.custom) end
         if type(db) == "table" and db.looks ~= nil then d:Set("Palettes", "looks", db.looks) end
+        if type(db) == "table" and db.theme ~= nil then d:Set("Palettes", "theme", db.theme) end
+        if type(db) == "table" and db.themeChanged ~= nil then d:Set("Palettes", "themeChanged", db.themeChanged == true) end
+        if type(db) == "table" and db.frame ~= nil then d:Set("Palettes", "frame", db.frame) end
+        if type(db) == "table" and db.glow ~= nil then d:Set("Palettes", "glow", db.glow) end
         if d:Get("Palettes", "carried") ~= true then d:Set("Palettes", "carried", true) end
         applying = false
     end
@@ -2356,6 +2437,104 @@ local function onEnable(_, db)
         apply("off")
     end
     if capped then say("Palettes: Custom base was darkened so text stays readable.") end
+end
+
+local function buttonWords(button, text)
+    if type(button) ~= "table" then return end
+    if type(button.text) == "table" and type(button.text.SetText) == "function" then
+        button.text:SetText(text)
+    elseif type(button.SetText) == "function" then
+        button:SetText(text)
+    end
+end
+
+local function buildPageShare(row)
+    if row.made or type(CreateFrame) ~= "function" then return end
+    row.made = true
+    local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    if type(label) == "table" then
+        if label.SetText then label:SetText("Share code") end
+        if label.SetPoint then label:SetPoint("LEFT", row, "LEFT", 8, 0) end
+    end
+    local field = CreateFrame("EditBox", nil, row)
+    local copyButton = CreateFrame("Button", nil, row)
+    local applyButton = CreateFrame("Button", nil, row)
+    local note = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    if type(field) == "table" and field.SetPoint then
+        field:SetPoint("LEFT", row, "LEFT", 110, 0)
+        if field.SetSize then field:SetSize(280, 22) end
+        if field.SetAutoFocus then field:SetAutoFocus(false) end
+        if field.SetMaxLetters then field:SetMaxLetters(80) end
+    end
+    if type(copyButton) == "table" and copyButton.SetPoint then
+        copyButton:SetPoint("LEFT", field, "RIGHT", 8, 0)
+        buttonWords(copyButton, "Copy")
+        if copyButton.SetScript then
+            copyButton:SetScript("OnClick", function()
+                if type(ns.currentPal2) ~= "function" or type(field) ~= "table" then return end
+                local code = ns.currentPal2()
+                if type(code) ~= "string" then return end
+                if field.SetText then field:SetText(code) end
+                if field.SetFocus then field:SetFocus() end
+                if field.HighlightText then field:HighlightText() end
+                local wrote = false
+                if type(CopyToClipboard) == "function" then
+                    wrote = pcall(CopyToClipboard, code)
+                end
+                if wrote then
+                    buttonWords(copyButton, "Copied.")
+                    if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
+                        C_Timer.After(1.2, function() buttonWords(copyButton, "Copy") end)
+                    end
+                end
+            end)
+        end
+    end
+    if type(applyButton) == "table" and applyButton.SetPoint then
+        applyButton:SetPoint("LEFT", copyButton, "RIGHT", 6, 0)
+        buttonWords(applyButton, "Apply")
+        if applyButton.SetScript then
+            applyButton:SetScript("OnClick", function()
+                local text = type(field) == "table" and field.GetText and field:GetText() or ""
+                local function pageNote(words)
+                    if type(note) == "table" and note.SetText then note:SetText(words or "") end
+                    if type(note) == "table" and note.SetShown then note:SetShown(words ~= nil and words ~= "") end
+                end
+                local parsed = type(ns.parseShare) == "function" and ns.parseShare(text) or nil
+                if type(parsed) ~= "table" then
+                    pageNote("That isn't a Palettes share code.")
+                    return
+                end
+                if parsed.kind == "pal2" and parsed.custom ~= true then
+                    if type(ns.applyLiveShare) ~= "function" or not ns.applyLiveShare(parsed) then
+                        pageNote("That isn't a Palettes share code.")
+                        return
+                    end
+                    pageNote("")
+                    if refreshList then refreshList() end
+                    return
+                end
+                if type(ns.applyShareCode) ~= "function" then
+                    pageNote("That isn't a Palettes share code.")
+                    return
+                end
+                local spec = ns.applyShareCode(text)
+                if type(spec) ~= "table" then
+                    pageNote("That isn't a Palettes share code.")
+                    return
+                end
+                customDraft = spec
+                editorOn = true
+                if loadCustomEditor then loadCustomEditor() end
+                pageNote("")
+                if refreshList then refreshList() end
+            end)
+        end
+    end
+    row.shareField = field
+    row.shareNote = note
+    row.copyButton = copyButton
+    row.applyButton = applyButton
 end
 
 local function boot()
@@ -2377,35 +2556,48 @@ local function boot()
     })
     if type(plugin) ~= "table" or plugin.off then return end
 
-    local pages = {
-        {
-            id = "main",
-            label = "Palettes",
-            desc = "Recolor Daylight's windows, panels, borders, accent and text, and add frame styles and glow styles. Class and combat colors stay Daylight's.",
-            groups = {
-                {
-                    label = "Palettes",
-                    items = {
-                        { type = "custom", label = "Choices", noSearch = true, build = buildList, update = function(row)
-                            if type(row.palettesRefresh) == "function" then pcall(row.palettesRefresh) end
-                        end, height = function(row) return row.palettesHeight or 430 end },
-                        { type = "toggle", key = "classAccent", label = "Accent follows class",
-                            desc = "Uses your class color as the chrome accent. The shade keeps the class hue and moves only as far as it needs to clear 3:1 on this frame. Names, chat, and unit frames stay the game's colors.",
-                            hidden = function() return editorOn == true end },
-                        { type = "toggle", key = "only", label = "Save for this character only",
-                            desc = "Off: this character uses your account palette. On: changes here apply only to this character.",
-                            hidden = function() return editorOn == true end },
-                        { type = "button", label = "Restore Daylight", text = "Restore", func = function()
-                            if type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
-                            if type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
-                                DaylightUI:Set("Palettes", "palette", "off")
-                            end
-                        end, hidden = function() return editorOn == true end },
-                    },
+    local coloursPage = {
+        id = "colours",
+        label = "Colours",
+        desc = "Recolor Daylight's windows, panels, borders, accent and text. Class and combat colors stay Daylight's. Picking a palette never changes the frame style or the glow.",
+        groups = {
+            {
+                label = "Restore",
+                bare = true,
+                wide = true,
+                items = {
+                    { type = "button", label = "Restore colours", text = "Restore", func = function()
+                        if type(ns.restoreColoursOnly) == "function" then ns.restoreColoursOnly()
+                        elseif type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
+                            DaylightUI:Set("Palettes", "palette", "off")
+                        end
+                    end, hidden = function() return editorOn == true end },
+                },
+            },
+            {
+                label = "Palettes",
+                items = {
+                    { type = "custom", label = "Choices", noSearch = true, build = buildList, update = function(row)
+                        if type(row.palettesRefresh) == "function" then pcall(row.palettesRefresh) end
+                    end, height = function(row) return row.palettesHeight or 430 end },
+                    { type = "toggle", key = "classAccent", label = "Accent follows class",
+                        desc = "Uses your class color as the chrome accent. The shade keeps the class hue and moves only as far as it needs to clear 3:1 on this frame. Names, chat, and unit frames stay the game's colors.",
+                        hidden = function() return editorOn == true end },
+                    { type = "toggle", key = "only", label = "Save for this character only",
+                        desc = "Off: this character uses your account palette. On: changes here apply only to this character.",
+                        hidden = function() return editorOn == true end },
+                    { type = "custom", label = "Share code", build = buildPageShare, height = function() return 36 end,
+                        hidden = function() return editorOn == true end },
                 },
             },
         },
     }
+    local pages = {}
+    if type(ns.themesPage) == "function" then
+        local okThemes, themesPage = pcall(ns.themesPage)
+        if okThemes and type(themesPage) == "table" then pages[#pages + 1] = themesPage end
+    end
+    pages[#pages + 1] = coloursPage
     if type(ns.looksPage) == "function" then
         local okPage, looksPage = pcall(ns.looksPage)
         if okPage and type(looksPage) == "table" then pages[#pages + 1] = looksPage end
@@ -2413,7 +2605,10 @@ local function boot()
     d:RegisterModule("Palettes", {
         label = "Palettes",
         plugin = "Palettes",
-        defaults = { palette = "off", classAccent = false, only = false, carried = false },
+        defaults = {
+            palette = "off", classAccent = false, only = false, carried = false,
+            theme = false, themeChanged = false, frame = false, glow = false, looks = false,
+        },
         OnEnable = onEnable,
         options = { pages = pages },
     })
@@ -2449,6 +2644,11 @@ local function undoClick()
         if refreshList then refreshList() end
         return
     end
+    if type(ns.looksWaiting) == "function" and ns.looksWaiting() and type(ns.cancelStylePending) == "function" then
+        ns.cancelStylePending()
+        if refreshList then refreshList() end
+        return
+    end
     local id = ns.undoPalette(history, ns.accountTable(), ns.charTable())
     local d = dui()
     applying = true
@@ -2466,7 +2666,7 @@ end
 
 local function placeUndo(panel)
     local page = type(panel.Current) == "function" and panel.Current()
-    local onPage = page == "Palettes.main"
+    local onPage = page == "Palettes.themes" or page == "Palettes.colours" or page == "Palettes.looks" or page == "Palettes.main"
     if undoButton.SetShown then
         undoButton:SetShown(onPage)
     elseif onPage and undoButton.Show then
@@ -2575,6 +2775,13 @@ local function listen()
                 end
                 applying = false
                 apply(id, true)
+                if ns.shareLook and type(ns.applyShareLook) == "function" then
+                    local look = ns.shareLook
+                    ns.shareLook = nil
+                    ns.applyingTheme = true
+                    ns.applyShareLook(look)
+                    ns.applyingTheme = false
+                end
                 if refreshList then refreshList() end
             elseif repaint then
                 heldPaint = false

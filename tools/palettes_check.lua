@@ -378,12 +378,13 @@ end
 if not main:find("Off: this character uses your account palette. On: changes here apply only to this character.", 1, true) then
     fail("missing character override help")
 end
+local coloursAt = main:find('label = "Restore colours"', 1, true)
 local choicesAt = main:find('label = "Choices"', 1, true)
 local accentAt = main:find('label = "Accent follows class"', 1, true)
 local saveAt = main:find('label = "Save for this character only"', 1, true)
-local restoreAt = main:find('label = "Restore Daylight"', 1, true)
-if not (choicesAt and accentAt and saveAt and restoreAt
-    and choicesAt < accentAt and accentAt < saveAt and saveAt < restoreAt) then
+local shareAt = main:find('label = "Share code"', 1, true)
+if not (coloursAt and choicesAt and accentAt and saveAt and shareAt
+    and coloursAt < choicesAt and choicesAt < accentAt and accentAt < saveAt and saveAt < shareAt) then
     fail("settings are out of order")
 end
 if not main:find("ns.classShade(color, frame, token)", 1, true) then
@@ -1221,13 +1222,21 @@ do
             end,
         })
         local loaded, loadErr = pcall(editorChunk, "Palettes", ns)
-        local items = module and module.options and module.options.pages
-            and module.options.pages[1] and module.options.pages[1].groups
-            and module.options.pages[1].groups[1] and module.options.pages[1].groups[1].items
         local function labeled(text)
-            if type(items) ~= "table" then return nil end
-            for i = 1, #items do
-                if items[i].label == text then return items[i] end
+            local pages = module and module.options and module.options.pages
+            if type(pages) ~= "table" then return nil end
+            for p = 1, #pages do
+                local groups = pages[p].groups
+                if type(groups) == "table" then
+                    for g = 1, #groups do
+                        local items = groups[g].items
+                        if type(items) == "table" then
+                            for i = 1, #items do
+                                if items[i].label == text then return items[i] end
+                            end
+                        end
+                    end
+                end
             end
         end
         local build = labeled("Choices")
@@ -1238,7 +1247,7 @@ do
         else
             build(row)
             local accentRow = labeled("Accent follows class")
-            local restoreRow = labeled("Restore Daylight")
+            local restoreRow = labeled("Restore colours")
             local custom = rowButtons[1]
             local switch = switches[1]
             if type(row.palettesEditor) ~= "table" or type(custom) ~= "table"
@@ -1339,8 +1348,8 @@ local looksSource = readAll(root .. "/Palettes/PalettesLooks.lua")
 if looksSource:find("LooksDB", 1, true) and looksSource:find("LooksDB%s*=", 1, false) then
     fail("looks must not write LooksDB")
 end
-if not looksSource:find("Presets pair a frame style and a glow style only. They never change colours.", 1, true) then
-    fail("missing the presets intro")
+if not looksSource:find("Themes set a palette, a frame style and a glow. Palettes, frames and glows can each be picked on their own.", 1, true) then
+    fail("missing the themes intro")
 end
 if not looksSource:find("Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", 1, true) then
     fail("missing the api guard line")
@@ -1355,11 +1364,16 @@ if not main:find('blurb = "Colors, frame styles and glow styles for Daylight. Cl
     fail("plugin blurb must cover colors, frames and glows")
 end
 local moods = {
-    "A winter hearth: a named beam, a quiet corner flame. Sits well with Palettes for DaylightUI — Ember.",
-    "Harvest light along the sill of the bar. Sits well with Palettes for DaylightUI — Vanilla.",
-    "A tight line at the waterline, a soft wash along the rim. Sits well with Palettes for DaylightUI — Tide.",
-    "A weathered beam and a short catch of lantern light. Sits well with Palettes for DaylightUI — Forever.",
-    "The name tab stays, and a flame is kept lit at the corners. Sits well with Palettes for DaylightUI — Paladin.",
+    "A winter hearth of campfire gold: a named beam and a quiet corner flame.",
+    "Harvest light on dark oak and pewter, washed along the sill of the bar.",
+    "Cool sea-green at the waterline: a tight stamp and a soft wash along the rim.",
+    "Near-black soot and weathered bronze: a weathered beam and a short catch of lantern light.",
+    "Rose on warm plum-brown. The name tab stays, and a flame is kept lit at the corners.",
+    "A deep gold cup in the quiet corner, and a short catch of lantern light.",
+    "A named work board and a quiet corner flame, like a forge kept open late.",
+    "Storm-grey water in a deep basin, and a soft wash along the rim.",
+    "A walnut beam and a brief catch of brass-lantern light, like a high-backed bench by the fire.",
+    "A hanging sign and a brief cut of carmine light, after the room has gone quiet.",
 }
 for i = 1, #moods do
     if not looksSource:find(moods[i], 1, true) then fail("missing preset mood: " .. moods[i]) end
@@ -1368,8 +1382,10 @@ if not looksSource:find("powerHeight = 14", 1, true) then
     fail("trough power height must ship as 14")
 end
 
-local OFF_LINE = "Looks: off. Type /looks lintel, sill, stamp, trestle, flagon, signboard, trough, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, or off."
-local LINTEL_LINE = "Looks: Lintel is on. Type /looks sill, stamp, trestle, flagon, signboard, trough, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, or off."
+local OFF_LINE = "Looks: off. Type /looks lintel, sill, stamp, trestle, flagon, signboard, trough, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local LINTEL_LINE = "Looks: Lintel is on. Type /looks sill, stamp, trestle, flagon, signboard, trough, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks sill, stamp, trestle, flagon, signboard, trough, draught, latch, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks sill, stamp, trestle, flagon, signboard, trough, wick, latch, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
 
 local function piece()
     local w = {}
@@ -1512,9 +1528,14 @@ check(views.Looks and views.Looks.lintelKey, "Looks:lintel", "frame keys stay on
 check(views.Looks and views.Looks.glowKey, "Looks:wick", "glow keys stay on Looks")
 check(views.Looks and views.Looks.trough and views.Looks.trough.sizes.player.powerHeight, 14, "trough power height is not clamped here")
 local pages = ui.module and ui.module.options and ui.module.options.pages
-check(type(pages) == "table" and pages[2] and pages[2].label, "Looks", "looks is a page inside palettes")
-check(type(pages) == "table" and pages[2] and pages[2].hidden() , false, "looks page shows on api 1.9")
-check(pages and pages[1] and pages[1].groups[1].items[4].label, "Restore Daylight", "one restore label")
+check(type(pages) == "table" and pages[1] and pages[1].label, "Themes", "themes is the first page")
+check(type(pages) == "table" and pages[2] and pages[2].label, "Colours", "colours is the second page")
+check(type(pages) == "table" and pages[3] and pages[3].label, "Looks", "looks is the third page")
+check(pages[1].hidden(), false, "themes page shows on api 1.9")
+check(pages[3].hidden(), false, "looks page shows on api 1.9")
+check(pages[1].groups[1].items[1].label, "Restore Daylight", "themes reset is Restore Daylight")
+check(pages[2].groups[1].items[1].label, "Restore colours", "colours reset is Restore colours")
+check(pages[3].groups[1].items[1].label, "Restore looks", "looks reset is Restore looks")
 
 local account = ns.accountTable()
 local char = ns.charTable()
@@ -1536,15 +1557,36 @@ ns.looksSlash("")
 check(said[#said], LINTEL_LINE, "/looks names lintel and leaves it out of the list")
 ns.looksSlash("nope")
 check(said[#said], LINTEL_LINE, "an unknown name reprints the status")
-local before = palDb.palette
 ns.looksSlash("hearthnight")
-check(palDb.palette, before, "a preset does not change the palette")
-check(sets.UnitFrames["look.style"], "Looks:lintel", "hearthnight keeps lintel")
+check(palDb.palette, "ember", "hearthnight sets the ember palette")
+check(sets.UnitFrames["look.style"], "Looks:lintel", "hearthnight sets lintel")
 check(sets.general.buttonGlow, "Looks:wick", "hearthnight sets wick on the buttons")
 check(sets.Nameplates.targetLight, "Looks:wick", "hearthnight sets wick on the nameplate")
+check(account.theme, "hearthnight", "hearthnight remembers the theme")
 check(account.looks.frame, "daylight", "a second look does not replace the snapshot")
+check(saidHas("Palettes: Hearthnight is on. Your layout is unchanged."), true, "a theme says it is on")
+said = {}
+ns.looksSlash("")
+check(said[#said], HEARTH_LINE, "/looks names the theme and leaves its parts out")
+ns.looksSlash("draught")
+check(palDb.palette, "ember", "a glow pick does not change the palette")
+check(sets.general.buttonGlow, "Looks:draught", "draught replaces wick")
+check(account.theme, "hearthnight", "a glow pick keeps the theme name")
+check(account.themeChanged, true, "a glow pick marks the theme changed")
+said = {}
+ns.looksSlash("")
+check(said[#said], CHANGED_LINE, "/looks reports the changed theme")
+ns.looksSlash("hearthnight")
+check(account.themeChanged, false, "picking the theme again clears changed")
+check(sets.general.buttonGlow, "Looks:wick", "picking the theme again restores its glow")
+local frameBefore = sets.UnitFrames["look.style"]
+local glowBefore = sets.general.buttonGlow
+looksEnv.SlashCmdList.PALETTES("hearthnight")
+check(sets.UnitFrames["look.style"], frameBefore, "/palettes does not take a theme name")
+check(sets.general.buttonGlow, glowBefore, "/palettes hearthnight does not change the glow")
 said = {}
 ns.looksSlash("off")
+check(account.theme, false, "a full restore clears the theme")
 check(sets.UnitFrames["look.style"], "daylight", "restore writes the saved frame back")
 check(sets.general.buttonGlow, "circle", "restore writes the saved glow back")
 check(sets.Nameplates.targetLight, "none", "restore writes the saved outline back")
@@ -1599,10 +1641,15 @@ ns.bootLooks()
 check(styleCalls.frame, 0, "api 1.7 does not register frames")
 check(styleCalls.glow, 0, "api 1.7 does not register glows")
 check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", "api 1.7 says only colors")
-check(pages[2].hidden(), true, "api 1.7 hides the looks page")
+check(pages[1].hidden(), true, "api 1.7 hides the themes page")
+check(pages[3].hidden(), true, "api 1.7 hides the looks page")
 local beforeGuard = sets.UnitFrames["look.style"]
+local paletteGuard = palDb.palette
 ns.looksSlash("lintel")
 check(sets.UnitFrames["look.style"], beforeGuard, "api 1.7 /looks does not apply")
+ns.looksSlash("hearthnight")
+check(sets.UnitFrames["look.style"], beforeGuard, "api 1.7 /looks hearthnight does not apply a theme")
+check(palDb.palette, paletteGuard, "api 1.7 /looks hearthnight does not change colours")
 check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", "/looks repeats the guard")
 
 ui.API.minor = 9
@@ -1616,10 +1663,9 @@ ns.bootLooks()
 check(styleCalls.frame, 0, "a loaded Looks add-on is not registered twice")
 check(said[#said], "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes.", "both add-ons get one line")
 
-local looksGroups = pages[2].groups
-check(type(looksGroups) == "table" and #looksGroups or 0, 3, "looks page has a header, the card, and a footer")
-check(looksGroups[1].items[1].label, "Restore Daylight", "header restore uses Restore Daylight")
-check(looksGroups[3].items[1].label, "Restore Daylight", "footer restore uses Restore Daylight")
+local looksGroups = pages[3].groups
+check(type(looksGroups) == "table" and #looksGroups or 0, 2, "looks page has a reset and the styles")
+check(looksGroups[1].items[1].label, "Restore looks", "looks reset is labelled Restore looks")
 local row = piece()
 local body = looksGroups[2].items[1]
 ui.API.minor = 9
@@ -1642,25 +1688,166 @@ if type(body) == "table" and type(body.build) == "function" then
 else
     fail("looks page has no body")
 end
-local headerRow = piece()
-local footerRow = piece()
-local headerBuilt, headerErr = pcall(looksGroups[1].items[1].build, headerRow)
-local footerBuilt, footerErr = pcall(looksGroups[3].items[1].build, footerRow)
-if not headerBuilt or not footerBuilt then
-    fail("restore rows did not build: " .. tostring(headerErr or footerErr))
-elseif type(headerRow.restoreButton) ~= "table" or type(footerRow.restoreButton) ~= "table" then
-    fail("restore rows have no button")
+local themeRow = piece()
+local themeBody = pages[1].groups[2].items[1]
+if type(themeBody) == "table" and type(themeBody.build) == "function" then
+    local builtTheme, themeErr = pcall(themeBody.build, themeRow)
+    if not builtTheme then fail("themes page did not build: " .. tostring(themeErr)) end
+    check(type(themeRow.lines) == "table" and #themeRow.lines or 0, 10, "ten theme rows")
 else
-    palDb.palette = "ember"
-    local clicked, clickErr = pcall(headerRow.restoreButton.scripts.OnClick)
-    if not clicked then fail("header restore: " .. tostring(clickErr)) end
-    check(palDb.palette, "off", "the looks header restore turns the palette off")
-    check(ns.restoreLooksToo, nil, "the looks header restore uses the shared restore")
-    palDb.palette = "tide"
-    local clickedFooter, footerClickErr = pcall(footerRow.restoreButton.scripts.OnClick)
-    if not clickedFooter then fail("footer restore: " .. tostring(footerClickErr)) end
-    check(palDb.palette, "off", "the looks footer restore turns the palette off")
+    fail("themes page has no body")
 end
+
+sets.UnitFrames["look.style"] = "daylight"
+sets.general.buttonGlow = "circle"
+sets.Nameplates.targetLight = "none"
+account.looks = nil
+account.theme = false
+account.themeChanged = false
+palDb.palette = "tide"
+palDb.looks = nil
+ns.looksSlash("hearthnight")
+check(account.theme, "hearthnight", "reset setup turns hearthnight on")
+local coloursButton = pages[2].groups[1].items[1]
+if type(coloursButton) == "table" and type(coloursButton.func) == "function" then
+    coloursButton.func()
+end
+check(palDb.palette, "off", "Restore colours turns the palette off")
+check(sets.UnitFrames["look.style"], "Looks:lintel", "Restore colours leaves the frame")
+check(sets.general.buttonGlow, "Looks:wick", "Restore colours leaves the glow")
+check(account.theme, "hearthnight", "Restore colours keeps the theme name")
+check(account.themeChanged, true, "Restore colours marks the theme changed")
+
+account.themeChanged = false
+palDb.palette = "ember"
+sets.UnitFrames["look.style"] = "Looks:lintel"
+sets.general.buttonGlow = "Looks:wick"
+sets.Nameplates.targetLight = "Looks:wick"
+account.looks = { frame = "daylight", glow = "circle", light = "none" }
+palDb.looks = account.looks
+local looksButton = pages[3].groups[1].items[1]
+local looksHold = piece()
+if type(looksButton) ~= "table" or type(looksButton.build) ~= "function" then
+    fail("looks reset did not build")
+else
+    looksButton.build(looksHold)
+    looksHold.restoreButton.scripts.OnClick()
+end
+check(palDb.palette, "ember", "Restore looks leaves the palette")
+check(sets.UnitFrames["look.style"], "daylight", "Restore looks puts the saved frame back")
+check(account.theme, "hearthnight", "Restore looks keeps the theme name")
+check(account.themeChanged, true, "Restore looks marks the theme changed")
+
+palDb.palette = "ember"
+sets.UnitFrames["look.style"] = "Looks:lintel"
+sets.general.buttonGlow = "Looks:wick"
+sets.Nameplates.targetLight = "Looks:wick"
+account.looks = { frame = "daylight", glow = "circle", light = "none" }
+palDb.looks = account.looks
+account.theme = "hearthnight"
+account.themeChanged = false
+local themesButton = pages[1].groups[1].items[1]
+local themesHold = piece()
+themesButton.build(themesHold)
+themesHold.restoreButton.scripts.OnClick()
+check(palDb.palette, "off", "Restore Daylight turns colours off")
+check(sets.UnitFrames["look.style"], "daylight", "Restore Daylight puts the frame back")
+check(account.theme, false, "Restore Daylight clears the theme")
+
+local round = ns.parseShare("PAL2-hearthnight-ember-lintel-wick")
+check(round and round.theme, "hearthnight", "PAL2 keeps the theme")
+check(round and round.palette, "ember", "PAL2 keeps the palette")
+check(round and round.frame, "lintel", "PAL2 keeps the frame")
+check(round and round.glow, "wick", "PAL2 keeps the glow")
+check(ns.pal2Code(round), "PAL2-hearthnight-ember-lintel-wick", "PAL2 theme code round-trips")
+local drifted = ns.parseShare("PAL2-HEARTHNIGHT-EMBER-LINTEL-DRAUGHT")
+check(drifted and drifted.glow, "draught", "PAL2 ignores case")
+check(ns.pal2Code({ theme = "hearthnight", palette = "ember", frame = "lintel", glow = "draught" }), "PAL2-hearthnight-ember-lintel-draught", "a changed theme keeps its name in the code")
+local parts = ns.parseShare("PAL2-ember-lintel-wick")
+check(parts and parts.theme, nil, "PAL2 without a theme has no theme name")
+check(ns.pal2Code(parts), "PAL2-ember-lintel-wick", "PAL2 parts round-trip")
+local onlyPalette = ns.parseShare("PAL2-ember-none-none")
+check(onlyPalette and onlyPalette.frame, "none", "PAL2 none leaves the frame unset")
+local customCode = ns.parseShare("PAL2-#C-#1A1410-#C4A574-sill-wick")
+check(customCode and customCode.custom, true, "PAL2-C is custom colors")
+check(customCode and customCode.frame, "sill", "PAL2-C keeps the frame")
+check(ns.pal2Code({ custom = true, base = "1A1410", accent = "C4A574", frame = "sill", glow = "wick" }), "PAL2-C-1A1410-C4A574-sill-wick", "PAL2-C round-trips")
+local customOnly = ns.applyShareCode("PAL2-C-1A1410-C4A574-none-none")
+check(type(customOnly) == "table", true, "PAL2-C loads a custom draft")
+check(ns.shareLook, nil, "PAL2-C with none does not queue a frame")
+local queued = ns.applyShareCode("PAL2-C-341529-E2B14A-sill-wick")
+check(type(queued) == "table", true, "PAL2-C with a look loads the draft")
+check(ns.shareLook and ns.shareLook.frame, "sill", "PAL2-C holds the frame until Save")
+check(ns.shareLook and ns.shareLook.glow, "wick", "PAL2-C holds the glow until Save")
+ns.shareLook = nil
+local pal1 = ns.applyShareCode("PAL1-341529-E2B14A")
+check(ns.shareCode(pal1), "PAL1-341529-E2B14A", "PAL1 still imports colors only")
+check(ns.shareLook, nil, "PAL1 does not queue a frame or glow")
+check(ns.parseShare("PAL2-nope-ember-lintel-wick"), nil, "a bad PAL2 is rejected")
+sets.UnitFrames["look.style"] = "daylight"
+sets.general.buttonGlow = "circle"
+sets.Nameplates.targetLight = "none"
+palDb.palette = "tide"
+account.theme = false
+said = {}
+check(ns.applyLiveShare(ns.parseShare("PAL2-hearthnight-ember-lintel-wick")), true, "a PAL2 theme applies")
+check(palDb.palette, "ember", "PAL2 theme sets the palette")
+check(sets.UnitFrames["look.style"], "Looks:lintel", "PAL2 theme sets the frame")
+check(sets.general.buttonGlow, "Looks:wick", "PAL2 theme sets the glow")
+check(account.theme, "hearthnight", "PAL2 theme marks the theme on")
+check(account.themeChanged, false, "an exact PAL2 theme is not changed")
+check(ns.applyLiveShare(ns.parseShare("PAL2-tide-none-none")), true, "a palette-only PAL2 applies")
+check(palDb.palette, "tide", "a palette-only PAL2 changes colours")
+check(sets.UnitFrames["look.style"], "Looks:lintel", "PAL2 none leaves the frame alone")
+check(account.theme, false, "a PAL2 with no theme name drops a theme the parts do not match")
+
+sets.UnitFrames["look.style"] = "Looks:lintel"
+sets.general.buttonGlow = "Looks:wick"
+sets.Nameplates.targetLight = "Looks:wick"
+account.theme = "hearthnight"
+account.themeChanged = false
+palDb.palette = "ember"
+ns.notePalette("ember")
+check(account.themeChanged, false, "picking the theme's own palette does not mark it changed")
+ns.notePalette("tide")
+check(account.theme, "hearthnight", "another palette keeps the theme name")
+check(account.themeChanged, true, "another palette marks the theme changed")
+ns.notePalette("ember")
+check(account.themeChanged, false, "parts that match the theme clear changed")
+
+local shot = ns.captureUndo("theme")
+sets.UnitFrames["look.style"] = "Looks:sill"
+sets.general.buttonGlow = "Looks:draught"
+sets.Nameplates.targetLight = "Looks:draught"
+account.theme = "hearthnight"
+account.themeChanged = true
+ns.applyUndoShot(shot)
+check(sets.UnitFrames["look.style"], "Looks:lintel", "undo of a theme puts the frame back")
+check(sets.general.buttonGlow, "Looks:wick", "undo of a theme puts the glow back")
+check(account.themeChanged, false, "undo of a theme clears changed when the parts match")
+
+local bare = { palette = "tide", classAccent = false, seeded = true, theme = "vigil" }
+local bareChar = { only = false, ready = true }
+local bareDb = { palette = "ember", classAccent = false, carried = true }
+ns.adoptProfile(bare, bareChar, bareDb)
+check(bare.theme, "vigil", "a profile with no theme keys leaves the theme")
+local brought = { palette = "tide", classAccent = false, seeded = true }
+local broughtChar = { only = false, ready = true }
+local broughtDb = {
+    palette = "vanilla", classAccent = false, carried = true,
+    theme = "harvestide", themeChanged = false, frame = "sill", glow = "draught",
+}
+ns.adoptProfile(brought, broughtChar, broughtDb)
+check(brought.theme, "harvestide", "a profile theme is adopted")
+check(sets.UnitFrames["look.style"], "Looks:sill", "a profile frame is adopted")
+check(sets.general.buttonGlow, "Looks:draught", "a profile glow is adopted")
+local unknownTheme = { palette = "ember", classAccent = false, seeded = true, theme = "snug", frame = "flagon", glow = "latch" }
+local unknownChar = { only = false, ready = true }
+local unknownDb = { palette = "not-a-palette", classAccent = false, carried = true, theme = "bellows", frame = "trestle", glow = "wick" }
+ns.adoptProfile(unknownTheme, unknownChar, unknownDb)
+check(unknownTheme.palette, "ember", "an unknown profile palette still falls back to ember")
+check(unknownTheme.theme, "snug", "an unknown profile palette does not apply its theme")
+check(unknownTheme.frame, "flagon", "an unknown profile palette does not apply its frame")
 
 if failures > 0 then
     io.stderr:write(failures .. " Palettes check(s) failed\n")

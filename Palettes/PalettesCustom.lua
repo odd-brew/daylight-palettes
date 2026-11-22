@@ -372,15 +372,137 @@ function ns.shareCode(spec)
     return "PAL1-" .. base .. "-" .. accent
 end
 
--- A code loads a new draft. A bad code returns nothing, so the caller leaves
--- the current draft alone. A base lighter than L* 28 is dropped to 28 in Lab,
--- which is the cap color the editor shows. The accent is not capped.
-function ns.applyShareCode(text)
-    if type(text) ~= "string" then return nil, "bad" end
-    local trimmed = string.match(text, "^%s*(.-)%s*$")
-    local raw = trimmed and string.upper(trimmed) or ""
-    local baseBody, accentBody = string.match(raw, "^PAL1%-#?(%x%x%x%x%x%x)%-#?(%x%x%x%x%x%x)$")
-    if not baseBody or type(ns.hexColor) ~= "function" then return nil, "bad" end
+local SHARE_FRAMES = {
+    lintel = true, sill = true, stamp = true, trestle = true, flagon = true,
+    signboard = true, trough = true, daylight = true, none = true,
+}
+local SHARE_GLOWS = { wick = true, draught = true, latch = true, daylight = true, none = true }
+
+local function eatToken(body, id)
+    if type(body) ~= "string" or type(id) ~= "string" or id == "" then return nil end
+    if body == id then return "" end
+    local prefix = id .. "-"
+    if string.sub(body, 1, #prefix) == prefix then return string.sub(body, #prefix + 1) end
+end
+
+local function eatHex(body)
+    if type(body) ~= "string" then return nil end
+    local hex = string.match(body, "^(%x%x%x%x%x%x)")
+    if not hex then return nil end
+    local rest = string.sub(body, 7)
+    if string.sub(rest, 1, 1) == "-" then rest = string.sub(rest, 2) end
+    return string.upper(hex), rest
+end
+
+local function eatFrame(body)
+    local best, rest
+    for id in pairs(SHARE_FRAMES) do
+        local left = eatToken(body, id)
+        if left ~= nil and (not best or #id > #best) then best, rest = id, left end
+    end
+    return best, rest
+end
+
+local function eatGlow(body)
+    local best, rest
+    for id in pairs(SHARE_GLOWS) do
+        local left = eatToken(body, id)
+        if left ~= nil and (not best or #id > #best) then best, rest = id, left end
+    end
+    return best, rest
+end
+
+local function eatPalette(body)
+    local best, rest
+    local function consider(id)
+        local left = eatToken(body, id)
+        if left ~= nil and (not best or #id > #best) then best, rest = id, left end
+    end
+    if type(ns.byId) == "table" then
+        for id in pairs(ns.byId) do consider(id) end
+    end
+    consider("off")
+    return best, rest
+end
+
+local function parseCustomTail(body)
+    local base, rest = eatHex(body)
+    local accent, rest2 = eatHex(rest)
+    local frame, rest3 = eatFrame(rest2)
+    local glow, rest4 = eatGlow(rest3)
+    if not base or not accent or not frame or not glow or rest4 ~= "" then return nil end
+    return { custom = true, base = base, accent = accent, frame = frame, glow = glow }
+end
+
+local function parseLookTail(body)
+    local palette, rest = eatPalette(body)
+    local frame, rest2 = eatFrame(rest)
+    local glow, rest3 = eatGlow(rest2)
+    if not palette or not frame or not glow or rest3 ~= "" then return nil end
+    return { palette = palette, frame = frame, glow = glow }
+end
+
+-- PAL2-theme-palette-frame-glow, PAL2-palette-frame-glow, or PAL2-C-base-accent-frame-glow.
+-- A leading theme is included only when one is on. "none" leaves that part alone.
+function ns.parseShare(text)
+    if type(text) ~= "string" then return nil end
+    local trimmed = string.match(text, "^%s*(.-)%s*$") or ""
+    local upper = string.upper(trimmed)
+    if string.sub(upper, 1, 5) == "PAL1-" then return { kind = "pal1" } end
+    if string.sub(upper, 1, 5) ~= "PAL2-" then return nil end
+    local body = string.lower(string.gsub(string.sub(trimmed, 6), "#", ""))
+    if string.sub(body, 1, 2) == "c-" then
+        local tail = parseCustomTail(string.sub(body, 3))
+        if not tail then return nil end
+        tail.kind = "pal2"
+        return tail
+    end
+    if type(ns.themes) == "table" then
+        for i = 1, #ns.themes do
+            local id = ns.themes[i].id
+            local rest = eatToken(body, id)
+            if rest ~= nil then
+                local with
+                if string.sub(rest, 1, 2) == "c-" then
+                    with = parseCustomTail(string.sub(rest, 3))
+                else
+                    with = parseLookTail(rest)
+                end
+                if with then
+                    with.kind = "pal2"
+                    with.theme = id
+                    return with
+                end
+            end
+        end
+    end
+    local plain = parseLookTail(body)
+    if not plain then return nil end
+    plain.kind = "pal2"
+    return plain
+end
+
+function ns.pal2Code(part)
+    if type(part) ~= "table" then return nil end
+    local frame = type(part.frame) == "string" and part.frame or "none"
+    local glow = type(part.glow) == "string" and part.glow or "none"
+    local theme = type(part.theme) == "string" and part.theme ~= "" and part.theme or nil
+    if part.custom == true then
+        local base = bareHex(part.base)
+        local accent = bareHex(part.accent)
+        if not base or not accent then return nil end
+        local tail = "C-" .. base .. "-" .. accent .. "-" .. frame .. "-" .. glow
+        if theme then return "PAL2-" .. theme .. "-" .. tail end
+        return "PAL2-" .. tail
+    end
+    local palette = type(part.palette) == "string" and part.palette or nil
+    if not palette or palette == "" then return nil end
+    if theme then return "PAL2-" .. theme .. "-" .. palette .. "-" .. frame .. "-" .. glow end
+    return "PAL2-" .. palette .. "-" .. frame .. "-" .. glow
+end
+
+local function specFromHex(baseBody, accentBody)
+    if type(ns.hexColor) ~= "function" then return nil, "bad" end
     local base = ns.hexColor("#" .. baseBody)
     local accent = ns.hexColor("#" .. accentBody)
     if type(base) ~= "table" or type(accent) ~= "table" then return nil, "bad" end
@@ -397,12 +519,49 @@ function ns.applyShareCode(text)
     }), capped and "capped" or "applied"
 end
 
+-- A code loads a new draft. A bad code returns nothing, so the caller leaves
+-- the current draft alone. A base lighter than L* 28 is dropped to 28 in Lab,
+-- which is the cap color the editor shows. The accent is not capped.
+-- PAL1 and PAL2-C load colors only. A named PAL2 is applied by the page row.
+function ns.applyShareCode(text)
+    if type(text) ~= "string" then return nil, "bad" end
+    local parsed = ns.parseShare(text)
+    if type(parsed) == "table" and parsed.kind == "pal2" and parsed.custom == true then
+        local frame = parsed.frame ~= "none" and parsed.frame or nil
+        local glow = parsed.glow ~= "none" and parsed.glow or nil
+        if frame or glow then ns.shareLook = { frame = frame, glow = glow }
+        else ns.shareLook = nil end
+        return specFromHex(parsed.base, parsed.accent)
+    end
+    ns.shareLook = nil
+    local trimmed = string.match(text, "^%s*(.-)%s*$")
+    local raw = trimmed and string.upper(trimmed) or ""
+    local baseBody, accentBody = string.match(raw, "^PAL1%-#?(%x%x%x%x%x%x)%-#?(%x%x%x%x%x%x)$")
+    if not baseBody then return nil, "bad" end
+    return specFromHex(baseBody, accentBody)
+end
+
 -- Saving custom colors is a palette pick, so Undo can step back to the previous one.
+-- A PAL2-C frame and glow wait until this Save. PAL1 never writes them.
 function ns.saveCustom(state, account, char, spec, duringCombat)
+    local look = ns.shareLook
+    ns.shareLook = nil
+    if look and not duringCombat and type(ns.captureUndo) == "function" then
+        ns.undoHold = ns.captureUndo("theme")
+    end
     ns.writeCustom(account, char, spec)
     if type(ns.choosePalette) == "function" then
-        return ns.choosePalette(state, account, char, "custom", duringCombat == true)
+        ns.choosePalette(state, account, char, "custom", duringCombat == true)
     end
+    if look and not duringCombat and type(ns.applyShareLook) == "function" then
+        ns.applyingTheme = true
+        ns.applyShareLook(look)
+        ns.applyingTheme = false
+        if type(ns.notePalette) == "function" then ns.notePalette("custom") end
+    elseif look and duringCombat then
+        ns.shareLook = look
+    end
+    return type(state) == "table" and state.current or nil
 end
 
 if type(ns.byId) == "table" then
