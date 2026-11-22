@@ -381,7 +381,7 @@ end
 local choicesAt = main:find('label = "Choices"', 1, true)
 local accentAt = main:find('label = "Accent follows class"', 1, true)
 local saveAt = main:find('label = "Save for this character only"', 1, true)
-local restoreAt = main:find('label = "Restore Daylight colors"', 1, true)
+local restoreAt = main:find('label = "Restore Daylight"', 1, true)
 if not (choicesAt and accentAt and saveAt and restoreAt
     and choicesAt < accentAt and accentAt < saveAt and saveAt < restoreAt) then
     fail("settings are out of order")
@@ -1238,7 +1238,7 @@ do
         else
             build(row)
             local accentRow = labeled("Accent follows class")
-            local restoreRow = labeled("Restore Daylight colors")
+            local restoreRow = labeled("Restore Daylight")
             local custom = rowButtons[1]
             local switch = switches[1]
             if type(row.palettesEditor) ~= "table" or type(custom) ~= "table"
@@ -1324,6 +1324,342 @@ do
             end
         end
     end
+end
+
+if not toc:find("## Version: 0.3.1", 1, true) then
+    fail("version stays 0.3.1")
+end
+if not toc:find("frame styles", 1, true) or not toc:find("glow styles", 1, true) then
+    fail("toc notes must cover frame styles and glow styles")
+end
+if not toc:find("PalettesLooks.lua", 1, true) then
+    fail("toc must load PalettesLooks.lua")
+end
+local looksSource = readAll(root .. "/Palettes/PalettesLooks.lua")
+if looksSource:find("LooksDB", 1, true) and looksSource:find("LooksDB%s*=", 1, false) then
+    fail("looks must not write LooksDB")
+end
+if not looksSource:find("Presets pair a frame style and a glow style only. They never change colours.", 1, true) then
+    fail("missing the presets intro")
+end
+if not looksSource:find("Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", 1, true) then
+    fail("missing the api guard line")
+end
+if not looksSource:find("Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes.", 1, true) then
+    fail("missing the both-addons line")
+end
+if not main:find("Palettes: off. Daylight's own colors, frame style and glows are restored.", 1, true) then
+    fail("missing the full restore line")
+end
+if not main:find('blurb = "Colors, frame styles and glow styles for Daylight. Class and combat colors stay Daylight\'s."', 1, true) then
+    fail("plugin blurb must cover colors, frames and glows")
+end
+local moods = {
+    "A winter hearth: a named beam, a quiet corner flame. Sits well with Palettes for DaylightUI — Ember.",
+    "Harvest light along the sill of the bar. Sits well with Palettes for DaylightUI — Vanilla.",
+    "A tight line at the waterline, a soft wash along the rim. Sits well with Palettes for DaylightUI — Tide.",
+    "A weathered beam and a short catch of lantern light. Sits well with Palettes for DaylightUI — Forever.",
+    "The name tab stays, and a flame is kept lit at the corners. Sits well with Palettes for DaylightUI — Paladin.",
+}
+for i = 1, #moods do
+    if not looksSource:find(moods[i], 1, true) then fail("missing preset mood: " .. moods[i]) end
+end
+if not looksSource:find("powerHeight = 14", 1, true) then
+    fail("trough power height must ship as 14")
+end
+
+local OFF_LINE = "Looks: off. Type /looks lintel, sill, stamp, trestle, flagon, signboard, trough, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, or off."
+local LINTEL_LINE = "Looks: Lintel is on. Type /looks sill, stamp, trestle, flagon, signboard, trough, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, or off."
+
+local function piece()
+    local w = {}
+    w.scripts = {}
+    function w:SetPoint() end
+    function w:SetSize() end
+    function w:SetWidth() end
+    function w:SetHeight() end
+    function w:SetAllPoints() end
+    function w:ClearAllPoints() end
+    w.shown = true
+    function w:Hide() w.shown = false end
+    function w:Show() w.shown = true end
+    function w:SetShown() end
+    function w:SetText(text) w.words = text end
+    function w:SetTextColor() end
+    function w:SetFont() end
+    function w:SetJustifyH() end
+    function w:SetWordWrap() end
+    function w:SetColorTexture() end
+    function w:SetFrameLevel() end
+    function w:GetFrameLevel() return 1 end
+    function w:EnableMouse() end
+    function w:GetWidth() return 760 end
+    function w:GetHeight() return 28 end
+    function w:GetStringWidth() return 64 end
+    function w:GetParent() return nil end
+    function w:GetScript() return nil end
+    function w:SetScript(name, fn) w.scripts[name] = fn end
+    function w:CreateTexture() return piece() end
+    function w:CreateFontString() return piece() end
+    return w
+end
+
+local said = {}
+local sets = {
+    UnitFrames = { ["look.style"] = "daylight" },
+    general = { buttonGlow = "circle" },
+    Nameplates = { targetLight = "none" },
+}
+local palDb = { palette = "tide", classAccent = false, only = false, carried = true }
+local views = {}
+local styleCalls = { frame = 0, glow = 0 }
+local function freshView(name)
+    local v = { name = name }
+    function v.AddFrameStyle(id, spec)
+        styleCalls.frame = styleCalls.frame + 1
+        v.frameKey = name .. ":" .. id
+        if id == "lintel" then v.lintelKey = name .. ":" .. id end
+        if id == "trough" then v.trough = spec end
+    end
+    function v.AddGlowStyle(id, spec)
+        styleCalls.glow = styleCalls.glow + 1
+        if id == "wick" then v.glowKey = name .. ":" .. id end
+    end
+    function v.On(event, fn)
+        v.handlers = v.handlers or {}
+        v.handlers[event] = fn
+    end
+    views[name] = v
+    return v
+end
+local ui = {
+    API = {
+        major = 1,
+        minor = 9,
+        For = function(name)
+            return views[name] or freshView(name)
+        end,
+        GetUnitFrame = function() return { unit = "player" } end,
+        Parts = function()
+            return { style = sets.UnitFrames["look.style"] }
+        end,
+        GetSetting = function(scope, path)
+            local bag = sets[scope]
+            if type(bag) == "table" then return bag[path] end
+        end,
+    },
+    Widgets = {},
+}
+function ui:RegisterPlugin() return {} end
+function ui:RegisterModule(_, spec) ui.module = spec end
+function ui:Get(scope, path)
+    if scope == "Palettes" then return palDb[path] end
+    local bag = sets[scope]
+    if type(bag) == "table" then return bag[path] end
+end
+function ui:Set(scope, path, value)
+    if scope == "Palettes" then
+        palDb[path] = value
+    else
+        sets[scope] = sets[scope] or {}
+        sets[scope][path] = value
+    end
+    local pal = views.Palettes
+    if not ns.writingLooks and pal and pal.handlers and pal.handlers.SettingChanged then
+        pal.handlers.SettingChanged(scope, path, value)
+    end
+    return true
+end
+function ui:GetModule() return nil end
+
+local looksEnv = {
+    math = math, string = string, table = table, type = type,
+    pairs = pairs, ipairs = ipairs, pcall = pcall, tostring = tostring,
+    tonumber = tonumber, select = select, unpack = unpack, next = next, error = error,
+    print = function(text) said[#said + 1] = text end,
+    DaylightUI = ui,
+    SlashCmdList = {},
+    CreateFrame = function() return piece() end,
+    InCombatLockdown = function() return false end,
+}
+local looksChunk, looksErr = loadfile(root .. "/Palettes/PalettesLooks.lua")
+if not looksChunk then
+    fail("could not load PalettesLooks.lua: " .. tostring(looksErr))
+else
+    setfenv(looksChunk, looksEnv)
+    local loaded, loadErr = pcall(looksChunk, "Palettes", ns)
+    if not loaded then fail("PalettesLooks.lua failed: " .. tostring(loadErr)) end
+end
+local mainChunk, mainErr = loadfile(mainPath)
+if not mainChunk then
+    fail("could not reload Palettes.lua for looks: " .. tostring(mainErr))
+else
+    setfenv(mainChunk, looksEnv)
+    local loaded, loadErr = pcall(mainChunk, "Palettes", ns)
+    if not loaded then fail("Palettes.lua with looks failed: " .. tostring(loadErr)) end
+end
+
+local function saidHas(text)
+    for i = 1, #said do
+        if said[i] == text then return true end
+    end
+    return false
+end
+
+check(styleCalls.frame, 7, "seven frame styles register")
+check(styleCalls.glow, 3, "three glow styles register")
+check(views.Looks and views.Looks.lintelKey, "Looks:lintel", "frame keys stay on Looks")
+check(views.Looks and views.Looks.glowKey, "Looks:wick", "glow keys stay on Looks")
+check(views.Looks and views.Looks.trough and views.Looks.trough.sizes.player.powerHeight, 14, "trough power height is not clamped here")
+local pages = ui.module and ui.module.options and ui.module.options.pages
+check(type(pages) == "table" and pages[2] and pages[2].label, "Looks", "looks is a page inside palettes")
+check(type(pages) == "table" and pages[2] and pages[2].hidden() , false, "looks page shows on api 1.9")
+check(pages and pages[1] and pages[1].groups[1].items[4].label, "Restore Daylight", "one restore label")
+
+local account = ns.accountTable()
+local char = ns.charTable()
+account.looks = nil
+char.only = false
+char.looks = nil
+said = {}
+ns.looksSlash("")
+check(said[#said], OFF_LINE, "fresh /looks lists every name")
+ns.looksSlash("lintel")
+check(sets.UnitFrames["look.style"], "Looks:lintel", "lintel writes the looks key")
+check(type(account.looks) == "table" and account.looks.frame, "daylight", "the first write keeps the old frame")
+check(account.looks.glow, "circle", "the first write keeps the old glow")
+check(account.looks.light, "none", "the first write keeps the old outline")
+check(palDb.looks and palDb.looks.frame, "daylight", "the snapshot is in the palettes profile")
+check(palDb.palette, "tide", "a frame pick does not change the palette")
+said = {}
+ns.looksSlash("")
+check(said[#said], LINTEL_LINE, "/looks names lintel and leaves it out of the list")
+ns.looksSlash("nope")
+check(said[#said], LINTEL_LINE, "an unknown name reprints the status")
+local before = palDb.palette
+ns.looksSlash("hearthnight")
+check(palDb.palette, before, "a preset does not change the palette")
+check(sets.UnitFrames["look.style"], "Looks:lintel", "hearthnight keeps lintel")
+check(sets.general.buttonGlow, "Looks:wick", "hearthnight sets wick on the buttons")
+check(sets.Nameplates.targetLight, "Looks:wick", "hearthnight sets wick on the nameplate")
+check(account.looks.frame, "daylight", "a second look does not replace the snapshot")
+said = {}
+ns.looksSlash("off")
+check(sets.UnitFrames["look.style"], "daylight", "restore writes the saved frame back")
+check(sets.general.buttonGlow, "circle", "restore writes the saved glow back")
+check(sets.Nameplates.targetLight, "none", "restore writes the saved outline back")
+check(account.looks, false, "a successful restore clears the snapshot")
+check(saidHas("Palettes: off. Daylight's own colors, frame style and glows are restored."), true, "full restore chat")
+sets.UnitFrames["look.style"] = "Looks:sill"
+local left = ns.restoreLooks(true)
+check(left, false, "restore with no snapshot does nothing")
+check(sets.UnitFrames["look.style"], "Looks:sill", "no snapshot leaves the frame alone")
+
+char.only = false
+account.looks = nil
+sets.UnitFrames["look.style"] = "daylight"
+sets.general.buttonGlow = "circle"
+sets.Nameplates.targetLight = "none"
+ns.setOnly(account, char, true)
+ns.looksSlash("sill")
+check(char.looks and char.looks.frame, "daylight", "save for this character keeps the snapshot on the character")
+check(type(account.looks) == "table", false, "a character snapshot stays off the account")
+ns.setOnly(account, char, false)
+check(char.looks, nil, "untick drops the character snapshot")
+
+local imported = { palette = "ember", classAccent = false, seeded = true, looks = { frame = "daylight", glow = "circle", light = "none" } }
+local importedChar = { only = false, ready = true }
+local importedDb = { palette = "tide", classAccent = false, carried = true, looks = { frame = "Looks:lintel", glow = "Looks:wick", light = "Looks:wick" } }
+ns.adoptProfile(imported, importedChar, importedDb)
+check(imported.looks and imported.looks.frame, "Looks:lintel", "a profile switch adopts the snapshot")
+check(imported.palette, "tide", "a profile switch still adopts the palette")
+local keep = { palette = "tide", classAccent = false, seeded = true, looks = { frame = "daylight", glow = "circle", light = "none" } }
+local keepChar = { only = false, ready = true }
+local keepDb = { palette = "ember", classAccent = false, carried = true }
+ns.adoptProfile(keep, keepChar, keepDb)
+check(keep.looks and keep.looks.frame, "daylight", "a profile with no snapshot leaves yours")
+
+looksEnv.InCombatLockdown = function() return true end
+local during = sets.UnitFrames["look.style"]
+ns.looksSlash("trough")
+check(sets.UnitFrames["look.style"], during, "a combat pick does not write yet")
+check(said[#said], "Looks: Trough queued until combat ends.", "a combat pick says it is waiting")
+looksEnv.InCombatLockdown = function() return false end
+ns.finishLooksCombat()
+check(sets.UnitFrames["look.style"], "Looks:trough", "combat end applies the waiting frame")
+
+styleCalls.frame = 0
+styleCalls.glow = 0
+ui.API.minor = 7
+ns.looksReady = nil
+ns.looksGuard = nil
+ns.looksBothSaid = nil
+said = {}
+ns.bootLooks()
+check(styleCalls.frame, 0, "api 1.7 does not register frames")
+check(styleCalls.glow, 0, "api 1.7 does not register glows")
+check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", "api 1.7 says only colors")
+check(pages[2].hidden(), true, "api 1.7 hides the looks page")
+local beforeGuard = sets.UnitFrames["look.style"]
+ns.looksSlash("lintel")
+check(sets.UnitFrames["look.style"], beforeGuard, "api 1.7 /looks does not apply")
+check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", "/looks repeats the guard")
+
+ui.API.minor = 9
+ns.looksReady = nil
+ns.looksGuard = nil
+ns.looksBothSaid = nil
+styleCalls.frame = 0
+looksEnv.C_AddOns = { IsAddOnLoaded = function(name) return name == "Looks" end }
+said = {}
+ns.bootLooks()
+check(styleCalls.frame, 0, "a loaded Looks add-on is not registered twice")
+check(said[#said], "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes.", "both add-ons get one line")
+
+local looksGroups = pages[2].groups
+check(type(looksGroups) == "table" and #looksGroups or 0, 3, "looks page has a header, the card, and a footer")
+check(looksGroups[1].items[1].label, "Restore Daylight", "header restore uses Restore Daylight")
+check(looksGroups[3].items[1].label, "Restore Daylight", "footer restore uses Restore Daylight")
+local row = piece()
+local body = looksGroups[2].items[1]
+ui.API.minor = 9
+ns.looksReady = true
+ns.looksGuard = nil
+if type(body) == "table" and type(body.build) == "function" then
+    local built, buildErr = pcall(body.build, row)
+    if not built then fail("looks page did not build: " .. tostring(buildErr)) end
+    check(type(row.lines) == "table" and #row.lines or 0, 10, "frames and glows are rows")
+    if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+    local active = row.lines[1]
+    active.SetOn(true, false)
+    check(active.key.shown, false, "the active row hides its key")
+    check(active.onText.words, "[On]", "the active row shows [On]")
+    active.SetOn(false, true)
+    check(active.key.shown, false, "a waiting row hides its key")
+    check(active.onText.words, "PENDING", "a waiting row shows PENDING")
+    active.SetOn(false, false)
+    check(active.key.shown, true, "other rows show the key")
+else
+    fail("looks page has no body")
+end
+local headerRow = piece()
+local footerRow = piece()
+local headerBuilt, headerErr = pcall(looksGroups[1].items[1].build, headerRow)
+local footerBuilt, footerErr = pcall(looksGroups[3].items[1].build, footerRow)
+if not headerBuilt or not footerBuilt then
+    fail("restore rows did not build: " .. tostring(headerErr or footerErr))
+elseif type(headerRow.restoreButton) ~= "table" or type(footerRow.restoreButton) ~= "table" then
+    fail("restore rows have no button")
+else
+    palDb.palette = "ember"
+    local clicked, clickErr = pcall(headerRow.restoreButton.scripts.OnClick)
+    if not clicked then fail("header restore: " .. tostring(clickErr)) end
+    check(palDb.palette, "off", "the looks header restore turns the palette off")
+    check(ns.restoreLooksToo, nil, "the looks header restore uses the shared restore")
+    palDb.palette = "tide"
+    local clickedFooter, footerClickErr = pcall(footerRow.restoreButton.scripts.OnClick)
+    if not clickedFooter then fail("footer restore: " .. tostring(footerClickErr)) end
+    check(palDb.palette, "off", "the looks footer restore turns the palette off")
 end
 
 if failures > 0 then

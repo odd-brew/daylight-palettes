@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Frame styles, glow styles and presets from Looks now live in Palettes. The seven frames are Lintel, Sill, Stamp, Trestle, Flagon, Signboard and Trough. The three glows are Wick, Draught and Latch. The five presets (Hearthnight, Harvestide, Tidemark, Old Road and Vigil) pair a frame and a glow only, and do not change colours. Pick one on Plugins > Palettes > Looks, or with `/looks`. The saved keys stay `Looks:lintel`, `Looks:wick` and so on.
+- On Daylight plugin API 1.7 or 1.8, colors still work and frames, glows and presets stay hidden. The plugin still needs API 1.7.
+- If the standalone Looks add-on is also loaded, Palettes keeps colors, does not register those styles again, and asks you to turn Looks off.
+
+### Changed
+- Restore Daylight, `/palettes off` and `/looks off` put Daylight's colors back and, when Palettes has changed the frame or glows, put those back too. A pick made in combat waits until combat ends.
+- The frame, glow and Restore snapshot follow Save for this character only, and travel with a Daylight profile the same way a palette does.
+- The add-on notes and the in-game blurb now cover colors, frame styles and glow styles. Class and combat colors stay Daylight's.
+
 ## [0.3.1] - 2026-11-21
 
 ### Added

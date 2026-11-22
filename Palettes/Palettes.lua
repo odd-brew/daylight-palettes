@@ -514,10 +514,20 @@ local function restore(quiet)
         release(nil)
     end
     paintedId = nil
+    local looksBack = false
+    local armed = ns.restoreLooksToo == true
+    ns.restoreLooksToo = nil
+    if armed and type(ns.restoreLooks) == "function" then
+        looksBack = ns.restoreLooks(quiet) == true
+    end
     if not quiet then
         notify()
         pcall(dressExtras)
-        say("Palettes: off. Daylight's own colors are restored.")
+        if looksBack then
+            say("Palettes: off. Daylight's own colors, frame style and glows are restored.")
+        else
+            say("Palettes: off. Daylight's own colors are restored.")
+        end
     end
 end
 
@@ -916,6 +926,9 @@ end
 local function apply(id, fromQueue, quietLine)
     if not known(id) then return end
     if not fromQueue and inCombat() then
+        if id == "off" and ns.restoreLooksToo and type(ns.queueLooksOff) == "function" then
+            ns.queueLooksOff()
+        end
         if id ~= history.current then
             history.pending = id
             heldPaint = false
@@ -1135,6 +1148,17 @@ function ns.setOnly(account, char, on)
             else
                 char.custom = nil
             end
+            if account.looks == false then
+                char.looks = false
+            elseif type(account.looks) == "table" then
+                char.looks = {
+                    frame = account.looks.frame,
+                    glow = account.looks.glow,
+                    light = account.looks.light,
+                }
+            else
+                char.looks = nil
+            end
         end
         char.only = true
     else
@@ -1142,6 +1166,7 @@ function ns.setOnly(account, char, on)
         char.palette = nil
         char.classAccent = nil
         char.custom = nil
+        char.looks = nil
     end
     char.ready = true
     return activeLook(account, char)
@@ -1280,13 +1305,16 @@ function ns.adoptProfile(account, char, db)
     db.only = onlyOn
     db.own = nil
     db.everyCharacter = nil
+    if type(ns.takeLooks) == "function" then
+        ns.takeLooks(account, char, db, hadLook, onlyOn)
+    end
     local changed = savedId ~= id or (savedAccent == true) ~= (accent == true)
     return id, accent == true, onlyOn, unknown, capped, hadLook, changed
 end
 
 -- SettingChanged is (scope, path, value). scope is "general" or a module name.
 local function onSetting(scope, path)
-    if applying or shutting then return end
+    if applying or shutting or ns.writingLooks then return end
     local d = dui()
     if type(d) ~= "table" or type(d.Get) ~= "function" then return end
     if scope == "Palettes" and path == "palette" then
@@ -1297,6 +1325,9 @@ local function onSetting(scope, path)
             applying = false
         end
         if inCombat() then
+            if id == "off" and ns.restoreLooksToo and type(ns.queueLooksOff) == "function" then
+                ns.queueLooksOff()
+            end
             ns.choosePalette(history, ns.accountTable(), ns.charTable(), id, true)
             if history.pending then
                 heldPaint = false
@@ -1338,12 +1369,26 @@ local function onSetting(scope, path)
         end
         local stored
         if slot and type(ns.customSpec) == "function" then stored = ns.customSpec(slot) end
+        local looksStored
+        if char.only == true then looksStored = char.looks else looksStored = account.looks end
+        if type(looksStored) == "table" then
+            looksStored = { frame = looksStored.frame, glow = looksStored.glow, light = looksStored.light }
+        elseif looksStored ~= false then
+            looksStored = nil
+        end
         applying = true
         d:Set("Palettes", "custom", stored)
+        d:Set("Palettes", "looks", looksStored)
         d:Set("Palettes", "carried", true)
         applying = false
         if id ~= beforeId or (accent == true) ~= beforeAccent then apply(id)
         elseif cleared and refreshList then refreshList() end
+        return
+    end
+    if scope == "Palettes" and path == "looks" then
+        if type(ns.adoptLooksSetting) == "function" then
+            ns.adoptLooksSetting(d:Get("Palettes", "looks"))
+        end
         return
     end
     if scope == "Palettes" and path == "classAccent" then
@@ -1430,11 +1475,13 @@ local function slash(msg)
         return
     end
     if arg == "daylight" then arg = "off" end
+    if arg == "off" and type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
     if not known(arg) then
         say(statusLine())
         return
     end
     if d:Set("Palettes", "palette", arg) == false then
+        if arg == "off" and type(ns.cancelLooksOff) == "function" then ns.cancelLooksOff() end
         say("Palettes: Daylight UI isn't ready, so no palette was changed.")
     end
 end
@@ -2121,6 +2168,7 @@ local function buildList(row)
                 editorOn = false
             end
             local d = dui()
+            if id == "off" and type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
             if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
             if refreshList then refreshList() end
         end)
@@ -2294,6 +2342,7 @@ local function onEnable(_, db)
             d:Set("Palettes", "only", onlyOn == true)
         end
         if type(db) == "table" then d:Set("Palettes", "custom", db.custom) end
+        if type(db) == "table" and db.looks ~= nil then d:Set("Palettes", "looks", db.looks) end
         if d:Get("Palettes", "carried") ~= true then d:Set("Palettes", "carried", true) end
         applying = false
     end
@@ -2324,46 +2373,51 @@ local function boot()
         -- No icon file of our own. Daylight tints its fallback with this color.
         color = { 0.91, 0.63, 0.29 },
         short = "Palettes",
-        blurb = "Recolor Daylight's windows. Class and combat colors stay.",
+        blurb = "Colors, frame styles and glow styles for Daylight. Class and combat colors stay Daylight's.",
     })
     if type(plugin) ~= "table" or plugin.off then return end
 
+    local pages = {
+        {
+            id = "main",
+            label = "Palettes",
+            desc = "Recolor Daylight's windows, panels, borders, accent and text, and add frame styles and glow styles. Class and combat colors stay Daylight's.",
+            groups = {
+                {
+                    label = "Palettes",
+                    items = {
+                        { type = "custom", label = "Choices", noSearch = true, build = buildList, update = function(row)
+                            if type(row.palettesRefresh) == "function" then pcall(row.palettesRefresh) end
+                        end, height = function(row) return row.palettesHeight or 430 end },
+                        { type = "toggle", key = "classAccent", label = "Accent follows class",
+                            desc = "Uses your class color as the chrome accent. The shade keeps the class hue and moves only as far as it needs to clear 3:1 on this frame. Names, chat, and unit frames stay the game's colors.",
+                            hidden = function() return editorOn == true end },
+                        { type = "toggle", key = "only", label = "Save for this character only",
+                            desc = "Off: this character uses your account palette. On: changes here apply only to this character.",
+                            hidden = function() return editorOn == true end },
+                        { type = "button", label = "Restore Daylight", text = "Restore", func = function()
+                            if type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
+                            if type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
+                                DaylightUI:Set("Palettes", "palette", "off")
+                            end
+                        end, hidden = function() return editorOn == true end },
+                    },
+                },
+            },
+        },
+    }
+    if type(ns.looksPage) == "function" then
+        local okPage, looksPage = pcall(ns.looksPage)
+        if okPage and type(looksPage) == "table" then pages[#pages + 1] = looksPage end
+    end
     d:RegisterModule("Palettes", {
         label = "Palettes",
         plugin = "Palettes",
         defaults = { palette = "off", classAccent = false, only = false, carried = false },
         OnEnable = onEnable,
-        options = {
-            pages = {
-                {
-                    id = "main",
-                    label = "Palettes",
-                    desc = "Recolor Daylight's windows, panels, borders, accent and text. Class and combat colors stay Daylight's.",
-                    groups = {
-                        {
-                            label = "Palettes",
-                            items = {
-                                { type = "custom", label = "Choices", noSearch = true, build = buildList, update = function(row)
-                                    if type(row.palettesRefresh) == "function" then pcall(row.palettesRefresh) end
-                                end, height = function(row) return row.palettesHeight or 430 end },
-                                { type = "toggle", key = "classAccent", label = "Accent follows class",
-                                    desc = "Uses your class color as the chrome accent. The shade keeps the class hue and moves only as far as it needs to clear 3:1 on this frame. Names, chat, and unit frames stay the game's colors.",
-                                    hidden = function() return editorOn == true end },
-                                { type = "toggle", key = "only", label = "Save for this character only",
-                                    desc = "Off: this character uses your account palette. On: changes here apply only to this character.",
-                                    hidden = function() return editorOn == true end },
-                                { type = "button", label = "Restore Daylight colors", text = "Restore", func = function()
-                                    if type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
-                                        DaylightUI:Set("Palettes", "palette", "off")
-                                    end
-                                end, hidden = function() return editorOn == true end },
-                            },
-                        },
-                    },
-                },
-            },
-        },
+        options = { pages = pages },
     })
+    if type(ns.bootLooks) == "function" then pcall(ns.bootLooks) end
 
     local view = type(api.For) == "function" and api.For("Palettes") or nil
     if type(view) == "table" then
@@ -2391,6 +2445,7 @@ local function undoClick()
     if not ns.undoReady(history) then return end
     if history.pending ~= nil then
         ns.undoPalette(history, ns.accountTable(), ns.charTable())
+        if type(ns.cancelLooksOff) == "function" then ns.cancelLooksOff() end
         if refreshList then refreshList() end
         return
     end
@@ -2527,7 +2582,11 @@ local function listen()
                 if known(id) then apply(id, true) end
                 if refreshList then refreshList() end
             end
+            if type(ns.finishLooksCombat) == "function" then pcall(ns.finishLooksCombat) end
             return
+        end
+        if event == "ADDON_LOADED" and name == "Looks" and type(ns.noteLooksAddon) == "function" then
+            ns.noteLooksAddon()
         end
         if event == "ADDON_LOADED" and name == "DaylightUI_Skins" and paintedId then
             local p = ns.byId[paintedId]
