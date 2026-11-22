@@ -1380,10 +1380,11 @@ local function piece()
     function w:SetHeight() end
     function w:SetAllPoints() end
     function w:ClearAllPoints() end
-    function w:Hide() end
-    function w:Show() end
+    w.shown = true
+    function w:Hide() w.shown = false end
+    function w:Show() w.shown = true end
     function w:SetShown() end
-    function w:SetText() end
+    function w:SetText(text) w.words = text end
     function w:SetTextColor() end
     function w:SetFont() end
     function w:SetJustifyH() end
@@ -1615,8 +1616,12 @@ ns.bootLooks()
 check(styleCalls.frame, 0, "a loaded Looks add-on is not registered twice")
 check(said[#said], "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes.", "both add-ons get one line")
 
+local looksGroups = pages[2].groups
+check(type(looksGroups) == "table" and #looksGroups or 0, 3, "looks page has a header, the card, and a footer")
+check(looksGroups[1].items[1].label, "Restore Daylight", "header restore uses Restore Daylight")
+check(looksGroups[3].items[1].label, "Restore Daylight", "footer restore uses Restore Daylight")
 local row = piece()
-local body = pages[2].groups[1].items[1]
+local body = looksGroups[2].items[1]
 ui.API.minor = 9
 ns.looksReady = true
 ns.looksGuard = nil
@@ -1625,8 +1630,36 @@ if type(body) == "table" and type(body.build) == "function" then
     if not built then fail("looks page did not build: " .. tostring(buildErr)) end
     check(type(row.lines) == "table" and #row.lines or 0, 10, "frames and glows are rows")
     if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+    local active = row.lines[1]
+    active.SetOn(true, false)
+    check(active.key.shown, false, "the active row hides its key")
+    check(active.onText.words, "[On]", "the active row shows [On]")
+    active.SetOn(false, true)
+    check(active.key.shown, false, "a waiting row hides its key")
+    check(active.onText.words, "PENDING", "a waiting row shows PENDING")
+    active.SetOn(false, false)
+    check(active.key.shown, true, "other rows show the key")
 else
     fail("looks page has no body")
+end
+local headerRow = piece()
+local footerRow = piece()
+local headerBuilt, headerErr = pcall(looksGroups[1].items[1].build, headerRow)
+local footerBuilt, footerErr = pcall(looksGroups[3].items[1].build, footerRow)
+if not headerBuilt or not footerBuilt then
+    fail("restore rows did not build: " .. tostring(headerErr or footerErr))
+elseif type(headerRow.restoreButton) ~= "table" or type(footerRow.restoreButton) ~= "table" then
+    fail("restore rows have no button")
+else
+    palDb.palette = "ember"
+    local clicked, clickErr = pcall(headerRow.restoreButton.scripts.OnClick)
+    if not clicked then fail("header restore: " .. tostring(clickErr)) end
+    check(palDb.palette, "off", "the looks header restore turns the palette off")
+    check(ns.restoreLooksToo, nil, "the looks header restore uses the shared restore")
+    palDb.palette = "tide"
+    local clickedFooter, footerClickErr = pcall(footerRow.restoreButton.scripts.OnClick)
+    if not clickedFooter then fail("footer restore: " .. tostring(footerClickErr)) end
+    check(palDb.palette, "off", "the looks footer restore turns the palette off")
 end
 
 if failures > 0 then

@@ -162,6 +162,7 @@ local CARD = "Presets & Styles"
 local CARD_INTRO = "Presets pair a frame style and a glow style only. They never change colours."
 local PAGE = "Add frame styles and glow styles to Daylight. Colors stay in Palettes for DaylightUI, or in Daylight if Palettes for DaylightUI is off."
 local PAGE_NOTE = "Starts off on first login · /looks"
+local RESTORE_LABEL = "Restore Daylight"
 local PRESET_HEAD = "PRESETS"
 local FRAME_HEAD = "FRAME STYLES"
 local GLOW_HEAD = "GLOW STYLES"
@@ -875,6 +876,38 @@ local function hookSize(row, place)
     place()
 end
 
+local function sameRestore()
+    if type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Set) == "function" then
+        d:Set("Palettes", "palette", "off")
+    end
+end
+
+local function buildRestore(row)
+    if row.made or type(CreateFrame) ~= "function" then return end
+    row.made = true
+    local caption = uiFont(row, 12, DIM)
+    caption:SetText(RESTORE_LABEL)
+    local button = redButton(row, "Restore", sameRestore)
+    row.restoreButton = button
+    hookSize(row, function()
+        button:ClearAllPoints()
+        caption:ClearAllPoints()
+        button:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -4)
+        caption:SetPoint("RIGHT", button, "LEFT", -8, 0)
+    end)
+end
+
+local function restoreItem()
+    return {
+        type = "custom",
+        label = RESTORE_LABEL,
+        build = buildRestore,
+        height = function() return 32 end,
+    }
+end
+
 local function buildPage(row, sheet)
     if row.made or type(CreateFrame) ~= "function" then return end
     row.made = true
@@ -972,14 +1005,27 @@ local function buildPage(row, sheet)
         onText:SetText("[On]")
         onText:Hide()
         local line = { id = entry.id, kind = entry.kind }
+        line.key = key
+        line.onText = onText
         function line.SetOn(on, pending)
-            if on or pending then hi:Show() else hi:Hide() end
-            if on or pending then mark:Show() else mark:Hide() end
+            line.markOn = on and true or false
+            line.markPending = pending and true or false
+            local marked = line.markOn or line.markPending
+            if marked then hi:Show() else hi:Hide() end
+            if marked then mark:Show() else mark:Hide() end
             if on and not pending then onText:SetText("[On]") end
             if pending then onText:SetText("PENDING") end
-            if on or pending then onText:Show() else onText:Hide() end
+            if marked then
+                if key.Hide then key:Hide() end
+                onText:ClearAllPoints()
+                onText:SetPoint("RIGHT", hold, "RIGHT", -4, 0)
+                onText:Show()
+            else
+                if key.Show then key:Show() end
+                if onText.Hide then onText:Hide() end
+            end
             if type(boxFill.SetColorTexture) == "function" then
-                local c = (on or pending) and BOX_ON or BOX_FILL
+                local c = marked and BOX_ON or BOX_FILL
                 boxFill:SetColorTexture(c[1], c[2], c[3], 1)
             end
         end
@@ -1069,9 +1115,14 @@ local function buildPage(row, sheet)
                 s.desc:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
                 s.desc:SetWidth(math.max(40, rightW - 14 - 36 - 88 - 150))
                 s.key:ClearAllPoints()
-                s.key:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
                 s.onText:ClearAllPoints()
-                s.onText:SetPoint("RIGHT", s.key, "LEFT", -8, 0)
+                if s.line.markOn or s.line.markPending then
+                    if s.key.Hide then s.key:Hide() end
+                    s.onText:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
+                else
+                    if s.key.Show then s.key:Show() end
+                    s.key:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
+                end
                 at = at + STYLE_H
             end
             return at
@@ -1153,6 +1204,7 @@ function ns.looksPage()
         desc = PAGE,
         hidden = function() return ns.looksApiOk() ~= true end,
         groups = {
+            { label = "Restore", bare = true, wide = true, items = { restoreItem() } },
             {
                 label = CARD,
                 wide = true,
@@ -1168,6 +1220,7 @@ function ns.looksPage()
                     },
                 },
             },
+            { label = "Restore", bare = true, wide = true, items = { restoreItem() } },
         },
     }
 end
