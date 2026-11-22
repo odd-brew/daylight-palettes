@@ -1,4 +1,5 @@
--- Frame styles, glow styles and presets from Looks v0.2.0.
+-- Frame styles, glow styles and Themes. Palettes registers the styles.
+-- A Theme sets one palette, one frame and one glow. Palettes stay color-only.
 -- Palettes registers them. The saved keys stay Looks:lintel, Looks:wick and
 -- so on, through a Looks-named API handle. The plugin name stays Palettes.
 -- The snapshot lives in Palettes' saved data and profile settings, never LooksDB.
@@ -77,13 +78,19 @@ local GLOWS = {
     { id = "latch", name = "Latch", mood = "A short catch of light, then still.", spec = { label = "Latch", lap = 2, draw = drawLatch } },
 }
 
-local PRESETS = {
-    { id = "hearthnight", name = "Hearthnight", frame = "lintel", glow = "wick", mood = "A winter hearth: a named beam, a quiet corner flame. Sits well with Palettes for DaylightUI — Ember." },
-    { id = "harvestide", name = "Harvestide", frame = "sill", glow = "draught", mood = "Harvest light along the sill of the bar. Sits well with Palettes for DaylightUI — Vanilla." },
-    { id = "tidemark", name = "Tidemark", frame = "stamp", glow = "draught", mood = "A tight line at the waterline, a soft wash along the rim. Sits well with Palettes for DaylightUI — Tide." },
-    { id = "oldroad", name = "Old Road", frame = "lintel", glow = "latch", mood = "A weathered beam and a short catch of lantern light. Sits well with Palettes for DaylightUI — Forever." },
-    { id = "vigil", name = "Vigil", frame = "sill", glow = "wick", mood = "The name tab stays, and a flame is kept lit at the corners. Sits well with Palettes for DaylightUI — Paladin." },
+local THEMES = {
+    { id = "hearthnight", name = "Hearthnight", palette = "ember", frame = "lintel", glow = "wick", mood = "A winter hearth of campfire gold: a named beam and a quiet corner flame." },
+    { id = "harvestide", name = "Harvestide", palette = "vanilla", frame = "sill", glow = "draught", mood = "Harvest light on dark oak and pewter, washed along the sill of the bar." },
+    { id = "tidemark", name = "Tidemark", palette = "tide", frame = "stamp", glow = "draught", mood = "Cool sea-green at the waterline: a tight stamp and a soft wash along the rim." },
+    { id = "oldroad", name = "Old Road", palette = "forever", frame = "lintel", glow = "latch", mood = "Near-black soot and weathered bronze: a weathered beam and a short catch of lantern light." },
+    { id = "vigil", name = "Vigil", palette = "paladin", frame = "sill", glow = "wick", mood = "Rose on warm plum-brown. The name tab stays, and a flame is kept lit at the corners." },
+    { id = "snug", name = "Snug", palette = "gilded", frame = "flagon", glow = "latch", mood = "A deep gold cup in the quiet corner, and a short catch of lantern light." },
+    { id = "bellows", name = "Bellows", palette = "forgeglow", frame = "trestle", glow = "wick", mood = "A named work board and a quiet corner flame, like a forge kept open late." },
+    { id = "drawwell", name = "Drawwell", palette = "shaman", frame = "trough", glow = "draught", mood = "Storm-grey water in a deep basin, and a soft wash along the rim." },
+    { id = "settle", name = "Settle", palette = "keepstone", frame = "lintel", glow = "latch", mood = "A walnut beam and a brief catch of brass-lantern light, like a high-backed bench by the fire." },
+    { id = "afterhours", name = "After Hours", palette = "carmine-night", frame = "signboard", glow = "latch", mood = "A hanging sign and a brief cut of carmine light, after the room has gone quiet." },
 }
+ns.themes = THEMES
 
 local GLYPH = { 0.78, 0.72, 0.62, 1 }
 
@@ -147,7 +154,7 @@ addEdge(ICONS.latch, 4, 14, 8, 1)
 local ORDER = {}
 for i = 1, #FRAMES do ORDER[#ORDER + 1] = FRAMES[i] end
 for i = 1, #GLOWS do ORDER[#ORDER + 1] = GLOWS[i] end
-for i = 1, #PRESETS do ORDER[#ORDER + 1] = PRESETS[i] end
+for i = 1, #THEMES do ORDER[#ORDER + 1] = THEMES[i] end
 
 local GLOW_READS = {
     { "general", "buttonGlow" },
@@ -158,14 +165,12 @@ local view
 local refreshers = {}
 local looksPending
 
-local CARD = "Presets & Styles"
-local CARD_INTRO = "Presets pair a frame style and a glow style only. They never change colours."
-local PAGE = "Add frame styles and glow styles to Daylight. Colors stay in Palettes for DaylightUI, or in Daylight if Palettes for DaylightUI is off."
+local THEME_INTRO = "Themes set a palette, a frame style and a glow. Palettes, frames and glows can each be picked on their own."
+local LOOKS_INTRO = "Frames and glows can each be picked on their own. A Theme on the Themes page sets all three."
 local PAGE_NOTE = "Starts off on first login · /looks"
-local RESTORE_LABEL = "Restore Daylight"
-local PRESET_HEAD = "PRESETS"
 local FRAME_HEAD = "FRAME STYLES"
 local GLOW_HEAD = "GLOW STYLES"
+local THEME_HEAD = "THEMES"
 
 local CREAM = { 0.95, 0.91, 0.86, 1 }
 local DIM = { 0.62, 0.56, 0.48, 1 }
@@ -182,6 +187,7 @@ local CARD_EDGE = { 0.16, 0.16, 0.19, 1 }
 local CARD_FILL = { 0.12, 0.12, 0.14, 1 }
 
 local INTRO_H = 28
+local THEME_H = 54
 local PRESET_HEAD_H = 18
 local PRESET_H = 88
 local STYLE_H = 26
@@ -218,11 +224,44 @@ local function glowById(id)
     end
 end
 
-local function presetById(id)
-    for i = 1, #PRESETS do
-        if PRESETS[i].id == id then return PRESETS[i] end
+local function themeById(id)
+    for i = 1, #THEMES do
+        if THEMES[i].id == id then return THEMES[i] end
     end
 end
+
+local function partLabel(kind, id)
+    if type(id) ~= "string" or id == "" or id == "none" then return "—" end
+    local row
+    if kind == "palette" then
+        row = type(ns.byId) == "table" and ns.byId[id] or nil
+    elseif kind == "frame" then
+        row = frameById(id)
+    else
+        row = glowById(id)
+    end
+    if type(row) == "table" and type(row.name) == "string" and row.name ~= "" then return row.name end
+    return "—"
+end
+
+local function themeParts(theme)
+    return partLabel("palette", theme.palette)
+        .. " · " .. partLabel("frame", theme.frame)
+        .. " · " .. partLabel("glow", theme.glow)
+end
+
+function ns.frameById(id)
+    return frameById(id)
+end
+
+function ns.glowById(id)
+    return glowById(id)
+end
+
+function ns.themeById(id)
+    return themeById(id)
+end
+
 
 local function joinOr(list)
     if #list == 0 then return "" end
@@ -388,9 +427,23 @@ local function hintLine(name, omit)
 end
 
 local function statusLine()
+    local themeId, changed, pending = nil, false, false
+    if type(ns.shownTheme) == "function" then
+        themeId, changed, pending = ns.shownTheme()
+    end
+    if pending and themeId then
+        local theme = themeById(themeId)
+        return "Looks: " .. (theme and theme.name or themeId) .. " queued until combat ends."
+    end
     local id, name = wornFrame()
     local glows = wornGlows()
     local omit = {}
+    if themeId then
+        local theme = themeById(themeId)
+        name = theme and theme.name or themeId
+        if changed then name = name .. " (changed)" end
+        omit[themeId] = true
+    end
     if id then omit[id] = true end
     for i = 1, #glows do omit[glows[i].id] = true end
     if not name and glows[1] then name = glows[1].name end
@@ -522,6 +575,7 @@ end
 local function refreshLooks()
     for i = 1, #refreshers do pcall(refreshers[i]) end
 end
+ns.refreshLooks = refreshLooks
 
 local function pointAtFrame(id)
     if id == "daylight" then
@@ -566,7 +620,11 @@ local function queueLook(kind, id, name)
         return
     end
     looksPending = { kind = kind, id = id }
-    say("Looks: " .. name .. " queued until combat ends.")
+    if kind == "theme" then
+        say("Palettes: " .. name .. " queued until combat ends.")
+    else
+        say("Looks: " .. name .. " queued until combat ends.")
+    end
     refreshLooks()
 end
 
@@ -576,23 +634,32 @@ local function applyFrame(id, quiet)
         queueLook("frame", id, found and found.name or id)
         return false
     end
+    local undoShot = (not ns.applyingTheme and type(ns.captureUndo) == "function") and ns.captureUndo("frame") or nil
+    local function finish(ok)
+        if ok then
+            if undoShot and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
+            if type(ns.storeLookPart) == "function" then ns.storeLookPart("frame", id) end
+            if not ns.applyingTheme and type(ns.notePalette) == "function" then ns.notePalette(ns.screenPalette()) end
+        end
+        return ok
+    end
     local set = frameSetter()
     local shot = (set or hasMenuStyle() or hasWrite()) and capture() or nil
     if set and pcall(set, id) then
         if shot then storeSnapshot(shot) end
         refreshPage()
         refreshLooks()
-        return true
+        return finish(true)
     end
     local key = frameKey(id)
     if menuSetStyle(key) or writeSetting("UnitFrames", "look.style", key) then
         if shot then storeSnapshot(shot) end
         refreshPage()
         refreshLooks()
-        return true
+        return finish(true)
     end
     if not quiet then pointAtFrame(id) end
-    return false
+    return finish(false)
 end
 
 local function applyGlow(id, quiet)
@@ -601,13 +668,22 @@ local function applyGlow(id, quiet)
         queueLook("glow", id, found and found.name or id)
         return false
     end
+    local undoShot = (not ns.applyingTheme and type(ns.captureUndo) == "function") and ns.captureUndo("glow") or nil
+    local function finish(ok)
+        if ok then
+            if undoShot and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
+            if type(ns.storeLookPart) == "function" then ns.storeLookPart("glow", id) end
+            if not ns.applyingTheme and type(ns.notePalette) == "function" then ns.notePalette(ns.screenPalette()) end
+        end
+        return ok
+    end
     local set = glowSetter()
     local shot = (set or hasWrite()) and capture() or nil
     if set and pcall(set, id) then
         if shot then storeSnapshot(shot) end
         refreshPage()
         refreshLooks()
-        return true
+        return finish(true)
     end
     local buttonKey, lightKey
     if id == "none" then
@@ -623,27 +699,12 @@ local function applyGlow(id, quiet)
     if buttons and light then
         refreshPage()
         refreshLooks()
-        return true
+        return finish(true)
     end
     if buttons or light then refreshPage() end
     if not quiet then pointAtGlow(id) end
     refreshLooks()
-    return false
-end
-
-local function applyPreset(preset)
-    if inCombat() then
-        queueLook("preset", preset.id, preset.name)
-        return
-    end
-    local frameOk = applyFrame(preset.frame, true)
-    local glowOk = applyGlow(preset.glow, true)
-    if frameOk and glowOk then return end
-    local frame = frameById(preset.frame)
-    local glow = glowById(preset.glow)
-    say("Looks: " .. preset.name .. " is " .. frame.name .. " and " .. glow.name .. ". It does not change Palettes or the accent.")
-    if not frameOk then pointAtFrame(preset.frame) end
-    if not glowOk then pointAtGlow(preset.glow) end
+    return finish(false)
 end
 
 local function writeFrameValue(value)
@@ -670,6 +731,352 @@ local function writeGlowValue(buttonValue, lightValue)
         end
     end
     return false
+end
+
+
+local function activeSlot()
+    local account = type(ns.accountTable) == "function" and ns.accountTable() or nil
+    local char = type(ns.charTable) == "function" and ns.charTable() or nil
+    if type(char) == "table" and char.only == true then return char, account, true end
+    return account, account, false
+end
+
+local function writeThemeSlot(id, changed)
+    local slot, account, onlyOn = activeSlot()
+    local storedId = false
+    local storedChanged = false
+    if type(id) == "string" and themeById(id) then
+        storedId = id
+        storedChanged = changed == true
+    end
+    if onlyOn and type(slot) == "table" then
+        slot.theme = storedId
+        slot.themeChanged = storedChanged
+    elseif type(account) == "table" then
+        account.theme = storedId
+        account.themeChanged = storedChanged
+        local char = type(ns.charTable) == "function" and ns.charTable() or nil
+        if type(char) == "table" then
+            char.theme = nil
+            char.themeChanged = nil
+        end
+    end
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Set) == "function" then
+        ns.writingLooks = true
+        pcall(d.Set, d, "Palettes", "theme", storedId)
+        pcall(d.Set, d, "Palettes", "themeChanged", storedChanged)
+        ns.writingLooks = false
+    end
+end
+
+function ns.readTheme()
+    local slot = activeSlot()
+    if type(slot) ~= "table" or type(slot.theme) ~= "string" then return nil, false end
+    if not themeById(slot.theme) then return nil, false end
+    return slot.theme, slot.themeChanged == true
+end
+
+function ns.clearTheme()
+    writeThemeSlot(nil, false)
+    refreshLooks()
+end
+
+function ns.storeLookPart(key, value)
+    local slot, account, onlyOn = activeSlot()
+    local stored = type(value) == "string" and value or false
+    if onlyOn and type(slot) == "table" then
+        slot[key] = stored
+    elseif type(account) == "table" then
+        account[key] = stored
+        local char = type(ns.charTable) == "function" and ns.charTable() or nil
+        if type(char) == "table" then char[key] = nil end
+    end
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Set) == "function" then
+        ns.writingLooks = true
+        pcall(d.Set, d, "Palettes", key, stored)
+        ns.writingLooks = false
+    end
+end
+
+local function soleGlow()
+    local button, buttonOk = readKnown("general", "buttonGlow")
+    local light, lightOk = readKnown("Nameplates", "targetLight")
+    if not buttonOk or not lightOk then return nil end
+    local b = glowById(looksId(button))
+    local l = glowById(looksId(light))
+    if b and l and b.id == l.id then return b.id end
+    if button == DAYLIGHT_GLOW and light == DAYLIGHT_LIGHT then return "daylight" end
+end
+
+function ns.screenPalette()
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Get) == "function" then
+        local id = d:Get("Palettes", "palette")
+        if type(id) == "string" and id ~= "" then return id end
+    end
+    local slot = activeSlot()
+    if type(slot) == "table" and type(slot.palette) == "string" then return slot.palette end
+    return "off"
+end
+
+function ns.exactTheme(palette, frameId, glowId)
+    if type(palette) ~= "string" then return nil end
+    for i = 1, #THEMES do
+        local theme = THEMES[i]
+        if theme.palette == palette and theme.frame == frameId and theme.glow == glowId then
+            return theme
+        end
+    end
+end
+
+function ns.notePalette(id)
+    if ns.applyingTheme or ns.clearingTheme then return end
+    local exact = ns.exactTheme(id, wornFrame(), soleGlow())
+    if exact then
+        writeThemeSlot(exact.id, false)
+        refreshLooks()
+        return
+    end
+    local themeId = ns.readTheme()
+    if themeId then writeThemeSlot(themeId, true) end
+    refreshLooks()
+end
+
+function ns.shownTheme()
+    if type(looksPending) == "table" and looksPending.kind == "theme" then
+        return looksPending.id, false, true
+    end
+    local exact = ns.exactTheme(ns.screenPalette(), wornFrame(), soleGlow())
+    if exact then return exact.id, false, false end
+    local id = ns.readTheme()
+    if id then return id, true, false end
+    return nil, false, false
+end
+
+function ns.captureUndo(kind)
+    local themeId, changed = ns.readTheme()
+    local frame = select(1, readFrameStyle())
+    local glow = select(1, readKnown("general", "buttonGlow"))
+    local light = select(1, readKnown("Nameplates", "targetLight"))
+    return {
+        kind = kind,
+        frame = frame,
+        glow = glow,
+        light = light,
+        theme = themeId or false,
+        themeChanged = changed == true,
+    }
+end
+
+function ns.applyUndoShot(shot)
+    if type(shot) ~= "table" then return end
+    if shot.kind == "theme" or shot.kind == "frame" or shot.kind == "looks" or shot.kind == "full" then
+        if type(shot.frame) == "string" then writeFrameValue(shot.frame) end
+    end
+    if shot.kind == "theme" or shot.kind == "glow" or shot.kind == "looks" or shot.kind == "full" then
+        if type(shot.glow) == "string" or type(shot.light) == "string" then
+            writeGlowValue(shot.glow or DAYLIGHT_GLOW, shot.light or DAYLIGHT_LIGHT)
+        end
+    end
+    if shot.theme == false or type(shot.theme) == "string" then
+        writeThemeSlot(shot.theme, shot.themeChanged == true)
+    end
+    local exact = ns.exactTheme(ns.screenPalette(), wornFrame(), soleGlow())
+    if exact then writeThemeSlot(exact.id, false) end
+    refreshLooks()
+end
+
+function ns.applyShareLook(look)
+    if type(look) ~= "table" then return end
+    if type(look.frame) == "string" then
+        if look.frame == "daylight" then writeFrameValue(DAYLIGHT_FRAME)
+        elseif frameById(look.frame) then applyFrame(look.frame, true) end
+    end
+    if type(look.glow) == "string" then
+        if look.glow == "daylight" then writeGlowValue(DAYLIGHT_GLOW, DAYLIGHT_LIGHT)
+        elseif glowById(look.glow) then applyGlow(look.glow, true) end
+    end
+    if not ns.applyingTheme then ns.notePalette(ns.screenPalette()) end
+end
+
+function ns.currentPal2()
+    local palette = ns.screenPalette()
+    local themeId = select(1, ns.shownTheme())
+    local frameId = wornFrame() or "daylight"
+    local glowId = soleGlow() or "daylight"
+    if palette == "custom" and type(ns.readCustom) == "function" and type(ns.shareCode) == "function" then
+        local spec = ns.readCustom(type(ns.accountTable) == "function" and ns.accountTable() or {}, type(ns.charTable) == "function" and ns.charTable() or {})
+        local code = ns.shareCode(spec)
+        local base, accent = string.match(code or "", "^PAL1%-(%x%x%x%x%x%x)%-(%x%x%x%x%x%x)$")
+        return ns.pal2Code({ theme = themeId, custom = true, base = base, accent = accent, frame = frameId, glow = glowId })
+    end
+    return ns.pal2Code({ theme = themeId, palette = palette, frame = frameId, glow = glowId })
+end
+
+local function themeKeys(db)
+    return type(db) == "table" and (db.theme ~= nil or db.themeChanged ~= nil or db.frame ~= nil or db.glow ~= nil)
+end
+
+function ns.takeTheme(account, char, db, onlyOn)
+    if not themeKeys(db) then return false end
+    local function write(key, value)
+        if onlyOn and type(char) == "table" then
+            char[key] = value
+        elseif type(account) == "table" then
+            account[key] = value
+            if type(char) == "table" then char[key] = nil end
+        end
+    end
+    if db.theme ~= nil then write("theme", db.theme) end
+    if db.themeChanged ~= nil then write("themeChanged", db.themeChanged == true) end
+    if db.frame ~= nil then write("frame", db.frame) end
+    if db.glow ~= nil then write("glow", db.glow) end
+    return true
+end
+
+function ns.applyProfileLook(db)
+    if type(db) ~= "table" or not ns.looksApiOk() then return end
+    if type(db.frame) == "string" then
+        if db.frame == "daylight" then writeFrameValue(DAYLIGHT_FRAME)
+        elseif frameById(db.frame) then writeFrameValue("Looks:" .. db.frame) end
+    end
+    if type(db.glow) == "string" then
+        if db.glow == "daylight" then writeGlowValue(DAYLIGHT_GLOW, DAYLIGHT_LIGHT)
+        elseif glowById(db.glow) then writeGlowValue("Looks:" .. db.glow, "Looks:" .. db.glow) end
+    end
+end
+
+function ns.looksWaiting()
+    return type(looksPending) == "table"
+end
+
+function ns.cancelStylePending()
+    if type(looksPending) ~= "table" then return false end
+    looksPending = nil
+    refreshLooks()
+    return true
+end
+
+local function applyTheme(theme)
+    if inCombat() then
+        queueLook("theme", theme.id, theme.name)
+        return
+    end
+    if type(ns.captureUndo) == "function" then
+        ns.undoHold = ns.captureUndo("theme")
+    end
+    ns.applyingTheme = true
+    ns.quietPalette = true
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Set) == "function" then
+        d:Set("Palettes", "palette", theme.palette)
+    end
+    local frameOk = applyFrame(theme.frame, true)
+    local glowOk = applyGlow(theme.glow, true)
+    writeThemeSlot(theme.id, false)
+    ns.applyingTheme = false
+    ns.quietPalette = false
+    ns.undoHold = nil
+    say("Palettes: " .. theme.name .. " is on. Your layout is unchanged.")
+    if not frameOk then pointAtFrame(theme.frame) end
+    if not glowOk then pointAtGlow(theme.glow) end
+    refreshLooks()
+end
+
+function ns.restoreColoursOnly()
+    ns.coloursOnlyRestore = true
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Set) == "function" then
+        d:Set("Palettes", "palette", "off")
+    end
+end
+
+function ns.restoreLooksOnly()
+    if not ns.looksApiOk() then return false end
+    local saved = readSnapshot()
+    -- No snapshot means Palettes never changed the look, so Daylight's own
+    -- frame and glow stay as they are. Same as a full restore with nothing saved.
+    if type(saved) ~= "table" then
+        refreshLooks()
+        return false
+    end
+    local undoShot = type(ns.captureUndo) == "function" and ns.captureUndo("looks") or nil
+    local frame = DAYLIGHT_FRAME
+    local glow = DAYLIGHT_GLOW
+    local light = DAYLIGHT_LIGHT
+    if saved.frame ~= nil then frame = saved.frame end
+    if saved.glow ~= nil then glow = saved.glow end
+    if saved.light ~= nil then light = saved.light end
+    local frameOk = writeFrameValue(frame)
+    local glowOk = writeGlowValue(glow, light)
+    if frameOk or glowOk then refreshPage() end
+    if frameOk and glowOk then storeSnapshot(false) end
+    if undoShot and (frameOk or glowOk) and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
+    local frameId = looksId(frame) or (frame == DAYLIGHT_FRAME and "daylight" or nil)
+    if frameId then ns.storeLookPart("frame", frameId) end
+    local glowId = looksId(saved.glow or glow)
+    if glow == DAYLIGHT_GLOW and light == DAYLIGHT_LIGHT then glowId = "daylight" end
+    if glowId then ns.storeLookPart("glow", glowId) end
+    ns.notePalette(ns.screenPalette())
+    refreshLooks()
+    return frameOk and glowOk
+end
+
+function ns.restoreDaylightFull()
+    if type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Set) == "function" then
+        d:Set("Palettes", "palette", "off")
+    end
+end
+
+function ns.applyLiveShare(parsed)
+    if type(parsed) ~= "table" or parsed.kind ~= "pal2" or parsed.custom == true then return false end
+    local theme = parsed.theme and themeById(parsed.theme) or nil
+    if parsed.theme and not theme then return false end
+    if parsed.palette and parsed.palette ~= "none" and parsed.palette ~= "custom" then
+        if parsed.palette ~= "off" and type(ns.byId) == "table" and ns.byId[parsed.palette] == nil then
+            return false
+        end
+    end
+    if type(ns.captureUndo) == "function" then
+        local shot = ns.captureUndo("theme")
+        ns.undoHold = shot
+    end
+    ns.applyingTheme = true
+    ns.quietPalette = theme ~= nil
+    local d = DaylightUI
+    if parsed.palette and parsed.palette ~= "none" and type(d) == "table" and type(d.Set) == "function" then
+        d:Set("Palettes", "palette", parsed.palette)
+    end
+    if parsed.frame and parsed.frame ~= "none" then
+        if parsed.frame == "daylight" then writeFrameValue(DAYLIGHT_FRAME)
+        elseif frameById(parsed.frame) then applyFrame(parsed.frame, true) end
+    end
+    if parsed.glow and parsed.glow ~= "none" then
+        if parsed.glow == "daylight" then writeGlowValue(DAYLIGHT_GLOW, DAYLIGHT_LIGHT)
+        elseif glowById(parsed.glow) then applyGlow(parsed.glow, true) end
+    end
+    if theme then
+        local exact = ns.exactTheme(ns.screenPalette(), wornFrame(), soleGlow())
+        if exact and exact.id == theme.id then
+            writeThemeSlot(theme.id, false)
+            say("Palettes: " .. theme.name .. " is on. Your layout is unchanged.")
+        else
+            writeThemeSlot(theme.id, true)
+            say("Palettes: " .. theme.name .. " (changed) is on. Your layout is unchanged.")
+        end
+    else
+        writeThemeSlot(nil, false)
+        ns.notePalette(ns.screenPalette())
+    end
+    ns.applyingTheme = false
+    ns.quietPalette = false
+    ns.undoHold = nil
+    refreshLooks()
+    return true
 end
 
 function ns.armLooksRestore()
@@ -735,9 +1142,9 @@ function ns.finishLooksCombat()
         applyFrame(pending.id, false)
     elseif pending.kind == "glow" then
         applyGlow(pending.id, false)
-    elseif pending.kind == "preset" then
-        local preset = presetById(pending.id)
-        if preset then applyPreset(preset) end
+    elseif pending.kind == "theme" then
+        local theme = themeById(pending.id)
+        if theme then applyTheme(theme) end
     end
     refreshLooks()
 end
@@ -783,9 +1190,9 @@ function ns.looksSlash(msg)
         applyGlow(arg)
         return
     end
-    local preset = presetById(arg)
-    if preset then
-        applyPreset(preset)
+    local theme = themeById(arg)
+    if theme then
+        applyTheme(theme)
         return
     end
     say(statusLine())
@@ -795,20 +1202,13 @@ local function rowPending(kind, id)
     local pending = looksPending
     if type(pending) ~= "table" or pending.kind == "off" then return false end
     if pending.kind == kind and pending.id == id then return true end
-    if pending.kind == "preset" then
-        local preset = presetById(pending.id)
-        if preset and ((kind == "frame" and preset.frame == id) or (kind == "glow" and preset.glow == id)) then
+    if pending.kind == "theme" then
+        local theme = themeById(pending.id)
+        if theme and ((kind == "frame" and theme.frame == id) or (kind == "glow" and theme.glow == id) or (kind == "theme" and theme.id == id)) then
             return true
         end
     end
     return false
-end
-
-local function sheetHeight()
-    local left = INTRO_H + PRESET_HEAD_H + #PRESETS * PRESET_H + 20
-    local right = INTRO_H + HEAD_H + #FRAMES * STYLE_H + HEAD_H + #GLOWS * STYLE_H + HINT_H + 8
-    if right > left then return right + 8 end
-    return left + 8
 end
 
 local function uiFont(parent, size, color)
@@ -847,6 +1247,39 @@ local function redButton(parent, text, onClick)
     return b
 end
 
+local function paintChip(tex, color)
+    if type(tex) ~= "table" or type(color) ~= "table" or type(tex.SetColorTexture) ~= "function" then return end
+    if type(color[1]) ~= "number" or type(color[2]) ~= "number" or type(color[3]) ~= "number" then return end
+    tex:SetColorTexture(color[1], color[2], color[3], 1)
+end
+
+-- Same three blocks as a Colours row: background, band, accent, on the palette border.
+local function paletteSwatches(parent, paletteId)
+    local hold = CreateFrame("Frame", nil, parent)
+    hold:SetSize(44, 16)
+    local edge = hold:CreateTexture(nil, "BORDER")
+    edge:SetAllPoints()
+    local bg = hold:CreateTexture(nil, "ARTWORK")
+    bg:SetSize(12, 14)
+    bg:SetPoint("LEFT", hold, "LEFT", 1, 0)
+    local band = hold:CreateTexture(nil, "ARTWORK")
+    band:SetSize(12, 14)
+    band:SetPoint("LEFT", bg, "RIGHT", 1, 0)
+    local accent = hold:CreateTexture(nil, "ARTWORK")
+    accent:SetSize(16, 14)
+    accent:SetPoint("LEFT", band, "RIGHT", 1, 0)
+    local palette = type(ns.byId) == "table" and ns.byId[paletteId] or nil
+    local preview
+    if type(palette) == "table" then
+        paintChip(edge, palette.border or { 0.05, 0.05, 0.05 })
+        paintChip(bg, palette.background)
+        paintChip(band, palette.band)
+        paintChip(accent, palette.c2)
+        preview = { palette.background, palette.band, palette.c2 }
+    end
+    return hold, preview
+end
+
 local function drawIcon(parent, parts)
     local f = CreateFrame("Frame", nil, parent)
     f:SetSize(36, 18)
@@ -876,135 +1309,67 @@ local function hookSize(row, place)
     place()
 end
 
-local function sameRestore()
-    if type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
-    local d = DaylightUI
-    if type(d) == "table" and type(d.Set) == "function" then
-        d:Set("Palettes", "palette", "off")
-    end
-end
-
-local function buildRestore(row)
-    if row.made or type(CreateFrame) ~= "function" then return end
-    row.made = true
-    local caption = uiFont(row, 12, DIM)
-    caption:SetText(RESTORE_LABEL)
-    local button = redButton(row, "Restore", sameRestore)
-    row.restoreButton = button
-    hookSize(row, function()
-        button:ClearAllPoints()
-        caption:ClearAllPoints()
-        button:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -4)
-        caption:SetPoint("RIGHT", button, "LEFT", -8, 0)
-    end)
-end
-
-local function restoreItem()
+local function restoreItem(label, onClick)
     return {
         type = "custom",
-        label = RESTORE_LABEL,
-        build = buildRestore,
+        label = label,
+        build = function(row)
+            if row.made or type(CreateFrame) ~= "function" then return end
+            row.made = true
+            local caption = uiFont(row, 12, DIM)
+            caption:SetText(label)
+            local button = redButton(row, "Restore", onClick)
+            row.restoreButton = button
+            hookSize(row, function()
+                button:ClearAllPoints()
+                caption:ClearAllPoints()
+                button:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -4)
+                caption:SetPoint("RIGHT", button, "LEFT", -8, 0)
+            end)
+        end,
         height = function() return 32 end,
     }
 end
 
-local function buildPage(row, sheet)
-    if row.made or type(CreateFrame) ~= "function" then return end
-    row.made = true
-    row.lines = {}
-
-    local intro = uiFont(row, 12, DIM)
-    intro:SetText(CARD_INTRO)
-    intro:SetWordWrap(true)
-    local note = uiFont(row, 12, DIM)
-    note:SetText(PAGE_NOTE)
-    if type(note.SetJustifyH) == "function" then note:SetJustifyH("RIGHT") end
-    if type(note.SetWordWrap) == "function" then note:SetWordWrap(false) end
-
-    local function heading(text)
-        local fs = uiFont(row, 11, DIM)
-        fs:SetText(text)
-        return fs
-    end
-
-    local presetHead = heading(PRESET_HEAD)
-    local presetRows = {}
-    for i = 1, #sheet.presets do
-        local preset = sheet.presets[i]
-        local hold = CreateFrame("Frame", nil, row)
-        hold:SetHeight(PRESET_H - 8)
-        flat(hold, "BACKGROUND", CARD_EDGE)
-        local fill = hold:CreateTexture(nil, "BORDER")
-        if type(fill.SetColorTexture) == "function" then
-            fill:SetColorTexture(CARD_FILL[1], CARD_FILL[2], CARD_FILL[3], 1)
-        end
-        fill:SetPoint("TOPLEFT", hold, "TOPLEFT", 1, -1)
-        fill:SetPoint("BOTTOMRIGHT", hold, "BOTTOMRIGHT", -1, 1)
-        local name = uiFont(hold, 14, CREAM)
-        name:SetText(preset.name)
-        local chip = CreateFrame("Frame", nil, hold)
-        flat(chip, "BACKGROUND", CHIP_EDGE)
-        local chipFill = chip:CreateTexture(nil, "BORDER")
-        if type(chipFill.SetColorTexture) == "function" then
-            chipFill:SetColorTexture(CHIP_FILL[1], CHIP_FILL[2], CHIP_FILL[3], 1)
-        end
-        chipFill:SetPoint("TOPLEFT", chip, "TOPLEFT", 1, -1)
-        chipFill:SetPoint("BOTTOMRIGHT", chip, "BOTTOMRIGHT", -1, 1)
-        local chipText = uiFont(chip, 10, ON_INK)
-        chipText:SetText(preset.chip)
-        chipText:SetPoint("CENTER", chip, "CENTER", 0, 0)
-        if type(chipText.SetJustifyH) == "function" then chipText:SetJustifyH("CENTER") end
-        local chipW = chipText.GetStringWidth and chipText:GetStringWidth() or 72
-        if type(chipW) ~= "number" or chipW < 8 then chipW = 72 end
-        chip:SetSize(chipW + 12, 16)
-        local mood = uiFont(hold, 11, DIM)
-        mood:SetText(preset.mood)
-        mood:SetWordWrap(true)
-        local button = redButton(hold, "Apply", preset.apply)
-        presetRows[#presetRows + 1] = { hold = hold, name = name, chip = chip, mood = mood, button = button }
-    end
-
-    local frameHead = heading(FRAME_HEAD)
-    local glowHead = heading(GLOW_HEAD)
-
-    local function styleLine(entry)
+local function styleRows(row, entries)
+    row.lines = row.lines or {}
+    local built = {}
+    for i = 1, #entries do
+        local entry = entries[i]
         local hold = CreateFrame("Button", nil, row)
-        hold:SetHeight(STYLE_H)
+        hold:SetHeight(entry.rowH or STYLE_H)
         local hi = hold:CreateTexture(nil, "BACKGROUND")
         if type(hi.SetColorTexture) == "function" then
             hi:SetColorTexture(ROW_ON[1], ROW_ON[2], ROW_ON[3], ROW_ON[4])
         end
         hi:SetAllPoints()
         hi:Hide()
-        local box = CreateFrame("Button", nil, hold)
-        box:SetSize(14, 14)
-        flat(box, "BACKGROUND", BOX_EDGE)
-        local boxFill = box:CreateTexture(nil, "BORDER")
-        if type(boxFill.SetColorTexture) == "function" then
-            boxFill:SetColorTexture(BOX_FILL[1], BOX_FILL[2], BOX_FILL[3], 1)
-        end
-        boxFill:SetPoint("TOPLEFT", box, "TOPLEFT", 1, -1)
-        boxFill:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -1, 1)
-        local mark = box:CreateTexture(nil, "ARTWORK")
-        if type(mark.SetColorTexture) == "function" then
-            mark:SetColorTexture(BOX_ON[1], BOX_ON[2], BOX_ON[3], 1)
-        end
-        mark:SetSize(8, 8)
-        mark:SetPoint("CENTER", box, "CENTER", 0, 0)
-        mark:Hide()
-        local icon = drawIcon(hold, entry.icon)
+        local icon = drawIcon(hold, entry.icon or {})
         local name = uiFont(hold, 13, CREAM)
         name:SetText(entry.name)
+        if type(name.SetWordWrap) == "function" then name:SetWordWrap(false) end
         local desc = uiFont(hold, 11, DIM)
         desc:SetText(entry.desc)
         if type(desc.SetWordWrap) == "function" then desc:SetWordWrap(false) end
-        if type(name.SetWordWrap) == "function" then name:SetWordWrap(false) end
+        local partsText
+        if entry.parts then
+            partsText = uiFont(hold, 11, CREAM)
+            partsText:SetText(entry.parts)
+            if type(partsText.SetWordWrap) == "function" then partsText:SetWordWrap(false) end
+        end
+        local swatch, preview
+        if entry.palette then
+            swatch, preview = paletteSwatches(hold, entry.palette)
+        end
         local key = uiFont(hold, 11, DIM)
         key:SetText(entry.key)
         local onText = uiFont(hold, 12, ON_INK)
         onText:SetText("[On]")
         onText:Hide()
-        local line = { id = entry.id, kind = entry.kind }
+        local line = {
+            id = entry.id, kind = entry.kind, name = name, baseName = entry.name,
+            parts = entry.parts, mood = entry.desc, preview = preview, rowH = entry.rowH,
+        }
         line.key = key
         line.onText = onText
         function line.SetOn(on, pending)
@@ -1012,7 +1377,6 @@ local function buildPage(row, sheet)
             line.markPending = pending and true or false
             local marked = line.markOn or line.markPending
             if marked then hi:Show() else hi:Hide() end
-            if marked then mark:Show() else mark:Hide() end
             if on and not pending then onText:SetText("[On]") end
             if pending then onText:SetText("PENDING") end
             if marked then
@@ -1024,137 +1388,215 @@ local function buildPage(row, sheet)
                 if key.Show then key:Show() end
                 if onText.Hide then onText:Hide() end
             end
-            if type(boxFill.SetColorTexture) == "function" then
-                local c = marked and BOX_ON or BOX_FILL
-                boxFill:SetColorTexture(c[1], c[2], c[3], 1)
-            end
         end
         local function pick() entry.select() end
         hold:SetScript("OnClick", pick)
-        box:SetScript("OnClick", pick)
         row.lines[#row.lines + 1] = line
-        return { hold = hold, box = box, icon = icon, name = name, desc = desc, key = key, onText = onText, line = line }
+        built[#built + 1] = {
+            hold = hold, icon = icon, name = name, desc = desc, parts = partsText,
+            swatch = swatch, key = key, onText = onText, line = line,
+        }
     end
+    return built
+end
 
-    local frameRows, glowRows = {}, {}
-    for i = 1, #sheet.frames do frameRows[#frameRows + 1] = styleLine(sheet.frames[i]) end
-    for i = 1, #sheet.glows do glowRows[#glowRows + 1] = styleLine(sheet.glows[i]) end
-
-    local hint = CreateFrame("Frame", nil, row)
-    hint:SetHeight(HINT_H)
-    flat(hint, "BACKGROUND", HINT_EDGE)
-    local hintFill = hint:CreateTexture(nil, "BORDER")
-    if type(hintFill.SetColorTexture) == "function" then
-        hintFill:SetColorTexture(0.12, 0.12, 0.13, 1)
+local function placeStyles(row, intro, heads, rows, hintText, combatNote)
+    local w = row:GetWidth()
+    if type(w) ~= "number" or w < 120 then w = 760 end
+    intro:ClearAllPoints()
+    intro:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+    intro:SetWidth(w)
+    local y = INTRO_H
+    local function placeHead(fs)
+        fs:ClearAllPoints()
+        fs:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -y)
+        y = y + HEAD_H
     end
-    hintFill:SetPoint("TOPLEFT", hint, "TOPLEFT", 1, -1)
-    hintFill:SetPoint("BOTTOMRIGHT", hint, "BOTTOMRIGHT", -1, 1)
-    local hintText = uiFont(hint, 11, DIM)
-    hintText:SetText(GLOW_HINT)
-    hintText:SetWordWrap(true)
+    local function placeList(list)
+        for i = 1, #list do
+            local s = list[i]
+            s.hold:ClearAllPoints()
+            s.hold:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -y)
+            s.hold:SetWidth(w)
+            s.icon:ClearAllPoints()
+            s.icon:SetPoint("LEFT", s.hold, "LEFT", 0, 0)
+            local textX = 44
+            if s.swatch then
+                s.swatch:ClearAllPoints()
+                s.swatch:SetPoint("LEFT", s.icon, "RIGHT", 6, 0)
+                textX = 94
+            end
+            s.name:ClearAllPoints()
+            s.desc:ClearAllPoints()
+            if s.parts then
+                local textW = math.max(80, w - textX - 120)
+                s.name:SetPoint("TOPLEFT", s.hold, "TOPLEFT", textX, -4)
+                s.name:SetWidth(textW)
+                s.parts:ClearAllPoints()
+                s.parts:SetPoint("TOPLEFT", s.name, "BOTTOMLEFT", 0, -1)
+                s.parts:SetWidth(textW)
+                s.desc:SetPoint("TOPLEFT", s.parts, "BOTTOMLEFT", 0, -1)
+                s.desc:SetWidth(textW)
+            else
+                s.name:SetPoint("LEFT", s.icon, "RIGHT", 8, 0)
+                s.name:SetWidth(160)
+                s.desc:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
+                s.desc:SetWidth(math.max(40, w - 160 - 36 - 150))
+            end
+            s.key:ClearAllPoints()
+            s.onText:ClearAllPoints()
+            if s.line.markOn or s.line.markPending then
+                if s.key.Hide then s.key:Hide() end
+                s.onText:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
+            else
+                if s.key.Show then s.key:Show() end
+                s.key:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
+            end
+            y = y + (s.line.rowH or STYLE_H)
+        end
+    end
+    for i = 1, #heads do
+        placeHead(heads[i])
+        placeList(rows[i])
+    end
+    if hintText then
+        hintText.hold:ClearAllPoints()
+        hintText.hold:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -(y + 6))
+        hintText.hold:SetWidth(w)
+    end
+    if combatNote then
+        combatNote:ClearAllPoints()
+        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -(y + (hintText and (HINT_H + 8) or 4)))
+    end
+end
+
+local function buildListPage(row, spec)
+    if row.made or type(CreateFrame) ~= "function" then return end
+    row.made = true
+    row.lines = {}
+    local intro = uiFont(row, 12, DIM)
+    intro:SetText(spec.intro)
+    intro:SetWordWrap(true)
+    local heads, groups = {}, {}
+    for i = 1, #spec.sections do
+        local section = spec.sections[i]
+        local head = uiFont(row, 11, DIM)
+        head:SetText(section.head)
+        heads[#heads + 1] = head
+        groups[#groups + 1] = styleRows(row, section.rows)
+    end
+    local hint
+    if spec.hint then
+        local hold = CreateFrame("Frame", nil, row)
+        hold:SetHeight(HINT_H)
+        flat(hold, "BACKGROUND", HINT_EDGE)
+        local hintFill = hold:CreateTexture(nil, "BORDER")
+        if type(hintFill.SetColorTexture) == "function" then
+            hintFill:SetColorTexture(0.12, 0.12, 0.13, 1)
+        end
+        hintFill:SetPoint("TOPLEFT", hold, "TOPLEFT", 1, -1)
+        hintFill:SetPoint("BOTTOMRIGHT", hold, "BOTTOMRIGHT", -1, 1)
+        local text = uiFont(hold, 11, DIM)
+        text:SetText(spec.hint)
+        text:SetWordWrap(true)
+        text:SetPoint("TOPLEFT", hold, "TOPLEFT", 8, -8)
+        hint = { hold = hold, text = text }
+    end
     local combatNote = uiFont(row, 12, ON_INK)
     combatNote:SetText("Applies when combat ends.")
     if combatNote.Hide then combatNote:Hide() end
-
-    local function place()
-        local w = row:GetWidth()
-        if type(w) ~= "number" or w < 120 then w = 760 end
-        local gap = 22
-        local leftW = math.floor((w - gap) * 0.50)
-        local rightX = leftW + gap
-        local rightW = w - rightX
-        intro:ClearAllPoints()
-        intro:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
-        intro:SetWidth(leftW)
-        local anchor, nx, ny = row, 0, 22
-        if type(row.GetParent) == "function" then
-            local parent = row:GetParent()
-            if type(parent) == "table" then anchor, nx, ny = parent, -12, -12 end
-        end
-        note:ClearAllPoints()
-        note:SetPoint("TOPRIGHT", anchor, "TOPRIGHT", nx, ny)
-        presetHead:ClearAllPoints()
-        presetHead:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -INTRO_H)
-        local y = INTRO_H + PRESET_HEAD_H
-        for i = 1, #presetRows do
-            local p = presetRows[i]
-            p.hold:ClearAllPoints()
-            p.hold:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -y)
-            p.hold:SetWidth(leftW)
-            p.name:ClearAllPoints()
-            p.name:SetPoint("TOPLEFT", p.hold, "TOPLEFT", 10, -10)
-            p.chip:ClearAllPoints()
-            p.chip:SetPoint("LEFT", p.name, "RIGHT", 8, 0)
-            p.button:ClearAllPoints()
-            p.button:SetPoint("TOPRIGHT", p.hold, "TOPRIGHT", -10, -10)
-            p.mood:ClearAllPoints()
-            p.mood:SetPoint("TOPLEFT", p.hold, "TOPLEFT", 10, -34)
-            p.mood:SetWidth(math.max(40, leftW - 108))
-            y = y + PRESET_H
-        end
-        combatNote:ClearAllPoints()
-        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -y)
-        local function placeHead(fs, at)
-            fs:ClearAllPoints()
-            fs:SetPoint("TOPLEFT", row, "TOPLEFT", rightX, -at)
-        end
-        local function placeStyle(list, at)
-            for i = 1, #list do
-                local s = list[i]
-                s.hold:ClearAllPoints()
-                s.hold:SetPoint("TOPLEFT", row, "TOPLEFT", rightX, -at)
-                s.hold:SetWidth(rightW)
-                s.box:ClearAllPoints()
-                s.box:SetPoint("LEFT", s.hold, "LEFT", 0, 0)
-                s.icon:ClearAllPoints()
-                s.icon:SetPoint("LEFT", s.box, "RIGHT", 8, 0)
-                s.name:ClearAllPoints()
-                s.name:SetPoint("LEFT", s.icon, "RIGHT", 8, 0)
-                s.name:SetWidth(88)
-                s.desc:ClearAllPoints()
-                s.desc:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
-                s.desc:SetWidth(math.max(40, rightW - 14 - 36 - 88 - 150))
-                s.key:ClearAllPoints()
-                s.onText:ClearAllPoints()
-                if s.line.markOn or s.line.markPending then
-                    if s.key.Hide then s.key:Hide() end
-                    s.onText:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
-                else
-                    if s.key.Show then s.key:Show() end
-                    s.key:SetPoint("RIGHT", s.hold, "RIGHT", -4, 0)
-                end
-                at = at + STYLE_H
-            end
-            return at
-        end
-        local ry = INTRO_H
-        placeHead(frameHead, ry)
-        ry = placeStyle(frameRows, ry + HEAD_H)
-        placeHead(glowHead, ry)
-        ry = placeStyle(glowRows, ry + HEAD_H)
-        hint:ClearAllPoints()
-        hint:SetPoint("TOPLEFT", row, "TOPLEFT", rightX, -(ry + 6))
-        hint:SetWidth(rightW)
-        hintText:ClearAllPoints()
-        hintText:SetPoint("TOPLEFT", hint, "TOPLEFT", 8, -8)
-        hintText:SetWidth(math.max(40, rightW - 16))
-    end
-
     function row.UpdateLooks()
         local waiting = type(looksPending) == "table"
         if combatNote.SetShown then combatNote:SetShown(waiting) end
+        local shownId, changed, pendingTheme = ns.shownTheme()
         for i = 1, #row.lines do
             local line = row.lines[i]
             local pending = rowPending(line.kind, line.id)
-            local on = line.kind == "frame" and sheet.frameOn(line.id) or sheet.glowOn(line.id)
+            local on = false
+            if line.kind == "theme" then
+                on = shownId == line.id and not pendingTheme
+                if line.name and line.name.SetText then
+                    if shownId == line.id and changed then
+                        line.name:SetText(line.baseName .. " (changed)")
+                    else
+                        line.name:SetText(line.baseName)
+                    end
+                end
+            elseif line.kind == "frame" then
+                on = spec.frameOn(line.id)
+            else
+                on = spec.glowOn(line.id)
+            end
             line.SetOn(on and true or false, pending)
         end
+        placeStyles(row, intro, heads, groups, hint, combatNote)
     end
-    hookSize(row, place)
+    hookSize(row, function()
+        if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+    end)
     row.UpdateLooks()
     refreshers[#refreshers + 1] = function()
         if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
     end
+end
+
+local function listHeight(sections, withHint)
+    local rowsH = 0
+    for i = 1, #sections do
+        local section = sections[i]
+        rowsH = rowsH + #section.rows * (section.rowH or STYLE_H)
+    end
+    return INTRO_H + #sections * HEAD_H + rowsH + (withHint and (HINT_H + 12) or 8) + 22
+end
+
+local function hiddenStyles()
+    return ns.looksApiOk() ~= true
+end
+
+function ns.themesPage()
+    local rows = {}
+    for i = 1, #THEMES do
+        local theme = THEMES[i]
+        rows[#rows + 1] = {
+            kind = "theme", id = theme.id, name = theme.name, desc = theme.mood,
+            parts = themeParts(theme), palette = theme.palette, rowH = THEME_H,
+            key = "Looks:" .. theme.id, icon = ICONS[theme.frame],
+            select = function() applyTheme(theme) end,
+        }
+    end
+    local spec = {
+        intro = THEME_INTRO,
+        frameOn = function() return false end,
+        glowOn = function() return false end,
+        sections = { { head = THEME_HEAD, rows = rows, rowH = THEME_H } },
+    }
+    local reset = restoreItem("Restore Daylight", ns.restoreDaylightFull)
+    reset.hidden = hiddenStyles
+    return {
+        id = "themes",
+        label = "Themes",
+        desc = THEME_INTRO,
+        groups = {
+            { tab = "Themes", label = "Restore", bare = true, wide = true, items = { reset } },
+            {
+                tab = "Themes",
+                label = "Themes",
+                wide = true,
+                items = {
+                    {
+                        type = "custom",
+                        label = "Themes",
+                        hidden = hiddenStyles,
+                        build = function(row) buildListPage(row, spec) end,
+                        update = function(row)
+                            if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+                        end,
+                        height = function() return listHeight(spec.sections, false) end,
+                    },
+                },
+            },
+        },
+    }
 end
 
 function ns.looksPage()
@@ -1162,25 +1604,9 @@ function ns.looksPage()
         return wornFrame() == id
     end
     local function glowOn(id)
-        local glows = wornGlows()
-        for i = 1, #glows do
-            if glows[i].id == id then return true end
-        end
-        return false
+        return soleGlow() == id
     end
-    local presets, frames, glows = {}, {}, {}
-    for i = 1, #PRESETS do
-        local preset = PRESETS[i]
-        local frame = frameById(preset.frame)
-        local glow = glowById(preset.glow)
-        presets[#presets + 1] = {
-            id = preset.id,
-            name = preset.name,
-            chip = frame.name .. " + " .. glow.name,
-            mood = preset.mood,
-            apply = function() applyPreset(preset) end,
-        }
-    end
+    local frames, glows = {}, {}
     for i = 1, #FRAMES do
         local frame = FRAMES[i]
         frames[#frames + 1] = {
@@ -1197,30 +1623,41 @@ function ns.looksPage()
             select = function() applyGlow(glow.id) end,
         }
     end
-    local sheet = { presets = presets, frames = frames, glows = glows, frameOn = frameOn, glowOn = glowOn }
+    local spec = {
+        intro = LOOKS_INTRO,
+        hint = GLOW_HINT,
+        frameOn = frameOn,
+        glowOn = glowOn,
+        sections = {
+            { head = FRAME_HEAD, rows = frames },
+            { head = GLOW_HEAD, rows = glows },
+        },
+    }
+    local reset = restoreItem("Restore looks", ns.restoreLooksOnly)
+    reset.hidden = hiddenStyles
     return {
         id = "looks",
         label = "Looks",
-        desc = PAGE,
-        hidden = function() return ns.looksApiOk() ~= true end,
+        desc = "Frame styles and glow styles. Colours stay on the Colours tab.",
         groups = {
-            { label = "Restore", bare = true, wide = true, items = { restoreItem() } },
+            { tab = "Looks", label = "Restore", bare = true, wide = true, items = { reset } },
             {
-                label = CARD,
+                tab = "Looks",
+                label = "Looks",
                 wide = true,
                 items = {
                     {
                         type = "custom",
-                        label = CARD,
-                        build = function(row) buildPage(row, sheet) end,
+                        label = "Looks",
+                        hidden = hiddenStyles,
+                        build = function(row) buildListPage(row, spec) end,
                         update = function(row)
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
-                        height = function() return sheetHeight() end,
+                        height = function() return listHeight(spec.sections, true) end,
                     },
                 },
             },
-            { label = "Restore", bare = true, wide = true, items = { restoreItem() } },
         },
     }
 end
