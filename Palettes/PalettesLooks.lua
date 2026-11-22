@@ -974,24 +974,28 @@ end
 
 function ns.restoreLooksOnly()
     if not ns.looksApiOk() then return false end
-    local undoShot = type(ns.captureUndo) == "function" and ns.captureUndo("looks") or nil
     local saved = readSnapshot()
+    -- No snapshot means Palettes never changed the look, so Daylight's own
+    -- frame and glow stay as they are. Same as a full restore with nothing saved.
+    if type(saved) ~= "table" then
+        refreshLooks()
+        return false
+    end
+    local undoShot = type(ns.captureUndo) == "function" and ns.captureUndo("looks") or nil
     local frame = DAYLIGHT_FRAME
     local glow = DAYLIGHT_GLOW
     local light = DAYLIGHT_LIGHT
-    if type(saved) == "table" then
-        if saved.frame ~= nil then frame = saved.frame end
-        if saved.glow ~= nil then glow = saved.glow end
-        if saved.light ~= nil then light = saved.light end
-    end
+    if saved.frame ~= nil then frame = saved.frame end
+    if saved.glow ~= nil then glow = saved.glow end
+    if saved.light ~= nil then light = saved.light end
     local frameOk = writeFrameValue(frame)
     local glowOk = writeGlowValue(glow, light)
     if frameOk or glowOk then refreshPage() end
-    if type(saved) == "table" and frameOk and glowOk then storeSnapshot(false) end
+    if frameOk and glowOk then storeSnapshot(false) end
     if undoShot and (frameOk or glowOk) and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
     local frameId = looksId(frame) or (frame == DAYLIGHT_FRAME and "daylight" or nil)
     if frameId then ns.storeLookPart("frame", frameId) end
-    local glowId = looksId(type(saved) == "table" and saved.glow or glow)
+    local glowId = looksId(saved.glow or glow)
     if glow == DAYLIGHT_GLOW and light == DAYLIGHT_LIGHT then glowId = "daylight" end
     if glowId then ns.storeLookPart("glow", glowId) end
     ns.notePalette(ns.screenPalette())
@@ -1475,20 +1479,23 @@ function ns.themesPage()
         glowOn = function() return false end,
         sections = { { head = THEME_HEAD, rows = rows } },
     }
+    local reset = restoreItem("Restore Daylight", ns.restoreDaylightFull)
+    reset.hidden = hiddenStyles
     return {
         id = "themes",
         label = "Themes",
         desc = THEME_INTRO,
-        hidden = hiddenStyles,
         groups = {
-            { label = "Restore", bare = true, wide = true, items = { restoreItem("Restore Daylight", ns.restoreDaylightFull) } },
+            { tab = "Themes", label = "Restore", bare = true, wide = true, items = { reset } },
             {
+                tab = "Themes",
                 label = "Themes",
                 wide = true,
                 items = {
                     {
                         type = "custom",
                         label = "Themes",
+                        hidden = hiddenStyles,
                         build = function(row) buildListPage(row, spec) end,
                         update = function(row)
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
@@ -1535,20 +1542,23 @@ function ns.looksPage()
             { head = GLOW_HEAD, rows = glows },
         },
     }
+    local reset = restoreItem("Restore looks", ns.restoreLooksOnly)
+    reset.hidden = hiddenStyles
     return {
         id = "looks",
         label = "Looks",
-        desc = "Frame styles and glow styles. Colours stay on the Colours page.",
-        hidden = hiddenStyles,
+        desc = "Frame styles and glow styles. Colours stay on the Colours tab.",
         groups = {
-            { label = "Restore", bare = true, wide = true, items = { restoreItem("Restore looks", ns.restoreLooksOnly) } },
+            { tab = "Looks", label = "Restore", bare = true, wide = true, items = { reset } },
             {
+                tab = "Looks",
                 label = "Looks",
                 wide = true,
                 items = {
                     {
                         type = "custom",
                         label = "Looks",
+                        hidden = hiddenStyles,
                         build = function(row) buildListPage(row, spec) end,
                         update = function(row)
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end

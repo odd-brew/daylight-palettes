@@ -15,7 +15,7 @@ Made for World of Warcraft: Forever.
 - **Undo:** one step back to the previous palette, for this session. It is not a return to Daylight's colors, and it greys out after you use it or when nothing has changed yet.
 - **Accent follows class:** tints the window accent to a shade of your class color, adjusted just enough to stay readable.
 - **Account-wide by default:** one palette for all your characters, or save a different one for a single character.
-- **Restore anytime:** `/palettes off` or `/looks off` puts DaylightUI's own colors, frame style and glows back, and clears a Theme. The Themes page reset does the same. The Colours page reset puts colors back only. The Looks page reset puts the frame style and glows back only.
+- **Restore anytime:** `/palettes off` or `/looks off` puts DaylightUI's own colors, frame style and glows back, and clears a Theme. The Themes tab reset does the same. The Colours tab reset puts colors back only. The Looks tab reset puts the saved frame style and glows back only.
 - **Daylight profiles:** importing or switching a Daylight profile also brings its palette, Accent follows class, and Custom colors. **Save for this character only** stays your own switch. A profile with no Palettes settings keeps your current look.
 
 Vanilla is dark oak and pewter chrome. Forever is near-black soot with weathered bronze trim. Sightline uses slate blue and amber, chosen with color-blind players in mind.
@@ -42,7 +42,7 @@ Palettes starts switched off, so your first login looks exactly like DaylightUI.
 
 ### Themes, colours and looks
 
-Plugins > Palettes has three pages:
+Plugins > Palettes is one page with three tabs:
 
 - **Themes** lists ten Themes. Each one sets a palette, a frame style and a glow. Hearthnight is Ember, Lintel and Wick. The others are Harvestide, Tidemark, Old Road, Vigil, Snug, Bellows, Drawwell, Settle and After Hours. Click a row, or type `/looks hearthnight`. Chat says **Palettes: Hearthnight is on. Your layout is unchanged.**
 - **Colours** is the palette list, with swatches, Accent follows class, Save for this character only, and a Share code row. Picking a palette, including from Appearance > Palette or `/palettes ember`, changes colours only.
@@ -50,9 +50,9 @@ Plugins > Palettes has three pages:
 
 If you change any one part of a Theme, its row reads **Hearthnight (changed)**. Picking that Theme again clears the mark. `/looks` reports the same mark.
 
-Each page has its own reset at the top: **Restore Daylight** (colours, frame, glows, and the Theme), **Restore colours** (colours only) and **Restore looks** (frame and glows only). A colours or looks reset while a Theme is on marks that Theme **(changed)**.
+Each tab has its own reset at the top: **Restore Daylight** (colours, frame, glows, and the Theme), **Restore colours** (colours only) and **Restore looks** (the saved frame and glows only). A colours or looks reset while a Theme is on marks that Theme **(changed)**. Restore looks does nothing when Palettes has not saved a look, so a frame or glow set in Daylight's own menus stays put.
 
-On an older DaylightUI that can recolor but cannot take frame and glow styles, only the Colours page shows and `/looks` says only colors are available. If the standalone Looks add-on is also enabled, turn it off. These styles now live in Palettes.
+On an older DaylightUI that can recolor but cannot take frame and glow styles, only the Colours tab shows and `/looks` says only colors are available. If the standalone Looks add-on is also enabled, turn it off. These styles now live in Palettes.
 
 **Undo** sits in the Plugins > Palettes header. Use it to step back one palette, or to cancel a pick that's still waiting for combat to end.
 
@@ -62,7 +62,7 @@ The editor has **Hue**, **Saturation** and **Lightness** sliders for **BASE** an
 
 If you haven't saved your own colors yet, Custom starts with a dark plum base and gold accent.
 
-A **Share code** row sits in the editor and on the Colours page. Custom colour codes look like **PAL1-RRGGBB-RRGGBB** (base, then accent). A full code looks like **PAL2-hearthnight-ember-lintel-wick**. Case and a leading # don't matter. **Copy** on the Colours page writes the current Theme, palette, frame and glow as PAL2, and on the clipboard when the game allows it; the button reads **Copied.** for a moment. **Apply** of a PAL2 code with a Theme name applies it in game. **Apply** of PAL1, or of **PAL2-C-RRGGBB-RRGGBB-frame-glow**, loads the Custom preview only; **Save** is what applies those colours, and a PAL2-C frame and glow, in game. A bad or empty code leaves your draft alone and shows **That isn't a Palettes share code.** A valid colour code shows **Applied. Save to keep it.** If the base is too light, it is darkened and the note reads **Base was darkened so text stays readable.**
+A **Share code** row sits in the editor and on the Colours tab. Custom colour codes look like **PAL1-RRGGBB-RRGGBB** (base, then accent). A full code looks like **PAL2-hearthnight-ember-lintel-wick**. Case and a leading # don't matter. **Copy** on the Colours tab writes the current Theme, palette, frame and glow as PAL2, and on the clipboard when the game allows it; the button reads **Copied.** for a moment. **Apply** of a PAL2 code with a Theme name applies it in game. **Apply** of PAL1, or of **PAL2-C-RRGGBB-RRGGBB-frame-glow**, loads the Custom preview only; **Save** is what applies those colours, and a PAL2-C frame and glow, in game. A bad or empty code leaves your draft alone and shows **That isn't a Palettes share code.** A valid colour code shows **Applied. Save to keep it.** If the base is too light, it is darkened and the note reads **Base was darkened so text stays readable.**
 
 - **Back** leaves the editor without saving.
 - **Reset to Ember** asks first (**Reset Custom to Ember?**). Confirming copies Ember's colors into the editor; **Save** is what writes them. Custom stays selected.
@@ -78,9 +78,9 @@ On **Plugins > Palettes**:
 | --- | --- |
 | Accent follows class | Uses a shade of your class color as the window accent. Names, chat and unit frames keep the game's class colors. |
 | Save for this character only | Off: this character uses your account palette. On: changes here apply only to this character, including Accent follows class, Custom colors, the frame style, the glow and the Restore snapshot. Unticking it clears this character's own pick and goes back to the account palette. |
-| Restore Daylight | On the Themes page. Puts DaylightUI's own colors, frame style and glows back, and clears the Theme. `/palettes off` and `/looks off` do the same. |
-| Restore colours | On the Colours page. Puts colors back only. The frame style and glows stay. A Theme that was on shows as changed. |
-| Restore looks | On the Looks page. Puts the frame style and glows back only. Colors stay. A Theme that was on shows as changed. |
+| Restore Daylight | On the Themes tab. Puts DaylightUI's own colors, frame style and glows back, and clears the Theme. `/palettes off` and `/looks off` do the same. |
+| Restore colours | On the Colours tab. Puts colors back only. The frame style and glows stay. A Theme that was on shows as changed. |
+| Restore looks | On the Looks tab. Puts the saved frame style and glows back only. Colors stay. A Theme that was on shows as changed. With no saved look, it changes nothing. |
 
 ## Known limits
 

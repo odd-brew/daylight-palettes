@@ -2562,6 +2562,7 @@ local function boot()
         desc = "Recolor Daylight's windows, panels, borders, accent and text. Class and combat colors stay Daylight's. Picking a palette never changes the frame style or the glow.",
         groups = {
             {
+                tab = "Colours",
                 label = "Restore",
                 bare = true,
                 wide = true,
@@ -2575,6 +2576,7 @@ local function boot()
                 },
             },
             {
+                tab = "Colours",
                 label = "Palettes",
                 items = {
                     { type = "custom", label = "Choices", noSearch = true, build = buildList, update = function(row)
@@ -2592,15 +2594,21 @@ local function boot()
             },
         },
     }
-    local pages = {}
+    -- One page. Daylight's options page draws a tab strip from group.tab
+    -- (Options/Widgets.lua W.Page). Tabs show only when a group on them has a visible row.
+    local groups = {}
+    local function take(page)
+        if type(page) ~= "table" or type(page.groups) ~= "table" then return end
+        for i = 1, #page.groups do groups[#groups + 1] = page.groups[i] end
+    end
     if type(ns.themesPage) == "function" then
         local okThemes, themesPage = pcall(ns.themesPage)
-        if okThemes and type(themesPage) == "table" then pages[#pages + 1] = themesPage end
+        if okThemes then take(themesPage) end
     end
-    pages[#pages + 1] = coloursPage
+    take(coloursPage)
     if type(ns.looksPage) == "function" then
         local okPage, looksPage = pcall(ns.looksPage)
-        if okPage and type(looksPage) == "table" then pages[#pages + 1] = looksPage end
+        if okPage then take(looksPage) end
     end
     d:RegisterModule("Palettes", {
         label = "Palettes",
@@ -2610,7 +2618,14 @@ local function boot()
             theme = false, themeChanged = false, frame = false, glow = false, looks = false,
         },
         OnEnable = onEnable,
-        options = { pages = pages },
+        options = { pages = {
+            {
+                id = "main",
+                label = "Palettes",
+                desc = "Themes set a palette, a frame style and a glow. Palettes, frames and glows can each be picked on their own.",
+                groups = groups,
+            },
+        } },
     })
     if type(ns.bootLooks) == "function" then pcall(ns.bootLooks) end
 
@@ -2666,7 +2681,7 @@ end
 
 local function placeUndo(panel)
     local page = type(panel.Current) == "function" and panel.Current()
-    local onPage = page == "Palettes.themes" or page == "Palettes.colours" or page == "Palettes.looks" or page == "Palettes.main"
+    local onPage = page == "Palettes.main"
     if undoButton.SetShown then
         undoButton:SetShown(onPage)
     elseif onPage and undoButton.Show then

@@ -1528,14 +1528,31 @@ check(views.Looks and views.Looks.lintelKey, "Looks:lintel", "frame keys stay on
 check(views.Looks and views.Looks.glowKey, "Looks:wick", "glow keys stay on Looks")
 check(views.Looks and views.Looks.trough and views.Looks.trough.sizes.player.powerHeight, 14, "trough power height is not clamped here")
 local pages = ui.module and ui.module.options and ui.module.options.pages
-check(type(pages) == "table" and pages[1] and pages[1].label, "Themes", "themes is the first page")
-check(type(pages) == "table" and pages[2] and pages[2].label, "Colours", "colours is the second page")
-check(type(pages) == "table" and pages[3] and pages[3].label, "Looks", "looks is the third page")
-check(pages[1].hidden(), false, "themes page shows on api 1.9")
-check(pages[3].hidden(), false, "looks page shows on api 1.9")
-check(pages[1].groups[1].items[1].label, "Restore Daylight", "themes reset is Restore Daylight")
-check(pages[2].groups[1].items[1].label, "Restore colours", "colours reset is Restore colours")
-check(pages[3].groups[1].items[1].label, "Restore looks", "looks reset is Restore looks")
+check(type(pages) == "table" and #pages or 0, 1, "palettes is one page")
+check(pages[1] and pages[1].id, "main", "the page id is main")
+check(pages[1] and pages[1].label, "Palettes", "the page is Palettes")
+local function groupsOn(name)
+    local list = {}
+    local groups = pages[1] and pages[1].groups or {}
+    for i = 1, #groups do
+        if groups[i].tab == name then list[#list + 1] = groups[i] end
+    end
+    return list
+end
+local themeGroups = groupsOn("Themes")
+local colourGroups = groupsOn("Colours")
+local lookGroups = groupsOn("Looks")
+check(#themeGroups, 2, "themes tab has a reset and the list")
+check(#colourGroups, 2, "colours tab has a reset and the palettes")
+check(#lookGroups, 2, "looks tab has a reset and the styles")
+check(pages[1].groups[1].tab, "Themes", "themes is the first tab")
+check(colourGroups[1] and pages[1].groups[3].tab, "Colours", "colours is the second tab")
+check(pages[1].groups[#pages[1].groups].tab, "Looks", "looks is the last tab")
+check(themeGroups[1].items[1].hidden(), false, "themes tab shows on api 1.9")
+check(lookGroups[1].items[1].hidden(), false, "looks tab shows on api 1.9")
+check(themeGroups[1].items[1].label, "Restore Daylight", "themes reset is Restore Daylight")
+check(colourGroups[1].items[1].label, "Restore colours", "colours reset is Restore colours")
+check(lookGroups[1].items[1].label, "Restore looks", "looks reset is Restore looks")
 
 local account = ns.accountTable()
 local char = ns.charTable()
@@ -1641,8 +1658,11 @@ ns.bootLooks()
 check(styleCalls.frame, 0, "api 1.7 does not register frames")
 check(styleCalls.glow, 0, "api 1.7 does not register glows")
 check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", "api 1.7 says only colors")
-check(pages[1].hidden(), true, "api 1.7 hides the themes page")
-check(pages[3].hidden(), true, "api 1.7 hides the looks page")
+check(themeGroups[1].items[1].hidden(), true, "api 1.7 hides the themes tab")
+check(themeGroups[2].items[1].hidden(), true, "api 1.7 hides the theme list")
+check(lookGroups[1].items[1].hidden(), true, "api 1.7 hides the looks tab")
+check(lookGroups[2].items[1].hidden(), true, "api 1.7 hides the frame and glow list")
+check(colourGroups[1].items[1].hidden(), false, "api 1.7 still shows Restore colours")
 local beforeGuard = sets.UnitFrames["look.style"]
 local paletteGuard = palDb.palette
 ns.looksSlash("lintel")
@@ -1663,17 +1683,15 @@ ns.bootLooks()
 check(styleCalls.frame, 0, "a loaded Looks add-on is not registered twice")
 check(said[#said], "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes.", "both add-ons get one line")
 
-local looksGroups = pages[3].groups
-check(type(looksGroups) == "table" and #looksGroups or 0, 2, "looks page has a reset and the styles")
-check(looksGroups[1].items[1].label, "Restore looks", "looks reset is labelled Restore looks")
+check(lookGroups[1].items[1].label, "Restore looks", "looks reset is labelled Restore looks")
 local row = piece()
-local body = looksGroups[2].items[1]
+local body = lookGroups[2].items[1]
 ui.API.minor = 9
 ns.looksReady = true
 ns.looksGuard = nil
 if type(body) == "table" and type(body.build) == "function" then
     local built, buildErr = pcall(body.build, row)
-    if not built then fail("looks page did not build: " .. tostring(buildErr)) end
+    if not built then fail("looks tab did not build: " .. tostring(buildErr)) end
     check(type(row.lines) == "table" and #row.lines or 0, 10, "frames and glows are rows")
     if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
     local active = row.lines[1]
@@ -1686,16 +1704,16 @@ if type(body) == "table" and type(body.build) == "function" then
     active.SetOn(false, false)
     check(active.key.shown, true, "other rows show the key")
 else
-    fail("looks page has no body")
+    fail("looks tab has no body")
 end
 local themeRow = piece()
-local themeBody = pages[1].groups[2].items[1]
+local themeBody = themeGroups[2].items[1]
 if type(themeBody) == "table" and type(themeBody.build) == "function" then
     local builtTheme, themeErr = pcall(themeBody.build, themeRow)
-    if not builtTheme then fail("themes page did not build: " .. tostring(themeErr)) end
+    if not builtTheme then fail("themes tab did not build: " .. tostring(themeErr)) end
     check(type(themeRow.lines) == "table" and #themeRow.lines or 0, 10, "ten theme rows")
 else
-    fail("themes page has no body")
+    fail("themes tab has no body")
 end
 
 sets.UnitFrames["look.style"] = "daylight"
@@ -1708,7 +1726,7 @@ palDb.palette = "tide"
 palDb.looks = nil
 ns.looksSlash("hearthnight")
 check(account.theme, "hearthnight", "reset setup turns hearthnight on")
-local coloursButton = pages[2].groups[1].items[1]
+local coloursButton = colourGroups[1].items[1]
 if type(coloursButton) == "table" and type(coloursButton.func) == "function" then
     coloursButton.func()
 end
@@ -1725,7 +1743,7 @@ sets.general.buttonGlow = "Looks:wick"
 sets.Nameplates.targetLight = "Looks:wick"
 account.looks = { frame = "daylight", glow = "circle", light = "none" }
 palDb.looks = account.looks
-local looksButton = pages[3].groups[1].items[1]
+local looksButton = lookGroups[1].items[1]
 local looksHold = piece()
 if type(looksButton) ~= "table" or type(looksButton.build) ~= "function" then
     fail("looks reset did not build")
@@ -1738,6 +1756,21 @@ check(sets.UnitFrames["look.style"], "daylight", "Restore looks puts the saved f
 check(account.theme, "hearthnight", "Restore looks keeps the theme name")
 check(account.themeChanged, true, "Restore looks marks the theme changed")
 
+sets.UnitFrames["look.style"] = "Looks:sill"
+sets.general.buttonGlow = "Looks:latch"
+sets.Nameplates.targetLight = "Looks:latch"
+account.looks = nil
+palDb.looks = nil
+account.theme = "hearthnight"
+account.themeChanged = false
+palDb.palette = "ember"
+looksHold.restoreButton.scripts.OnClick()
+check(sets.UnitFrames["look.style"], "Looks:sill", "Restore looks with no snapshot leaves the frame")
+check(sets.general.buttonGlow, "Looks:latch", "Restore looks with no snapshot leaves the glow")
+check(palDb.palette, "ember", "Restore looks with no snapshot leaves the palette")
+check(account.theme, "hearthnight", "Restore looks with no snapshot keeps the theme")
+check(account.themeChanged, false, "Restore looks with no snapshot does not mark the theme changed")
+
 palDb.palette = "ember"
 sets.UnitFrames["look.style"] = "Looks:lintel"
 sets.general.buttonGlow = "Looks:wick"
@@ -1746,7 +1779,7 @@ account.looks = { frame = "daylight", glow = "circle", light = "none" }
 palDb.looks = account.looks
 account.theme = "hearthnight"
 account.themeChanged = false
-local themesButton = pages[1].groups[1].items[1]
+local themesButton = themeGroups[1].items[1]
 local themesHold = piece()
 themesButton.build(themesHold)
 themesHold.restoreButton.scripts.OnClick()
