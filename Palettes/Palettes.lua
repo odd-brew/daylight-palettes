@@ -724,6 +724,58 @@ local function shellOf(Style, frame)
     if ok and type(shell) == "table" then return shell end
 end
 
+-- Names used by the game menu on Forever (Interface 16001) and on later clients.
+-- warcraft.wiki.gg documents GameMenuFrame; the button globals are the classic
+-- menu. Newer clients build the same buttons from a pool instead.
+local GAME_MENU_BUTTONS = {
+    "GameMenuButtonContinue", "GameMenuButtonHelp", "GameMenuButtonStore",
+    "GameMenuButtonWhatsNew", "GameMenuButtonOptions", "GameMenuButtonSettings",
+    "GameMenuButtonUIOptions", "GameMenuButtonKeybindings", "GameMenuButtonMacros",
+    "GameMenuButtonAddons", "GameMenuButtonLogout", "GameMenuButtonQuit",
+    "GameMenuButtonExit", "GameMenuButtonEditMode",
+}
+
+local function restyleMenuButton(button)
+    if type(button) ~= "table" then return false end
+    local touched = false
+    local Style = style()
+    local shell = shellOf(Style, button)
+    if type(shell) == "table" then
+        paintShell(Style, shell, false)
+        touched = true
+    end
+    -- Daylight repaints these buttons from its hover script, so the new colours
+    -- show on mouse-over and stay stale until then. Run that script once and
+    -- leave the button in its rest state. No new skin of our own.
+    if type(button.GetScript) == "function" then
+        local enter = button:GetScript("OnEnter")
+        local leave = button:GetScript("OnLeave")
+        if type(enter) == "function" then
+            pcall(enter, button)
+            touched = true
+        end
+        if type(leave) == "function" then pcall(leave, button) end
+    end
+    return touched
+end
+
+function ns.refreshGameMenu()
+    local touched = false
+    local global = type(_G) == "table" and _G or {}
+    local menu = GameMenuFrame
+    if type(menu) ~= "table" then menu = global.GameMenuFrame end
+    if type(menu) == "table" and type(menu.buttonPool) == "table"
+        and type(menu.buttonPool.EnumerateActive) == "function" then
+        for button in menu.buttonPool:EnumerateActive() do
+            if restyleMenuButton(button) then touched = true end
+        end
+    end
+    for i = 1, #GAME_MENU_BUTTONS do
+        if restyleMenuButton(global[GAME_MENU_BUTTONS[i]]) then touched = true end
+    end
+    return touched
+end
+
 local function dressOneTab(host, band, accent, Style)
     if type(host) ~= "table" then return end
     local shell = shellOf(Style, host)
@@ -957,6 +1009,7 @@ local function apply(id, fromQueue, quietLine)
         restore(false)
         history.current = "off"
         applying = false
+        if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
         if refreshList then refreshList() end
         return
     end
@@ -986,6 +1039,7 @@ local function apply(id, fromQueue, quietLine)
     if not quietLine and not ns.quietPalette then
         say("Palettes: " .. p.name .. " is on. Your layout is unchanged.")
     end
+    if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
     if refreshList then refreshList() end
     if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
 end
@@ -2186,10 +2240,24 @@ local function buildList(row)
     note:SetPoint("TOPRIGHT", row, "TOPRIGHT", -12, y)
     note:SetJustifyH("LEFT")
     note:SetWordWrap(true)
-    note:SetText("Applies immediately out of combat. Some text changes color after a /reload.")
-    y = y - 32
+    note:SetText("")
+    if note.Hide then note:Hide() end
+
+    local col = 0
+    local function rowWidth()
+        local w = type(row.GetWidth) == "function" and row:GetWidth() or 0
+        if type(w) ~= "number" or w < 240 then return 760 end
+        return w
+    end
+    local function closeColumn()
+        if col == 1 then
+            y = y - 32
+            col = 0
+        end
+    end
 
     local function addHeader(text)
+        closeColumn()
         local fs = blankText(row)
         fs:SetPoint("TOPLEFT", row, "TOPLEFT", 12, y)
         fs.palettesText = text
@@ -2198,12 +2266,24 @@ local function buildList(row)
     end
 
     local function addChoice(id, name, mood, withSwatch)
+        local wide = id == "custom" or id == ns.off.id
+        if wide then closeColumn() end
         local button = CreateFrame("Button", nil, row)
-        button:SetPoint("TOPLEFT", row, "TOPLEFT", 4, y)
-        button:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, y)
-        button:SetHeight(28)
+        local half = math.floor((rowWidth() - 12) / 2)
+        if wide then
+            button:SetPoint("TOPLEFT", row, "TOPLEFT", 4, y)
+            button:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, y)
+        elseif col == 0 then
+            button:SetPoint("TOPLEFT", row, "TOPLEFT", 4, y)
+            button:SetWidth(half)
+        else
+            button:SetPoint("TOPLEFT", row, "TOPLEFT", 8 + half, y)
+            button:SetWidth(half)
+        end
+        button:SetHeight(30)
         local wash = button:CreateTexture(nil, "BACKGROUND")
-        wash:SetAllPoints(button)
+        wash:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
+        wash:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
         local edge, bgSwatch, bandSwatch, accentSwatch
         local nameText = blankText(button)
         if withSwatch then
@@ -2242,25 +2322,52 @@ local function buildList(row)
                     customDraft = ns.readCustom(ns.accountTable(), ns.charTable())
                 end
                 if loadCustomEditor then loadCustomEditor() end
+                local d = dui()
+                if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
             else
                 editorOn = false
+                local live = id == currentId() and history.pending == nil
+                if type(ns.stagePick) == "function" then
+                    ns.stagePick("palette", id, function()
+                        local d = dui()
+                        if type(d) == "table" and type(d.Set) == "function" then
+                            d:Set("Palettes", "palette", id)
+                        end
+                    end, live)
+                else
+                    local d = dui()
+                    if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
+                end
             end
-            local d = dui()
-            if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
             if refreshList then refreshList() end
+        end)
+        button:SetScript("OnEnter", function()
+            for i = 1, #entries do entries[i].hot = entries[i].id == id end
+            if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
+        end)
+        button:SetScript("OnLeave", function()
+            for i = 1, #entries do
+                if entries[i].id == id then entries[i].hot = false end
+            end
+            if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
         end)
         entries[#entries + 1] = {
             id = id, name = name, mood = mood, wash = wash, button = button,
             edge = edge, bgSwatch = bgSwatch, bandSwatch = bandSwatch, accentSwatch = accentSwatch,
             nameText = nameText, moodText = moodText, onText = onText,
         }
-        y = y - 28
+        if wide or col == 1 then
+            y = y - 32
+            col = 0
+        else
+            col = 1
+        end
     end
 
     local headers = {}
     if type(ns.byId.custom) == "table" then
         headers[#headers + 1] = addHeader("Custom")
-        addChoice("custom", "Custom", "Your own colors.", true)
+        addChoice("custom", "Custom", "Your own background, band and accent, saved at this character.", true)
     end
     for g = 1, #ns.groups do
         local group = ns.groups[g]
@@ -2272,6 +2379,7 @@ local function buildList(row)
     end
     headers[#headers + 1] = addHeader("Restore")
     addChoice(ns.off.id, ns.off.name, ns.off.mood, false)
+    closeColumn()
     local combatNote = blankText(row)
     combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 12, y)
     combatNote:SetPoint("TOPRIGHT", row, "TOPRIGHT", -12, y)
@@ -2302,18 +2410,39 @@ local function buildList(row)
         end
         for i = 1, #entries do
             local entry = entries[i]
+            local staged = ns.staged
             local on = entry.id == id
+            if type(staged) == "table" and staged.kind == "palette" then
+                on = staged.id == entry.id
+            end
             local waiting = waitingPick and entry.id == pending
+            local hot = entry.hot and not on and not waiting
             if type(entry.wash.SetColorTexture) == "function" then
-                local fill = (on or waiting) and (p and p.control or window) or window
-                entry.wash:SetColorTexture(fill[1], fill[2], fill[3], on and 0.55 or (waiting and 0.35 or 0))
+                local fill = window
+                local alpha = 0.85
+                if on or waiting then
+                    fill = (p and p.control) or window
+                    alpha = 1
+                elseif hot then
+                    fill = (p and p.band) or window
+                    alpha = 0.95
+                end
+                entry.wash:SetColorTexture(fill[1], fill[2], fill[3], alpha)
             end
             uiFont(entry.nameText, ink, 13, textColor)
             uiFont(entry.moodText, ink, 12, labelColor)
             uiFont(entry.onText, ink, 12, waiting and labelColor or accent)
             entry.nameText:SetText(entry.name)
             entry.moodText:SetText(entry.mood)
-            entry.onText:SetText(waiting and "PENDING" or (on and "[On]" or ""))
+            if waiting then
+                entry.onText:SetText("PENDING")
+            elseif on then
+                entry.onText:SetText("✓")
+            elseif hot then
+                entry.onText:SetText("HOVER")
+            else
+                entry.onText:SetText("")
+            end
             paintDashes(entry, waiting, accent)
             if entry.bgSwatch then
                 local palette = ns.byId[entry.id]
@@ -2563,20 +2692,6 @@ local function boot()
         groups = {
             {
                 tab = "Colours",
-                label = "Restore",
-                bare = true,
-                wide = true,
-                items = {
-                    { type = "button", label = "Restore colours", text = "Restore", func = function()
-                        if type(ns.restoreColoursOnly) == "function" then ns.restoreColoursOnly()
-                        elseif type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
-                            DaylightUI:Set("Palettes", "palette", "off")
-                        end
-                    end, hidden = function() return editorOn == true end },
-                },
-            },
-            {
-                tab = "Colours",
                 label = "Palettes",
                 items = {
                     { type = "custom", label = "Choices", noSearch = true, build = buildList, update = function(row)
@@ -2622,7 +2737,11 @@ local function boot()
             {
                 id = "main",
                 label = "Palettes",
-                desc = "Themes set a palette, a frame style and a glow. Palettes, frames and glows can each be picked on their own.",
+                -- Daylight draws this as one non-wrapping line and clips the last
+                -- glyph when the string is wider than the header. The short line
+                -- fits. The trailing space is the glyph that gets clipped, so the
+                -- period stays on every load.
+                desc = "Presets set a palette, a frame style and a glow. ",
                 groups = groups,
             },
         } },
@@ -2676,6 +2795,144 @@ local function undoClick()
         if refreshList then refreshList() end
     else
         apply(id, true)
+    end
+end
+
+-- A row click previews. Apply is what writes the pick.
+function ns.stagePick(kind, id, commit, live)
+    if live or (type(ns.staged) == "table" and ns.staged.kind == kind and ns.staged.id == id) then
+        ns.staged = nil
+    else
+        ns.staged = { kind = kind, id = id, commit = commit }
+    end
+    if type(ns.notePreview) == "function" then ns.notePreview() end
+end
+
+local RELOAD_WHICH = "PALETTES_RELOAD"
+
+function ns.askReload()
+    local dialogs = StaticPopupDialogs
+    local show = StaticPopup_Show
+    if type(dialogs) ~= "table" or type(show) ~= "function" then
+        say("Palettes: reload to finish applying your changes.")
+        return false
+    end
+    if type(dialogs[RELOAD_WHICH]) ~= "table" then
+        -- StaticPopup_Show / StaticPopupDialogs, verified on warcraft.wiki.gg.
+        -- Reload is C_UI.Reload on Forever 1.60.1; ReloadUI remains the alias.
+        -- Both need a hardware event, which the popup button click is.
+        dialogs[RELOAD_WHICH] = {
+            text = "Reload to finish applying your changes?",
+            button1 = "Reload now",
+            button2 = "Later",
+            OnAccept = function()
+                if type(C_UI) == "table" and type(C_UI.Reload) == "function" then
+                    C_UI.Reload()
+                elseif type(ReloadUI) == "function" then
+                    ReloadUI()
+                end
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            preferredIndex = 3,
+        }
+    end
+    local ok = pcall(show, RELOAD_WHICH)
+    return ok
+end
+
+function ns.commitStaged()
+    local staged = ns.staged
+    if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
+    ns.staged = nil
+    staged.commit()
+    if not inCombat() then
+        if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
+        if type(ns.askReload) == "function" then pcall(ns.askReload) end
+    end
+    if type(ns.notePreview) == "function" then ns.notePreview() end
+    if refreshList then refreshList() end
+    if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
+    return true
+end
+
+function ns.coloursResetHidden()
+    return editorOn == true
+end
+
+local TAB_ORDER = { "Presets", "Colours", "Looks" }
+
+local function resetLabel(tab)
+    local rows = ns.tabReset
+    if type(rows) == "table" then
+        for i = 1, #rows do
+            if rows[i].tab == tab then return rows[i].label end
+        end
+    end
+    if tab == "Colours" then return "Reset Colours" end
+    if tab == "Looks" then return "Reset Looks" end
+    return "Restore Daylight"
+end
+
+local function runTabReset(tab)
+    ns.staged = nil
+    local rows = ns.tabReset
+    if type(rows) == "table" then
+        for i = 1, #rows do
+            if rows[i].tab == tab and type(rows[i].run) == "function" then
+                rows[i].run()
+            end
+        end
+    elseif tab == "Colours" and type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
+        DaylightUI:Set("Palettes", "palette", "off")
+    end
+    if not inCombat() then
+        if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
+        if type(ns.askReload) == "function" then pcall(ns.askReload) end
+    end
+    if refreshList then refreshList() end
+    if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
+end
+
+local function currentTab(panel)
+    if type(panel) ~= "table" or type(panel.PageFrame) ~= "function" then return "Presets" end
+    local pf = panel.PageFrame("Palettes.main")
+    if type(pf) == "table" and type(pf.tab) == "string" and pf.tab ~= "" then return pf.tab end
+    return "Presets"
+end
+
+local resetButtons
+local applyButton
+local previewNote
+
+local function placeChrome(panel)
+    local page = type(panel.Current) == "function" and panel.Current()
+    local onPage = page == "Palettes.main"
+    local tab = currentTab(panel)
+    local editor = ns.coloursResetHidden()
+    if type(resetButtons) == "table" then
+        for i = 1, #TAB_ORDER do
+            local name = TAB_ORDER[i]
+            local button = resetButtons[name]
+            if type(button) == "table" then
+                local show = onPage and name == tab and not (editor and name == "Colours")
+                if button.SetShown then button:SetShown(show)
+                elseif show and button.Show then button:Show()
+                elseif button.Hide then button:Hide() end
+            end
+        end
+    end
+    local preview = onPage and type(ns.staged) == "table"
+    if type(applyButton) == "table" then
+        if applyButton.SetShown then applyButton:SetShown(preview)
+        elseif preview and applyButton.Show then applyButton:Show()
+        elseif applyButton.Hide then applyButton:Hide() end
+    end
+    if type(previewNote) == "table" then
+        if previewNote.SetShown then previewNote:SetShown(preview)
+        elseif preview and previewNote.Show then previewNote:Show()
+        elseif previewNote.Hide then previewNote:Hide() end
     end
 end
 
@@ -2751,8 +3008,68 @@ syncUndo = function()
                 say("Palettes: something went wrong, and no palette was changed.")
             end
         end)
+        local host = header
+        local tabs = type(panel.Tabs) == "function" and panel.Tabs()
+        if type(tabs) == "table" then host = tabs end
+        resetButtons = {}
+        for i = 1, #TAB_ORDER do
+            local name = TAB_ORDER[i]
+            local button = widgets.Button(host, resetLabel(name), 24)
+            if type(button) == "table" then
+                if button.FitWidth then button.FitWidth(150) end
+                button:SetScript("OnClick", function()
+                    if not pcall(runTabReset, name) then
+                        say("Palettes: something went wrong, and nothing was restored.")
+                    end
+                end)
+                resetButtons[name] = button
+            end
+        end
+        local frame = type(panel.Frame) == "function" and panel.Frame() or header
+        applyButton = widgets.Button(frame, "Apply", 24)
+        if type(applyButton) == "table" then
+            if applyButton.FitWidth then applyButton.FitWidth(72) end
+            applyButton:SetScript("OnClick", function()
+                if not pcall(ns.commitStaged) then
+                    say("Palettes: something went wrong, and the pick was not applied.")
+                end
+            end)
+            if applyButton.ClearAllPoints then applyButton:ClearAllPoints() end
+            applyButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -16, 14)
+            if type(frame.CreateFontString) == "function" then
+                previewNote = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            end
+            if type(previewNote) == "table" and previewNote.SetText then
+                previewNote:SetText("Previewing your pick.")
+                if previewNote.ClearAllPoints then previewNote:ClearAllPoints() end
+                previewNote:SetPoint("RIGHT", applyButton, "LEFT", -10, 0)
+            end
+        end
+    end
+    if type(resetButtons) == "table" then
+        local host = type(panel.Header) == "function" and panel.Header()
+        local tabs = type(panel.Tabs) == "function" and panel.Tabs()
+        if type(tabs) == "table" then host = tabs end
+        if type(host) == "table" then
+            for i = 1, #TAB_ORDER do
+                local button = resetButtons[TAB_ORDER[i]]
+                if type(button) == "table" then
+                    if type(button.GetParent) == "function" and button:GetParent() ~= host
+                        and type(button.SetParent) == "function" then
+                        button:SetParent(host)
+                    end
+                    if button.ClearAllPoints then button:ClearAllPoints() end
+                    button:SetPoint("RIGHT", host, "RIGHT", -8, 0)
+                end
+            end
+        end
     end
     placeUndo(panel)
+    placeChrome(panel)
+end
+
+ns.notePreview = function()
+    if syncUndo then syncUndo() end
 end
 
 refreshList = function()

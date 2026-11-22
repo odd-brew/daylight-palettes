@@ -347,11 +347,11 @@ end
 if not main:find('return "ember"', 1, true) then
     fail("a missing palette must fall back to Ember")
 end
-if not main:find("Some text changes color after a /reload.", 1, true) then
+if not main:find("Reload to finish applying your changes?", 1, true) then
     fail("missing reload note")
 end
-if not main:find("Applies immediately out of combat.", 1, true) then
-    fail("missing combat note")
+if not main:find("Previewing your pick.", 1, true) then
+    fail("missing the preview note")
 end
 if not main:find("Applies when combat ends.", 1, true) then
     fail("missing combat-end note")
@@ -378,14 +378,16 @@ end
 if not main:find("Off: this character uses your account palette. On: changes here apply only to this character.", 1, true) then
     fail("missing character override help")
 end
-local coloursAt = main:find('label = "Restore colours"', 1, true)
 local choicesAt = main:find('label = "Choices"', 1, true)
 local accentAt = main:find('label = "Accent follows class"', 1, true)
 local saveAt = main:find('label = "Save for this character only"', 1, true)
 local shareAt = main:find('label = "Share code"', 1, true)
-if not (coloursAt and choicesAt and accentAt and saveAt and shareAt
-    and coloursAt < choicesAt and choicesAt < accentAt and accentAt < saveAt and saveAt < shareAt) then
+if not (choicesAt and accentAt and saveAt and shareAt
+    and choicesAt < accentAt and accentAt < saveAt and saveAt < shareAt) then
     fail("settings are out of order")
+end
+if not main:find('Reset Colours', 1, true) then
+    fail("missing the colours reset label")
 end
 if not main:find("ns.classShade(color, frame, token)", 1, true) then
     fail("class accent must shade every palette, light and dark")
@@ -535,7 +537,7 @@ else
 end
 check(ns.order and #ns.order or 0, 35, "custom does not add a thirty-sixth palette")
 check(ns.byId.custom and ns.byId.custom.name, "Custom", "custom palette name")
-check(ns.byId.custom and ns.byId.custom.mood, "Your own colors.", "custom palette description")
+check(ns.byId.custom and ns.byId.custom.mood, "Your own background, band and accent, saved at this character.", "custom palette description")
 
 local addonChunk, addonErr = loadfile(mainPath)
 if not addonChunk then
@@ -1074,7 +1076,7 @@ else
     ns.finishCombat(customFight, customFightAccount, customFightChar)
     check(customFight.current, "ember", "combat end does not apply a cancelled custom save")
 end
-if not main:find("Your own colors.", 1, true) then
+if not main:find("Your own background, band and accent, saved at this character.", 1, true) then
     fail("the custom row needs its description")
 end
 if not main:find("Base colors stay dark so text stays readable.", 1, true) then
@@ -1247,7 +1249,7 @@ do
         else
             build(row)
             local accentRow = labeled("Accent follows class")
-            local restoreRow = labeled("Restore colours")
+            local restoreRow = { hidden = ns.coloursResetHidden }
             local custom = rowButtons[1]
             local switch = switches[1]
             if type(row.palettesEditor) ~= "table" or type(custom) ~= "table"
@@ -1348,8 +1350,17 @@ local looksSource = readAll(root .. "/Palettes/PalettesLooks.lua")
 if looksSource:find("LooksDB", 1, true) and looksSource:find("LooksDB%s*=", 1, false) then
     fail("looks must not write LooksDB")
 end
-if not looksSource:find("Themes set a palette, a frame style and a glow. Palettes, frames and glows can each be picked on their own.", 1, true) then
-    fail("missing the themes intro")
+if not looksSource:find("Each preset is a ready-made pairing of a Colours palette with a Looks frame and glow. Pick one, then change any part on the Colours or Looks tab.", 1, true) then
+    fail("missing the presets intro")
+end
+if not looksSource:find("A preset on the Presets tab sets all three.", 1, true) then
+    fail("missing the looks intro")
+end
+if not looksSource:find("A full boss, a thin health lip, power in a deep trough.", 1, true) then
+    fail("trough description is cut off")
+end
+if not main:find("Presets set a palette, a frame style and a glow. ", 1, true) then
+    fail("the page subtitle must end with a period")
 end
 if not looksSource:find("Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", 1, true) then
     fail("missing the api guard line")
@@ -1539,20 +1550,27 @@ local function groupsOn(name)
     end
     return list
 end
-local themeGroups = groupsOn("Themes")
+local themeGroups = groupsOn("Presets")
 local colourGroups = groupsOn("Colours")
 local lookGroups = groupsOn("Looks")
-check(#themeGroups, 2, "themes tab has a reset and the list")
-check(#colourGroups, 2, "colours tab has a reset and the palettes")
-check(#lookGroups, 2, "looks tab has a reset and the styles")
-check(pages[1].groups[1].tab, "Themes", "themes is the first tab")
-check(colourGroups[1] and pages[1].groups[3].tab, "Colours", "colours is the second tab")
+check(#themeGroups, 1, "presets tab is one list")
+check(#colourGroups, 1, "colours tab is one list")
+check(#lookGroups, 1, "looks tab is one list")
+check(pages[1].groups[1].tab, "Presets", "presets is the first tab")
+check(colourGroups[1] and pages[1].groups[2].tab, "Colours", "colours is the second tab")
 check(pages[1].groups[#pages[1].groups].tab, "Looks", "looks is the last tab")
-check(themeGroups[1].items[1].hidden(), false, "themes tab shows on api 1.9")
+check(themeGroups[1].items[1].hidden(), false, "presets tab shows on api 1.9")
 check(lookGroups[1].items[1].hidden(), false, "looks tab shows on api 1.9")
-check(themeGroups[1].items[1].label, "Restore Daylight", "themes reset is Restore Daylight")
-check(colourGroups[1].items[1].label, "Restore colours", "colours reset is Restore colours")
-check(lookGroups[1].items[1].label, "Restore looks", "looks reset is Restore looks")
+local function resetNamed(tab)
+    local rows = ns.tabReset
+    if type(rows) ~= "table" then return nil end
+    for i = 1, #rows do
+        if rows[i].tab == tab then return rows[i] end
+    end
+end
+check(resetNamed("Presets") and resetNamed("Presets").label, "Restore Daylight", "presets reset is Restore Daylight")
+check(resetNamed("Colours") and resetNamed("Colours").label, "Reset Colours", "colours reset is Reset Colours")
+check(resetNamed("Looks") and resetNamed("Looks").label, "Reset Looks", "looks reset is Reset Looks")
 
 local account = ns.accountTable()
 local char = ns.charTable()
@@ -1658,11 +1676,9 @@ ns.bootLooks()
 check(styleCalls.frame, 0, "api 1.7 does not register frames")
 check(styleCalls.glow, 0, "api 1.7 does not register glows")
 check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", "api 1.7 says only colors")
-check(themeGroups[1].items[1].hidden(), true, "api 1.7 hides the themes tab")
-check(themeGroups[2].items[1].hidden(), true, "api 1.7 hides the theme list")
+check(themeGroups[1].items[1].hidden(), true, "api 1.7 hides the presets tab")
 check(lookGroups[1].items[1].hidden(), true, "api 1.7 hides the looks tab")
-check(lookGroups[2].items[1].hidden(), true, "api 1.7 hides the frame and glow list")
-check(colourGroups[1].items[1].hidden(), false, "api 1.7 still shows Restore colours")
+check(type(colourGroups[1].items[1].hidden) ~= "function" or colourGroups[1].items[1].hidden() ~= true, true, "api 1.7 still shows colours")
 local beforeGuard = sets.UnitFrames["look.style"]
 local paletteGuard = palDb.palette
 ns.looksSlash("lintel")
@@ -1683,9 +1699,9 @@ ns.bootLooks()
 check(styleCalls.frame, 0, "a loaded Looks add-on is not registered twice")
 check(said[#said], "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes.", "both add-ons get one line")
 
-check(lookGroups[1].items[1].label, "Restore looks", "looks reset is labelled Restore looks")
+check(resetNamed("Looks") and resetNamed("Looks").label, "Reset Looks", "looks reset is labelled Reset Looks")
 local row = piece()
-local body = lookGroups[2].items[1]
+local body = lookGroups[1].items[1]
 ui.API.minor = 9
 ns.looksReady = true
 ns.looksGuard = nil
@@ -1696,18 +1712,58 @@ if type(body) == "table" and type(body.build) == "function" then
     if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
     local active = row.lines[1]
     active.SetOn(true, false)
-    check(active.key.shown, false, "the active row hides its key")
-    check(active.onText.words, "[On]", "the active row shows [On]")
+    check(active.key.shown, false, "the picked row hides its key")
+    check(active.onText.words, "✓", "the picked row shows a check")
+    check(active.onText.shown, true, "the check is visible")
     active.SetOn(false, true)
     check(active.key.shown, false, "a waiting row hides its key")
     check(active.onText.words, "PENDING", "a waiting row shows PENDING")
     active.SetOn(false, false)
-    check(active.key.shown, true, "other rows show the key")
+    check(active.key.shown, false, "style keys stay off the row")
+    active.SetHover(true)
+    check(active.hoverText.words, "HOVER", "a hovered row says HOVER")
+    check(active.hoverText.shown, true, "the hover mark is visible")
+    active.SetHover(false)
+    local beforeStyle = sets.UnitFrames["look.style"]
+    local lintel = row.lines[1]
+    if type(lintel.button) ~= "table" or type(lintel.button.scripts.OnClick) ~= "function" then
+        fail("a style row is not a button")
+    else
+        lintel.button.scripts.OnClick()
+        check(sets.UnitFrames["look.style"], beforeStyle, "a row click previews and does not write")
+        check(type(ns.staged) == "table" and ns.staged.kind, "frame", "a frame click is staged")
+        looksEnv.StaticPopupDialogs = {}
+        looksEnv.StaticPopup_Show = function(which) said[#said + 1] = "popup:" .. which end
+        local committed = ns.commitStaged()
+        check(committed, true, "apply commits the staged pick")
+        check(sets.UnitFrames["look.style"], "Looks:lintel", "apply writes the frame")
+        check(said[#said], "popup:PALETTES_RELOAD", "apply asks to reload")
+        local entered = false
+        local menuButton = piece()
+        function menuButton:GetScript(name)
+            if name == "OnEnter" then return function() entered = true end end
+            if name == "OnLeave" then return function() end end
+        end
+        looksEnv.GameMenuFrame = {
+            buttonPool = {
+                EnumerateActive = function()
+                    local done = false
+                    return function()
+                        if done then return nil end
+                        done = true
+                        return menuButton
+                    end
+                end,
+            },
+        }
+        check(ns.refreshGameMenu(), true, "game menu refresh touches a pooled button")
+        check(entered, true, "game menu refresh runs the button hover script")
+    end
 else
     fail("looks tab has no body")
 end
 local themeRow = piece()
-local themeBody = themeGroups[2].items[1]
+local themeBody = themeGroups[1].items[1]
 if type(themeBody) == "table" and type(themeBody.build) == "function" then
     local builtTheme, themeErr = pcall(themeBody.build, themeRow)
     if not builtTheme then fail("themes tab did not build: " .. tostring(themeErr)) end
@@ -1744,9 +1800,9 @@ palDb.palette = "tide"
 palDb.looks = nil
 ns.looksSlash("hearthnight")
 check(account.theme, "hearthnight", "reset setup turns hearthnight on")
-local coloursButton = colourGroups[1].items[1]
-if type(coloursButton) == "table" and type(coloursButton.func) == "function" then
-    coloursButton.func()
+local coloursButton = resetNamed("Colours")
+if type(coloursButton) == "table" and type(coloursButton.run) == "function" then
+    coloursButton.run()
 end
 check(palDb.palette, "off", "Restore colours turns the palette off")
 check(sets.UnitFrames["look.style"], "Looks:lintel", "Restore colours leaves the frame")
@@ -1761,13 +1817,11 @@ sets.general.buttonGlow = "Looks:wick"
 sets.Nameplates.targetLight = "Looks:wick"
 account.looks = { frame = "daylight", glow = "circle", light = "none" }
 palDb.looks = account.looks
-local looksButton = lookGroups[1].items[1]
-local looksHold = piece()
-if type(looksButton) ~= "table" or type(looksButton.build) ~= "function" then
+local looksButton = resetNamed("Looks")
+if type(looksButton) ~= "table" or type(looksButton.run) ~= "function" then
     fail("looks reset did not build")
 else
-    looksButton.build(looksHold)
-    looksHold.restoreButton.scripts.OnClick()
+    looksButton.run()
 end
 check(palDb.palette, "ember", "Restore looks leaves the palette")
 check(sets.UnitFrames["look.style"], "daylight", "Restore looks puts the saved frame back")
@@ -1782,7 +1836,7 @@ palDb.looks = nil
 account.theme = "hearthnight"
 account.themeChanged = false
 palDb.palette = "ember"
-looksHold.restoreButton.scripts.OnClick()
+looksButton.run()
 check(sets.UnitFrames["look.style"], "Looks:sill", "Restore looks with no snapshot leaves the frame")
 check(sets.general.buttonGlow, "Looks:latch", "Restore looks with no snapshot leaves the glow")
 check(palDb.palette, "ember", "Restore looks with no snapshot leaves the palette")
@@ -1797,10 +1851,12 @@ account.looks = { frame = "daylight", glow = "circle", light = "none" }
 palDb.looks = account.looks
 account.theme = "hearthnight"
 account.themeChanged = false
-local themesButton = themeGroups[1].items[1]
-local themesHold = piece()
-themesButton.build(themesHold)
-themesHold.restoreButton.scripts.OnClick()
+local themesButton = resetNamed("Presets")
+if type(themesButton) ~= "table" or type(themesButton.run) ~= "function" then
+    fail("presets reset did not build")
+else
+    themesButton.run()
+end
 check(palDb.palette, "off", "Restore Daylight turns colours off")
 check(sets.UnitFrames["look.style"], "daylight", "Restore Daylight puts the frame back")
 check(account.theme, false, "Restore Daylight clears the theme")
