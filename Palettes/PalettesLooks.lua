@@ -1347,16 +1347,6 @@ local function makePill(parent, label)
     return hold, fs
 end
 
-local function rowChrome()
-    local id = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
-    local palette = type(ns.byId) == "table" and id and ns.byId[id] or nil
-    if type(palette) ~= "table" or palette.off then return ROW_REST, ROW_HOVER, ROW_PICK end
-    local window = palette.window or palette.background or ROW_REST
-    local control = palette.control or palette.band or ROW_HOVER
-    local accent = palette.c2 or ROW_PICK
-    return window, control, accent
-end
-
 local function styleRows(row, entries)
     row.lines = row.lines or {}
     local built = {}
@@ -1389,6 +1379,11 @@ local function styleRows(row, entries)
         local key = uiFont(hold, 11, DIM)
         key:SetText(entry.key)
         if key.Hide then key:Hide() end
+        local cue = hold:CreateTexture(nil, "OVERLAY")
+        cue:SetWidth(3)
+        cue:SetPoint("TOPLEFT", hold, "TOPLEFT", 0, 0)
+        cue:SetPoint("BOTTOMLEFT", hold, "BOTTOMLEFT", 0, 0)
+        if cue.Hide then cue:Hide() end
         local check = drawCheck(hold)
         local onText = uiFont(hold, 12, ON_INK)
         onText:SetText("")
@@ -1399,26 +1394,77 @@ local function styleRows(row, entries)
         local line = {
             id = entry.id, kind = entry.kind, name = name, baseName = entry.name,
             mood = entry.desc, preview = preview, rowH = entry.rowH,
-            button = hold, accent = entry.accent,
+            button = hold, paletteId = entry.palette,
             palettePill = pillAText, lookPill = pillBText,
         }
         line.key = key
+        line.desc = desc
         line.onText = onText
         line.hoverText = hoverText
         line.check = check
+        line.cue = cue
+        local function tint(fs, color)
+            if type(fs) == "table" and type(fs.SetTextColor) == "function" and type(color) == "table" then
+                fs:SetTextColor(color[1], color[2], color[3], color[4] or 1)
+            end
+        end
+        local function paletteOf(id)
+            if type(id) ~= "string" or type(ns.byId) ~= "table" then return nil end
+            local palette = ns.byId[id]
+            if type(palette) ~= "table" then return nil end
+            return palette
+        end
         local function paintRow()
-            local rest, hover, pick = rowChrome()
-            if line.accent then pick = line.accent end
+            local own = paletteOf(line.paletteId)
+            local screenId = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+            local screen = paletteOf(screenId)
+            local surface = screen or own
+            local rest = (surface and (surface.window or surface.background)) or ROW_REST
+            local hover = (surface and (surface.control or surface.band)) or ROW_HOVER
             local color = rest
-            if line.markOn or line.markPending then color = pick
-            elseif line.hover then color = hover end
+            local light
+            local edge
+            if line.markOn or line.markPending then
+                local source = own or screen
+                local accent = (source and source.c2) or { 0.91, 0.63, 0.29 }
+                local window = (source and (source.window or source.background)) or ROW_REST
+                local inks = {}
+                if source and source.title then inks[#inks + 1] = source.title end
+                if source and source.text then inks[#inks + 1] = source.text end
+                inks[#inks + 1] = CREAM
+                if source then
+                    color, light = ns.accentWash(accent, window, inks)
+                else
+                    color, light = ROW_PICK, CREAM
+                end
+                edge = accent
+            elseif line.hover then
+                color = hover
+            end
             line.washColor = color
+            line.ink = light
             if type(hi.SetColorTexture) == "function" then
                 hi:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
             end
             if hi.Show then hi:Show() end
             if key.Hide then key:Hide() end
             if check.Hide then check:Hide() end
+            if cue.Hide then cue:Hide() end
+            if light then
+                tint(name, light)
+                tint(desc, light)
+                tint(onText, light)
+                if type(check.SetVertexColor) == "function" then
+                    check:SetVertexColor(light[1], light[2], light[3], 1)
+                end
+                if type(cue.SetColorTexture) == "function" then
+                    cue:SetColorTexture(edge[1], edge[2], edge[3], 1)
+                end
+                if cue.Show then cue:Show() end
+            else
+                tint(name, CREAM)
+                tint(desc, DIM)
+            end
             if line.markPending then
                 onText:SetText("PENDING")
                 onText:Show()
@@ -1636,7 +1682,7 @@ function ns.themesPage()
         rows[#rows + 1] = {
             kind = "theme", id = theme.id, name = theme.name, desc = theme.mood,
             paletteName = paletteName, lookName = lookName,
-            palette = theme.palette, accent = type(ns.byId) == "table" and ns.byId[theme.palette] and ns.byId[theme.palette].c2 or nil,
+            palette = theme.palette,
             rowH = THEME_H,
             key = "Looks:" .. theme.id, icon = ICONS[theme.frame],
             select = function()

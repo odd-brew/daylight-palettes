@@ -22,6 +22,71 @@ local function C(hex)
     }
 end
 
+-- WCAG relative luminance. Channels are 0..1 sRGB.
+local function linChannel(c)
+    if c <= 0.04045 then return c / 12.92 end
+    return ((c + 0.055) / 1.055) ^ 2.4
+end
+
+function ns.contrastRatio(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then return 1 end
+    local function lum(color)
+        return 0.2126 * linChannel(color[1] or 0)
+            + 0.7152 * linChannel(color[2] or 0)
+            + 0.0722 * linChannel(color[3] or 0)
+    end
+    local hi, lo = lum(a), lum(b)
+    if lo > hi then hi, lo = lo, hi end
+    return (hi + 0.05) / (lo + 0.05)
+end
+
+-- A picked row must not fill with raw c2. Ember and Phosphor are too bright
+-- for light type. Blend the accent toward the window until one light ink
+-- (title, text, or the fallback cream) clears 4.5:1, keeping as much accent
+-- as that ink allows. The raw accent stays on a thin left edge.
+function ns.accentWash(accent, window, inks)
+    if type(accent) ~= "table" then accent = { 0.91, 0.63, 0.29 } end
+    if type(window) ~= "table" then window = { 0.094, 0.071, 0.055 } end
+    local function washAt(t)
+        return {
+            accent[1] + ((window[1] or 0) - accent[1]) * t,
+            accent[2] + ((window[2] or 0) - accent[2]) * t,
+            accent[3] + ((window[3] or 0) - accent[3]) * t,
+        }
+    end
+    local bestT, bestInk
+    for i = 1, #(inks or {}) do
+        local ink = inks[i]
+        if type(ink) == "table" and type(ink[1]) == "number" then
+            local function clears(t)
+                return ns.contrastRatio(ink, washAt(t)) >= 4.5
+            end
+            local t
+            if clears(0) then
+                t = 0
+            elseif clears(1) then
+                local lo, hi = 0, 1
+                for _ = 1, 18 do
+                    local mid = (lo + hi) / 2
+                    if clears(mid) then hi = mid else lo = mid end
+                end
+                t = hi
+            end
+            if t and (not bestT or t < bestT) then
+                bestT, bestInk = t, ink
+            end
+        end
+    end
+    if not bestT then
+        local wash = washAt(1)
+        local ink = (inks and inks[1]) or { 0.95, 0.91, 0.86 }
+        local ratio = ns.contrastRatio(ink, wash)
+        return wash, ink, ratio
+    end
+    local wash = washAt(bestT)
+    return wash, bestInk, ns.contrastRatio(bestInk, wash)
+end
+
 local function add(p)
     ns.byId[p.id] = p
     ns.order[#ns.order + 1] = p.id

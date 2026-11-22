@@ -2315,6 +2315,11 @@ local function buildList(row)
         moodText:SetWordWrap(false)
         local onText = blankText(button)
         onText:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+        local cue = button:CreateTexture(nil, "ARTWORK")
+        cue:SetWidth(3)
+        cue:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
+        cue:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 1, 1)
+        if cue.Hide then cue:Hide() end
         local check = button:CreateTexture(nil, "OVERLAY")
         check:SetSize(16, 16)
         check:SetPoint("RIGHT", button, "RIGHT", -8, 0)
@@ -2362,7 +2367,7 @@ local function buildList(row)
         entries[#entries + 1] = {
             id = id, name = name, mood = mood, wash = wash, button = button,
             edge = edge, bgSwatch = bgSwatch, bandSwatch = bandSwatch, accentSwatch = accentSwatch,
-            nameText = nameText, moodText = moodText, onText = onText, check = check,
+            nameText = nameText, moodText = moodText, onText = onText, check = check, cue = cue,
         }
         if wide or col == 1 then
             y = y - 32
@@ -2424,22 +2429,46 @@ local function buildList(row)
             local waiting = waitingPick and entry.id == pending
             local hot = entry.hot and not on and not waiting
             local rowPalette = ns.byId[entry.id]
-            local rowAccent = (rowPalette and accentBlock(rowPalette)) or (rowPalette and rowPalette.c2) or accent
+            local cueColor = (rowPalette and rowPalette.c2) or accent
+            local nameColor = textColor
+            local moodColor = labelColor
+            local markColor = waiting and labelColor or accent
             if type(entry.wash.SetColorTexture) == "function" then
                 local fill = window
                 local alpha = 0.85
                 if on or waiting then
-                    fill = rowAccent
+                    local base = (rowPalette and (rowPalette.window or rowPalette.background)) or window
+                    local inks = {}
+                    if rowPalette and rowPalette.title then inks[#inks + 1] = rowPalette.title end
+                    if rowPalette and rowPalette.text then inks[#inks + 1] = rowPalette.text end
+                    inks[#inks + 1] = { 0.95, 0.91, 0.86 }
+                    local wash, light = cueColor, inks[#inks]
+                    if type(ns.accentWash) == "function" then
+                        wash, light = ns.accentWash(cueColor, base, inks)
+                    end
+                    fill = wash
                     alpha = 1
+                    nameColor, moodColor, markColor = light, light, light
                 elseif hot then
                     fill = (rowPalette and rowPalette.band) or (p and p.band) or window
                     alpha = 0.95
                 end
                 entry.wash:SetColorTexture(fill[1], fill[2], fill[3], alpha)
             end
-            uiFont(entry.nameText, ink, 13, textColor)
-            uiFont(entry.moodText, ink, 12, labelColor)
-            uiFont(entry.onText, ink, 12, waiting and labelColor or accent)
+            if entry.cue then
+                if on or waiting then
+                    paintSwatch(entry.cue, cueColor)
+                    if entry.cue.Show then entry.cue:Show() end
+                elseif entry.cue.Hide then
+                    entry.cue:Hide()
+                end
+            end
+            if on and entry.check and type(entry.check.SetVertexColor) == "function" then
+                entry.check:SetVertexColor(markColor[1], markColor[2], markColor[3], 1)
+            end
+            uiFont(entry.nameText, ink, 13, nameColor)
+            uiFont(entry.moodText, ink, 12, moodColor)
+            uiFont(entry.onText, ink, 12, markColor)
             entry.nameText:SetText(entry.name)
             entry.moodText:SetText(entry.mood)
             if entry.check and entry.check.Hide then entry.check:Hide() end

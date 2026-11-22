@@ -1412,12 +1412,13 @@ local function piece()
     function w:Show() w.shown = true end
     function w:SetShown() end
     function w:SetText(text) w.words = text end
-    function w:SetTextColor() end
+    function w:SetTextColor(r, g, b, a) w.ink = { r, g, b, a } end
     function w:SetFont() end
     function w:SetJustifyH() end
     function w:SetWordWrap() end
     function w:SetColorTexture(r, g, b, a) w.color = { r, g, b, a } end
     function w:SetTexture(path) w.texture = path end
+    function w:SetVertexColor(r, g, b, a) w.vertex = { r, g, b, a } end
     function w:SetFrameLevel() end
     function w:GetFrameLevel() return 1 end
     function w:EnableMouse() end
@@ -1807,8 +1808,42 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     check(hearth.palettePill.words, "Ember", "changed leaves the palette pill")
     check(hearth.lookPill.words, "Lintel + Wick", "changed leaves the look pill")
     hearth.SetOn(true, false)
-    local ember = ns.byId.ember.c2
-    check(type(hearth.washColor) == "table" and math.abs(hearth.washColor[1] - ember[1]) < 0.001, true, "a picked preset fills with the palette accent")
+    local cream = { 0.95, 0.91, 0.86 }
+    local dim = { 0.62, 0.56, 0.48 }
+    local function near(a, b)
+        return type(a) == "table" and type(b) == "table"
+            and math.abs(a[1] - b[1]) < 0.002
+            and math.abs(a[2] - b[2]) < 0.002
+            and math.abs(a[3] - b[3]) < 0.002
+    end
+    local function washOf(id)
+        local p = ns.byId[id]
+        return ns.accentWash(p.c2, p.window, { p.title, p.text, cream })
+    end
+    local emberWash, emberInk, emberRatio = washOf("ember")
+    local phosphorWash, phosphorInk, phosphorRatio = washOf("phosphor")
+    local inkWash, inkInk, inkRatio = washOf("ink")
+    check(ns.contrastRatio(cream, ns.byId.ember.c2) < 2, true, "raw Ember accent fails the name")
+    check(ns.contrastRatio(dim, ns.byId.ember.c2) < 2, true, "raw Ember accent fails the description")
+    check(emberRatio >= 4.5, true, "Ember wash clears 4.5")
+    check(phosphorRatio >= 4.5, true, "Phosphor wash clears 4.5")
+    check(inkRatio >= 4.5, true, "Ink wash clears 4.5")
+    check(near(hearth.washColor, emberWash), true, "a picked preset uses the darkened accent wash")
+    check(near(hearth.name.ink, emberInk), true, "the picked name uses the light ink")
+    check(near(hearth.desc.ink, emberInk), true, "the picked mood uses the light ink")
+    check(near(hearth.check.vertex, emberInk), true, "the check is tinted to the light ink")
+    check(hearth.cue.shown, true, "a picked preset keeps an accent edge")
+    check(near(hearth.cue.color, ns.byId.ember.c2), true, "the accent edge is raw c2")
+    check(ns.contrastRatio(phosphorInk, phosphorWash) >= 4.5, true, "Phosphor ink clears its wash")
+    check(ns.contrastRatio(inkInk, inkWash) >= 4.5, true, "Ink ink clears its wash")
+    palDb.palette = "phosphor"
+    row.lines[1].SetOn(true, false)
+    check(near(row.lines[1].washColor, phosphorWash), true, "a picked look uses the screen palette wash")
+    check(near(row.lines[1].name.ink, phosphorInk), true, "a picked look uses the light ink")
+    palDb.palette = "ink"
+    row.lines[1].SetOn(true, false)
+    check(near(row.lines[1].washColor, inkWash), true, "Ink darkens a picked look")
+    palDb.palette = "tide"
 else
     fail("themes tab has no body")
 end
