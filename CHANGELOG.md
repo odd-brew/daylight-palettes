@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.3] - 2026-11-23
+
+### Changed
+- Palettes now sits under **DaylightUI Plugins** in the in-game AddOns list.
+
 ## [0.5.2] - 2026-11-23
 
 ### Fixed
