@@ -2865,11 +2865,11 @@ local function boot()
         end
         if type(view.AddOptionsGroup) == "function" then
             view.AddOptionsGroup("appearance", {
-                label = "Palette",
-                desc = "Synced with Plugins > Palettes. Changing Accent or Window tint below lifts it.",
+                label = "Colours",
+                desc = "Synced with Plugins > Palettes > Colours. Changing Accent or Window tint below switches it off.",
                 items = {
-                    { type = "dropdown", key = "palette", label = "Palette", choices = menuChoices },
-                    { type = "text", label = "Editing Accent or Window tint lifts the palette. Class and combat colors stay Daylight's." },
+                    { type = "dropdown", key = "palette", label = "Colours", choices = menuChoices },
+                    { type = "text", label = "Editing Accent or Window tint switches Palettes colours off. Class and combat colors stay Daylight's." },
                 },
             })
         end
