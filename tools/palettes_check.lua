@@ -1356,8 +1356,8 @@ do
     end
 end
 
-if not toc:find("## Version: 0.4.3", 1, true) then
-    fail("version stays 0.4.3")
+if not toc:find("## Version: 0.5.0", 1, true) then
+    fail("version stays 0.5.0")
 end
 if not toc:find("frame styles", 1, true) or not toc:find("glow styles", 1, true) then
     fail("toc notes must cover frame styles and glow styles")
