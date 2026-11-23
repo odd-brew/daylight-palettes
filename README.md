@@ -11,7 +11,7 @@ Made for World of Warcraft: Forever.
   - **Class themes (9):** Warrior, Mage, Paladin, Priest, Hunter, Rogue, Shaman, Warlock, Druid
   - **Realm themes (11):** Keepstone, Ironbanner, Sapphire Crown, Crownwall, Deepforge, Starshade, Cogspark, Rustbrand, Gravelight, Plainsong, Junglefire
 - **10 Presets:** each one sets a palette, a frame look and a glow together. Change any part and it shows as changed.
-- **7 frame looks and 3 glow styles:** Flagon, Trestle, Beam, Stream, Ledger, Crest and Slate set up your Player and Target frames (size, border, name, portrait and text). Wick, Draught and Latch are the glows. They used to be the Looks add-on and now live in Palettes. A frame look changes only Player and Target; Focus, Party, Raid, Arena and the rest are never touched, and neither is DaylightUI's own frame style menu.
+- **7 frame looks and 3 glow styles:** Flagon, Trestle, Beam, Stream, Ledger, Crest and Slate set up your Player and Target frames (size, border, name, portrait and text). Wick, Draught and Latch are the glows. A frame look changes only Player and Target; Focus, Party, Raid, Arena and the rest are never touched, and neither is DaylightUI's own frame style menu.
 - **Custom:** mix your own colors, or paste a share code. The dark base is kept dark enough that text stays readable, and the accent is yours to choose.
 - **Three-color swatches:** each palette row shows background, band and accent.
 - **Undo:** one step back to the previous palette, for this session. It is not a return to Daylight's colors, and it greys out after you use it or when nothing has changed yet.
@@ -56,7 +56,7 @@ If you change any one part of a preset, its row reads **Hearthnight (changed)**.
 
 Each tab has one reset in the tab row: **Restore Daylight** (colours, frame, glows, and the preset), **Reset Colours** (colours only) and **Reset Looks** (the saved frame settings and glows only, with no reload). A colours or looks reset while a preset is on marks that preset **(changed)**. Reset Looks does nothing when Palettes has not saved a look, so frame settings or a glow you set in Daylight's own menus stay put.
 
-On an older DaylightUI that can recolor but cannot take frame and glow styles, only the Colours tab shows and `/looks` says only colors are available. If the standalone Looks add-on is also enabled, turn it off. These styles now live in Palettes.
+On an older DaylightUI that can recolor but cannot take frame and glow styles, only the Colours tab shows and `/looks` says only colors are available.
 
 **Undo** sits in the Plugins > Palettes header. Use it to step back one palette, or to cancel a pick that's still waiting for combat to end.
 

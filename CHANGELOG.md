@@ -1,17 +1,22 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.0] - 2026-11-22
 
 ### Changed
-- The seven frame styles are now seven frame looks: **Flagon**, **Trestle**, **Beam**, **Stream**, **Ledger**, **Crest** and **Slate**. Each one sets your Player and Target frame settings (size, border, name, portrait and text) instead of a DaylightUI frame style. Palettes no longer adds frame styles or writes DaylightUI's frame style, so DaylightUI's Frame style menu shows only Daylight and Ribbon, and Focus, Party, Raid, Arena and your other frames are never touched.
-- The old names `lintel`, `sill`, `stamp`, `signboard` and `trough` still work in `/looks` and in share codes, and mean Beam, Stream, Slate, Beam and Ledger. Copy writes only the seven new names. Presets use the new looks: Hearthnight, Old Road, Settle and After Hours use Beam; Harvestide and Vigil use Stream; Tidemark uses Slate; Snug uses Flagon; Bellows uses Trestle; Drawwell uses Ledger. Crest is on the Looks tab only.
-- A frame look shows on Player and Target as soon as you click it on the Looks tab, only for those two frames, and goes back when you leave the tab, the page or the window. Apply keeps it, and in combat it waits and says **Applies when combat ends.**
-- Applying a frame look or a glow, and Reset Looks, no longer ask you to reload, because they change your frames right away. Presets and Colours still ask.
+- Frame styles are now seven Player and Target frame looks: Flagon, Trestle, Beam, Stream, Ledger, Crest and Slate. Each one is built from DaylightUI's own unit frame settings and sets your Player and Target frame size, border, name, portrait and text. Focus, Party, Raid, Arena and your other frames are never touched.
+- Clicking a look on the Looks tab previews it on Player and Target right away. Apply keeps it. Leaving the tab, the page or the window puts yours back. In combat it waits until combat ends.
+- Applying a frame look or a glow, Reset Looks, and `/looks` followed by a look or glow name no longer ask you to reload. Presets and Colours still do.
 - Flagon also sets the bar textures, colours and Flow animation on Player and Target. Choosing another look, Reset Looks or Undo puts yours back.
-- Reset Looks, Restore Daylight and Undo put back the exact Player and Target settings Palettes saved before its first change. Palettes keeps only what it changed.
+- Presets now use the new looks. Crest is on the Looks tab only.
+- The old names lintel, sill, stamp, signboard and trough still work in `/looks` and in share codes, and switch to the closest new look. Copy writes only the seven new names.
+- Reset Looks, Restore Daylight and Undo put back the exact Player and Target settings you had before Palettes changed them.
 
 ### Fixed
-- A `Looks:` frame style left over from earlier versions is set back to Daylight once, so it no longer sits in your DaylightUI settings.
+- A frame style left over from earlier versions is set back to Daylight once, so it no longer sits in your DaylightUI settings.
+
+### Known
+- Beam's portrait has a slanted outer edge.
+- Flagon's Flow bar animation needs DaylightUI's Motion effects turned on. Palettes doesn't turn them on for you.
 
 ## [0.4.3] - 2026-11-22
 
