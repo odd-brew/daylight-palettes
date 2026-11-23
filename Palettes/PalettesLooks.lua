@@ -1644,10 +1644,13 @@ function ns.looksSlash(msg)
     end
     local beforeLook = ns.lookMark()
     local beforePal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+    -- A frame look or a glow repaints live. A Preset or off changes colours.
+    local arg = string.lower(trim(msg or ""))
+    local looksOnly = resolveFrame(arg) ~= nil or glowById(arg) ~= nil
     ns.withReloadAction(function()
         run()
         local afterPal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
-        if ns.lookMark() ~= beforeLook or afterPal ~= beforePal then
+        if not looksOnly and (ns.lookMark() ~= beforeLook or afterPal ~= beforePal) then
             if type(ns.requestReload) == "function" then ns.requestReload() end
         end
     end)
