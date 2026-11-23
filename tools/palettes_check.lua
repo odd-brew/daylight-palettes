@@ -2669,9 +2669,28 @@ local broughtDb = {
 ns.adoptProfile(brought, broughtChar, broughtDb)
 check(brought.theme, "harvestide", "a profile theme is adopted")
 check(brought.frame, "stream", "a retired profile frame is carried as its replacement")
-check(liveHas("stream"), true, "a profile frame is adopted")
+check(brought.glow, "draught", "a profile glow id is carried")
+check(liveHas("stream"), false, "adopting a profile does not write its frame")
 check(sets.UnitFrames["look.style"], "daylight", "a profile frame never writes look.style")
-check(sets.general.buttonGlow, "Looks:draught", "a profile glow is adopted")
+check(sets.general.buttonGlow ~= "Looks:draught", true, "adopting a profile does not write its glow")
+seedFrames()
+ns.looksSlash("stream")
+check(liveHas("stream"), true, "picking a frame look applies its values at once")
+ns.looksSlash("draught")
+check(sets.general.buttonGlow, "Looks:draught", "picking a glow applies it at once")
+check(sets.Nameplates.targetLight, "Looks:draught", "picking a glow applies the outline at once")
+sets.UnitFrames["player.width"] = 321
+sets.general.buttonGlow = "Looks:edited"
+sets.Nameplates.targetLight = "Looks:edited"
+local keptDb = { palette = "vanilla", classAccent = false, carried = true, frame = "stream", glow = "draught" }
+local keptAccount = { palette = "tide", classAccent = false, seeded = true, frame = "stream", glow = "draught" }
+ns.adoptProfile(keptAccount, { only = false, ready = true }, keptDb)
+check(sets.UnitFrames["player.width"], 321, "a later width edit survives adopting the same frame")
+check(sets.general.buttonGlow, "Looks:edited", "a later glow edit survives adopting the same glow")
+check(sets.Nameplates.targetLight, "Looks:edited", "a later outline edit survives adopting the same glow")
+check(keptAccount.frame, "stream", "adopting keeps the frame id for the Looks tab")
+check(keptAccount.glow, "draught", "adopting keeps the glow id for the Looks tab")
+check(sets.UnitFrames["look.style"], "daylight", "adopting never writes look.style")
 local unknownTheme = { palette = "ember", classAccent = false, seeded = true, theme = "snug", frame = "flagon", glow = "latch" }
 local unknownChar = { only = false, ready = true }
 local unknownDb = { palette = "not-a-palette", classAccent = false, carried = true, theme = "bellows", frame = "trestle", glow = "wick" }
@@ -2686,6 +2705,16 @@ if type(looksEnv.StaticPopup_Show) ~= "function" then
 end
 if type(ui.module) == "table" and type(ui.module.OnEnable) == "function" then
     ui.module.OnEnable(nil, palDb)
+    local frameBefore, glowBefore = palDb.frame, palDb.glow
+    seedFrames()
+    palDb.frame, palDb.glow = "stream", "draught"
+    sets.UnitFrames["player.width"] = 654
+    sets.general.buttonGlow = "Looks:edited"
+    ui.module.OnEnable(nil, palDb)
+    check(sets.UnitFrames["player.width"], 654, "a reload with the same saved frame keeps a later width edit")
+    check(sets.general.buttonGlow, "Looks:edited", "a reload with the same saved glow keeps a later glow edit")
+    check(liveHas("stream"), false, "a reload does not write the saved frame")
+    palDb.frame, palDb.glow = frameBefore, glowBefore
 end
 seedFrames()
 local quiet = popupCount()

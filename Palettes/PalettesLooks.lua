@@ -1393,19 +1393,6 @@ function ns.takeTheme(account, char, db, onlyOn)
     return true
 end
 
-function ns.applyProfileLook(db)
-    if type(db) ~= "table" or not ns.looksApiOk() then return end
-    if type(db.frame) == "string" then
-        local id = resolveFrame(db.frame)
-        if db.frame == "daylight" then restoreSavedFrames()
-        elseif id then writePairs(lookPairs(id)) end
-    end
-    if type(db.glow) == "string" then
-        if db.glow == "daylight" then writeGlowValue(DAYLIGHT_GLOW, DAYLIGHT_LIGHT)
-        elseif glowById(db.glow) then writeGlowValue("Looks:" .. db.glow, "Looks:" .. db.glow) end
-    end
-end
-
 function ns.looksWaiting()
     return type(looksPending) == "table"
 end
