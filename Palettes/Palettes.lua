@@ -1419,7 +1419,6 @@ function ns.adoptProfile(account, char, db)
         -- An unknown palette falls back to Ember colors only.
     elseif type(ns.takeTheme) == "function" then
         ns.takeTheme(account, char, db, onlyOn)
-        if type(ns.applyProfileLook) == "function" then ns.applyProfileLook(db) end
     end
     local changed = savedId ~= id or (savedAccent == true) ~= (accent == true)
     return id, accent == true, onlyOn, unknown, capped, hadLook, changed
