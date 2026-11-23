@@ -1461,8 +1461,26 @@ local sets = {
 local palDb = { palette = "tide", classAccent = false, only = false, carried = true }
 local views = {}
 local styleCalls = { frame = 0, glow = 0 }
+-- Daylight's Override: a temporary value that is never saved. savedValue is
+-- what a logout would write, so the held value counts as its old one.
+local held = {}
+local function savedValue(scope, path)
+    for i = 1, #held do
+        if held[i].scope == scope and held[i].path == path then return held[i].was end
+    end
+    return sets[scope][path]
+end
 local function freshView(name)
     local v = { name = name }
+    function v.Override(scope, path, value)
+        for i = 1, #held do
+            if held[i].scope == scope and held[i].path == path then return nil end
+        end
+        local o = { scope = scope, path = path, was = sets[scope][path], override = true }
+        held[#held + 1] = o
+        sets[scope][path] = value
+        return o
+    end
     function v.AddFrameStyle(id, spec)
         styleCalls.frame = styleCalls.frame + 1
         v.frameKey = name .. ":" .. id
@@ -1487,9 +1505,18 @@ local ui = {
         For = function(name)
             return views[name] or freshView(name)
         end,
-        GetUnitFrame = function() return { unit = "player" } end,
+        GetUnitFrame = function(unit) return { unit = unit } end,
         Parts = function()
             return { style = sets.UnitFrames["look.style"] }
+        end,
+        Off = function(handle)
+            for i = 1, #held do
+                if held[i] == handle then
+                    table.remove(held, i)
+                    sets[handle.scope][handle.path] = handle.was
+                    return
+                end
+            end
         end,
         GetSetting = function(scope, path)
             local bag = sets[scope]
@@ -1753,15 +1780,85 @@ if type(body) == "table" and type(body.build) == "function" then
     if type(lintel.button) ~= "table" or type(lintel.button.scripts.OnClick) ~= "function" then
         fail("a style row is not a button")
     else
+        local function wearing(unit)
+            return ui.API.Parts(ui.API.GetUnitFrame(unit)).style
+        end
+        account.looks = nil
+        local looksBefore = account.looks
         lintel.button.scripts.OnClick()
-        check(sets.UnitFrames["look.style"], beforeStyle, "a row click previews and does not write")
+        check(savedValue("UnitFrames", "look.style"), beforeStyle, "a row click does not write the saved style")
+        check(account.looks, looksBefore, "a row click does not write the snapshot")
         check(type(ns.staged) == "table" and ns.staged.kind, "frame", "a frame click is staged")
+        check(wearing("player"), "Looks:lintel", "a row click previews on the player frame")
+        check(wearing("target"), "Looks:lintel", "a row click previews on the target frame")
+        check(ns.previewShownId(), "lintel", "the preview knows what is showing")
+        row.lines[2].button.scripts.OnClick()
+        check(wearing("player"), "Looks:sill", "another row moves the preview on the player frame")
+        check(wearing("target"), "Looks:sill", "another row moves the preview on the target frame")
+        check(#held, 1, "one preview is held at a time")
+        check(savedValue("UnitFrames", "look.style"), beforeStyle, "a second pick still writes nothing")
+        row.lines[2].button.scripts.OnClick()
+        check(wearing("player"), beforeStyle, "clicking the previewed row again reverts the player frame")
+        check(wearing("target"), beforeStyle, "clicking the previewed row again reverts the target frame")
+        check(ns.staged, nil, "clicking the previewed row again drops the pick")
+        lintel.button.scripts.OnClick()
+        row.lines[8].button.scripts.OnClick()
+        check(wearing("player"), beforeStyle, "a glow pick replaces the frame preview")
+        check(#held, 0, "a glow pick holds no frame preview")
+        lintel.button.scripts.OnClick()
+        ns.setLooksOpen(false)
+        check(wearing("player"), beforeStyle, "leaving the Looks tab reverts the player frame")
+        check(wearing("target"), beforeStyle, "leaving the Looks tab reverts the target frame")
+        check(ns.staged, nil, "leaving the Looks tab drops the pick")
+        check(#held, 0, "leaving the Looks tab releases the preview")
+        looksEnv.InCombatLockdown = function() return true end
+        lintel.button.scripts.OnClick()
+        check(wearing("player"), beforeStyle, "a combat click waits to preview")
+        looksEnv.InCombatLockdown = function() return false end
+        ns.finishLooksCombat()
+        check(wearing("player"), "Looks:lintel", "combat end shows the waiting preview on the player frame")
+        check(wearing("target"), "Looks:lintel", "combat end shows the waiting preview on the target frame")
+        looksEnv.InCombatLockdown = function() return true end
+        ns.setLooksOpen(false)
+        check(wearing("player"), "Looks:lintel", "leaving in combat keeps the frame until combat ends")
+        looksEnv.InCombatLockdown = function() return false end
+        ns.finishLooksCombat()
+        check(wearing("player"), beforeStyle, "combat end reverts the preview")
+        check(#held, 0, "combat end releases the preview")
+        local backendCalls = {}
+        ns.SetPreviewBackend({
+            apply = function(id, targets) backendCalls[#backendCalls + 1] = "apply:" .. id .. ":" .. table.concat(targets, ","); return {} end,
+            revert = function() backendCalls[#backendCalls + 1] = "revert" end,
+        }, { "player", "target" })
+        lintel.button.scripts.OnClick()
+        check(backendCalls[1], "apply:lintel:player,target", "a backend gets the style and the frames")
+        ns.setLooksOpen(false)
+        check(backendCalls[2], "revert", "a backend is told to revert")
+        ns.SetPreviewBackend(nil)
+        lintel.button.scripts.OnClick()
         looksEnv.StaticPopupDialogs = {}
         looksEnv.StaticPopup_Show = function(which) said[#said + 1] = "popup:" .. which end
         local committed = ns.commitStaged()
         check(committed, true, "apply commits the staged pick")
         check(sets.UnitFrames["look.style"], "Looks:lintel", "apply writes the frame")
         check(said[#said], "popup:PALETTES_RELOAD", "apply asks to reload")
+        check(#held, 0, "apply releases the preview")
+        check(wearing("target"), "Looks:lintel", "apply keeps the style on the target frame")
+        check(type(account.looks) == "table" and account.looks.frame, beforeStyle, "apply keeps the saved style as the snapshot")
+        row.lines[3].button.scripts.OnClick()
+        check(wearing("player"), "Looks:stamp", "a new preview shows after an apply")
+        looksEnv.InCombatLockdown = function() return true end
+        ns.commitStaged()
+        check(#held, 1, "a combat apply leaves the preview up until combat ends")
+        check(savedValue("UnitFrames", "look.style"), "Looks:lintel", "a combat apply does not write the saved style yet")
+        looksEnv.InCombatLockdown = function() return false end
+        ns.finishLooksCombat()
+        check(#held, 0, "combat end releases the preview before the apply")
+        check(sets.UnitFrames["look.style"], "Looks:stamp", "combat end writes the applied frame")
+        ns.looksSlash("lintel")
+        check(sets.UnitFrames["look.style"], "Looks:lintel", "the slash command still writes")
+        lintel.button.scripts.OnClick()
+        ns.setLooksOpen(false)
         looksEnv.InCombatLockdown = function() return true end
         local saidBefore = #said
         row.lines[2].button.scripts.OnClick()

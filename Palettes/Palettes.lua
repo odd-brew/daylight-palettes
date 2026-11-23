@@ -2880,6 +2880,7 @@ local undoHooked
 
 local function undoClick()
     if not ns.undoReady(history) then return end
+    if type(ns.dropFramePreview) == "function" then ns.dropFramePreview() end
     if history.pending ~= nil then
         ns.undoPalette(history, ns.accountTable(), ns.charTable())
         if type(ns.cancelLooksOff) == "function" then ns.cancelLooksOff() end
@@ -3013,7 +3014,11 @@ function ns.commitStaged()
     if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
     ns.staged = nil
     ns.withReloadAction(function()
-        staged.commit()
+        if staged.kind == "frame" and type(ns.CommitPreview) == "function" then
+            ns.CommitPreview(staged.commit)
+        else
+            staged.commit()
+        end
         ns.requestReload()
     end)
     if type(ns.notePreview) == "function" then ns.notePreview() end
@@ -3045,6 +3050,7 @@ local function runTabReset(tab)
         local beforeLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
         local beforeCur, beforePend = history.current, history.pending
         ns.staged = nil
+        if type(ns.RevertPreview) == "function" then ns.RevertPreview() end
         local rows = ns.tabReset
         if type(rows) == "table" then
             for i = 1, #rows do
@@ -3155,6 +3161,7 @@ local function placeChrome(panel)
     local page = type(panel.Current) == "function" and panel.Current()
     local onPage = page == "Palettes.main"
     local tab = currentTab(panel)
+    if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, onPage and tab == "Looks") end
     local editor = ns.coloursResetHidden()
     if type(resetButtons) == "table" then
         for i = 1, #TAB_ORDER do
@@ -3272,6 +3279,13 @@ syncUndo = function()
             end
         end
         local frame = type(panel.Frame) == "function" and panel.Frame() or header
+        if type(frame) == "table" and type(frame.GetScript) == "function" and type(frame.SetScript) == "function" then
+            local oldHide = frame:GetScript("OnHide")
+            frame:SetScript("OnHide", function(self, ...)
+                if type(oldHide) == "function" then oldHide(self, ...) end
+                if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, false) end
+            end)
+        end
         applyButton = widgets.Button(frame, "Apply", 24)
         if type(applyButton) == "table" then
             if applyButton.FitWidth then applyButton.FitWidth(72) end
@@ -3319,6 +3333,7 @@ end
 
 ns.notePreview = function()
     if syncUndo then syncUndo() end
+    if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
 end
 
 refreshList = function()
