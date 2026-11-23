@@ -372,10 +372,22 @@ function ns.shareCode(spec)
     return "PAL1-" .. base .. "-" .. accent
 end
 
-local SHARE_FRAMES = {
-    lintel = true, sill = true, stamp = true, trestle = true, flagon = true,
-    signboard = true, trough = true, daylight = true, none = true,
+-- The seven frame looks. Codes from 0.4.2 and earlier name five retired frames,
+-- which still decode to the look that replaced them. Codes only emit the seven.
+ns.frameAliases = {
+    lintel = "beam", sill = "stream", stamp = "slate", signboard = "beam", trough = "ledger",
 }
+
+function ns.canonicalFrame(id)
+    if type(id) ~= "string" then return id end
+    return ns.frameAliases[id] or id
+end
+
+local SHARE_FRAMES = {
+    flagon = true, trestle = true, beam = true, stream = true, ledger = true,
+    crest = true, slate = true, daylight = true, none = true,
+}
+for old in pairs(ns.frameAliases) do SHARE_FRAMES[old] = true end
 local SHARE_GLOWS = { wick = true, draught = true, latch = true, daylight = true, none = true }
 
 local function eatToken(body, id)
@@ -431,7 +443,7 @@ local function parseCustomTail(body)
     local frame, rest3 = eatFrame(rest2)
     local glow, rest4 = eatGlow(rest3)
     if not base or not accent or not frame or not glow or rest4 ~= "" then return nil end
-    return { custom = true, base = base, accent = accent, frame = frame, glow = glow }
+    return { custom = true, base = base, accent = accent, frame = ns.canonicalFrame(frame), glow = glow }
 end
 
 local function parseLookTail(body)
@@ -439,7 +451,7 @@ local function parseLookTail(body)
     local frame, rest2 = eatFrame(rest)
     local glow, rest3 = eatGlow(rest2)
     if not palette or not frame or not glow or rest3 ~= "" then return nil end
-    return { palette = palette, frame = frame, glow = glow }
+    return { palette = palette, frame = ns.canonicalFrame(frame), glow = glow }
 end
 
 -- PAL2-theme-palette-frame-glow, PAL2-palette-frame-glow, or PAL2-C-base-accent-frame-glow.
@@ -484,7 +496,7 @@ end
 
 function ns.pal2Code(part)
     if type(part) ~= "table" then return nil end
-    local frame = type(part.frame) == "string" and part.frame or "none"
+    local frame = type(part.frame) == "string" and ns.canonicalFrame(part.frame) or "none"
     local glow = type(part.glow) == "string" and part.glow or "none"
     local theme = type(part.theme) == "string" and part.theme ~= "" and part.theme or nil
     if part.custom == true then

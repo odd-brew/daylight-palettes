@@ -1,7 +1,9 @@
--- Frame styles, glow styles and Themes. Palettes registers the styles.
--- A Theme sets one palette, one frame and one glow. Palettes stay color-only.
--- Palettes registers them. The saved keys stay Looks:lintel, Looks:wick and
--- so on, through a Looks-named API handle. The plugin name stays Palettes.
+-- Frame looks, glow styles and Presets. A frame look is a bundle of DaylightUI
+-- settings for the player and target frames. Palettes never registers a frame
+-- style and never writes UnitFrames look.style, so every other frame stays put.
+-- A Preset sets one palette, one frame look and one glow. Palettes stay color-only.
+-- Glow styles register through a Looks-named API handle, so their saved keys stay
+-- Looks:wick and so on. The plugin name stays Palettes.
 -- The snapshot lives in Palettes' saved data and profile settings, never LooksDB.
 -- A pick waits out combat. API 1.7 and 1.8 keep colors and hide this page.
 
@@ -10,13 +12,6 @@ local _, ns = ...
 local NEED_STYLES = "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available."
 local BOTH = "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes."
 local GLOW_HINT = "Glow colour follows your accent colour. Change it on the Colours tab."
-
-local function unitSizes(spec)
-    local frames = { "player", "target", "focus" }
-    local sizes = {}
-    for i = 1, #frames do sizes[frames[i]] = spec end
-    return sizes
-end
 
 local CORNER = { 0, 0.25, 0.5, 0.75 }
 
@@ -62,15 +57,214 @@ local function drawLatch(g, at, lo, hi, size)
     g:Trail(0.02, 0.08, alpha * 0.5, lo, hi)
 end
 
-local FRAMES = {
-    { id = "lintel", name = "Lintel", spec = { label = "Lintel", desc = "A named beam over a solid bar.", row = true } },
-    { id = "sill", name = "Sill", spec = { label = "Sill", desc = "The name tab stays; power sits as a thin sill under the bar.", line = true } },
-    { id = "stamp", name = "Stamp", spec = { label = "Stamp", desc = "A tight name row and a thin power line.", row = true, line = true, ring = 0.35 } },
-    { id = "trestle", name = "Trestle", spec = { label = "Trestle", desc = "A named board, with power hung as a rail.", row = true, line = true } },
-    { id = "flagon", name = "Flagon", spec = { label = "Flagon", desc = "A small boss and a deep cup, the name cut into the lip.", row = true, ring = 0.35, sizes = unitSizes({ height = 32 }) } },
-    { id = "signboard", name = "Signboard", spec = { label = "Signboard", desc = "A hanging boss on a tall board, with a hairline rail along the bottom.", row = true, ring = 1, sizes = unitSizes({ height = 10, tabHeight = 28 }) } },
-    { id = "trough", name = "Trough", spec = { label = "Trough", desc = "A full boss, a thin health lip, power in a deep trough.", line = true, ring = 1, sizes = unitSizes({ height = 11, powerHeight = 14 }) } },
+-- One row per look. Every look carries the same keys, so switching never leaves
+-- a value from the last one behind. Widths are settings: 187 draws 188 wide.
+-- Trestle's 0.80 portrait scale draws a 55 px socket, so its name row is
+-- 162.3 x 16 and the whole look is 225.3 x 55.
+local LOOK_SPECS = {
+    flagon = {
+        style = "daylight", width = 187, height = 32, powerHeight = 11, ribbonGap = 2, tabHeight = 16, slant = true,
+        border = 3, corner = 6, shadow = 4,
+        portrait = "class", portraitLook = "socket", portraitShape = "round", ring = "class", ringWidth = "thin", scale = 0.80,
+        dragon = false, nameOnBar = true, namePos = "bar",
+        tabWidth = "fit", tabSlant = "frame", tabCorner = 6, tabShadow = 2,
+        bigNumber = false, playerHealth = "both", targetHealth = "percentboth",
+        showPowerText = false, powerFormat = "value", targetLevel = "foot",
+        percent = 11, big = 18,
+    },
+    trestle = {
+        style = "ribbon", width = 187, height = 24, powerHeight = 5, ribbonGap = 2, tabHeight = 16, slant = true,
+        border = 3, corner = 4, shadow = 4,
+        portrait = "class", portraitLook = "socket", portraitShape = "round", ring = "class", ringWidth = "normal", scale = 0.80,
+        dragon = false, nameOnBar = false, namePos = "bar",
+        tabWidth = "fit", tabSlant = "frame", tabCorner = 4, tabShadow = 2,
+        bigNumber = false, playerHealth = "value", targetHealth = "percent",
+        showPowerText = false, powerFormat = "value", targetLevel = "foot",
+        percent = 12, big = 18,
+    },
+    beam = {
+        style = "daylight", width = 200, height = 42, powerHeight = 10, ribbonGap = 2, tabHeight = 16, slant = true,
+        border = 6, corner = 2, shadow = 4,
+        portrait = "class", portraitLook = "socket", portraitShape = "angled", ring = "dark", ringWidth = "thin", scale = 1.0,
+        dragon = false, nameOnBar = false, namePos = "bar",
+        tabWidth = "full", tabSlant = "frame", tabCorner = 2, tabShadow = 2,
+        bigNumber = true, playerHealth = "both", targetHealth = "percent",
+        showPowerText = false, powerFormat = "value", targetLevel = "foot",
+        percent = 11, big = 18,
+    },
+    stream = {
+        style = "ribbon", width = 210, height = 24, powerHeight = 5, ribbonGap = 3, tabHeight = 16, slant = true,
+        border = 4, corner = 2, shadow = 3,
+        portrait = "class", portraitLook = "socket", portraitShape = "round", ring = "class", ringWidth = "thin", scale = 0.80,
+        dragon = false, nameOnBar = false, namePos = "bar",
+        tabWidth = "fit", tabSlant = "frame", tabCorner = 2, tabShadow = 2,
+        bigNumber = false, playerHealth = "value", targetHealth = "percent",
+        showPowerText = false, powerFormat = "value", targetLevel = "foot",
+        percent = 12, big = 18,
+    },
+    ledger = {
+        style = "daylight", width = 196, height = 36, powerHeight = 10, ribbonGap = 2, tabHeight = 16, slant = false,
+        border = 4, corner = 0, shadow = 2,
+        portrait = "none", portraitLook = "socket", portraitShape = "square", ring = "dark", ringWidth = "normal", scale = 1.0,
+        dragon = false, nameOnBar = true, namePos = "above",
+        tabWidth = "fit", tabSlant = "off", tabCorner = 0, tabShadow = 0,
+        bigNumber = false, playerHealth = "both", targetHealth = "percentboth",
+        showPowerText = true, powerFormat = "percent", targetLevel = "foot",
+        percent = 11, big = 18,
+    },
+    crest = {
+        style = "daylight", width = 192, height = 46, powerHeight = 11, ribbonGap = 2, tabHeight = 17, slant = true,
+        border = 8, corner = 8, shadow = 6,
+        portrait = "3d", portraitLook = "classic", portraitShape = "round", ring = "class", ringWidth = "thick", scale = 1.05,
+        dragon = true, nameOnBar = false, namePos = "bar",
+        tabWidth = "fit", tabSlant = "frame", tabCorner = 6, tabShadow = 4,
+        bigNumber = true, playerHealth = "value", targetHealth = "percent",
+        showPowerText = false, powerFormat = "value", targetLevel = "ring",
+        percent = 11, big = 22,
+    },
+    slate = {
+        style = "ribbon", width = 188, height = 22, powerHeight = 4, ribbonGap = 2, tabHeight = 15, slant = false,
+        border = 4, corner = 0, shadow = 2,
+        portrait = "none", portraitLook = "socket", portraitShape = "square", ring = "dark", ringWidth = "thin", scale = 1.0,
+        dragon = false, nameOnBar = false, namePos = "bar",
+        tabWidth = "fit", tabSlant = "off", tabCorner = 0, tabShadow = 0,
+        bigNumber = false, playerHealth = "value", targetHealth = "percent",
+        showPowerText = false, powerFormat = "value", targetLevel = "foot",
+        percent = 11, big = 18,
+    },
 }
+
+local FRAMES = {
+    { id = "flagon", name = "Flagon", desc = "A small boss and a deep cup, the name cut into the lip." },
+    { id = "trestle", name = "Trestle", desc = "A full portrait on a named board, with power hung as a rail." },
+    { id = "beam", name = "Beam", desc = "Sturdy Daylight bars with a full-width dark name tab and an angled 2.0 portrait socket." },
+    { id = "stream", name = "Stream", desc = "Slim Ribbon bar with a floating name row, thin power underline, and a rounded 2.0 portrait sized to the bar stack." },
+    { id = "ledger", name = "Ledger", desc = "Portrait-free square bars with a floating name above, crisp corners, and dual health and power numbers." },
+    { id = "crest", name = "Crest", desc = "Tall hero bars with a 3D classic portrait, thick class ring, fitted tab, and bold health number." },
+    { id = "slate", name = "Slate", desc = "Low-profile, portrait-free Ribbon bar with sharp corners and a thin power strip." },
+}
+
+-- Only these two frames are ever written. Everything else DaylightUI keeps is the player's.
+local UNITS = { "player", "target" }
+local STYLES = { "daylight", "ribbon" }
+local SIZE_FIELDS = { "height", "powerHeight", "tabHeight" }
+
+local function unitPairs(unit, spec)
+    local isPlayer = unit == "player"
+    local list = {}
+    local function put(key, value) list[#list + 1] = { unit .. "." .. key, value } end
+    put("style", spec.style)
+    put("width", spec.width)
+    put("height", spec.height)
+    put("powerHeight", spec.powerHeight)
+    put("ribbonGap", spec.ribbonGap)
+    put("tabHeight", spec.tabHeight)
+    put("slant", spec.slant)
+    put("strata", "MEDIUM")
+    put("showPower", true)
+    put("powerAt", "inside")
+    put("portraitAt", "frame")
+    put("showName", true)
+    put("showPercent", true)
+    put("showLevel", not isPlayer)
+    put("shell.own", true)
+    put("shell.borderPx", spec.border)
+    put("shell.cornerPx", spec.corner)
+    put("shell.shadowPx", spec.shadow)
+    put("tab.own", true)
+    put("tab.width", spec.tabWidth)
+    put("tab.at", "outer")
+    put("tab.slant", spec.tabSlant)
+    put("tab.align", "center")
+    put("tab.color", "dark")
+    put("tab.borderPx", 4)
+    put("tab.cornerPx", spec.tabCorner)
+    put("tab.shadowPx", spec.tabShadow)
+    put("portrait", spec.portrait)
+    put("portraitLook", spec.portraitLook)
+    put("portraitShape", spec.portraitShape)
+    put("portraitRing", spec.ring)
+    put("portraitRingWidth", spec.ringWidth)
+    put("portraitRingLine", true)
+    put("portraitScale", spec.scale)
+    if isPlayer then
+        put("portraitDragon", spec.dragon)
+        put("portraitDragonColor", "class")
+    end
+    put("nameOnBar", spec.nameOnBar)
+    put("namePos", spec.namePos)
+    put("nameX", 0)
+    put("nameY", 0)
+    put("bigNumber", spec.bigNumber)
+    put("healthText", isPlayer and spec.playerHealth or spec.targetHealth)
+    put("percentSign", true)
+    put("healthTextPos", "inner")
+    put("healthTextX", 0)
+    put("healthTextY", 0)
+    put("showPowerText", spec.showPowerText)
+    put("powerFormat", spec.powerFormat)
+    put("powerPercentSign", true)
+    put("powerTextPos", "inner")
+    if not isPlayer then put("levelPos", spec.targetLevel) end
+    list[#list + 1] = { unit .. "Text.name", 12 }
+    list[#list + 1] = { unit .. "Text.percent", spec.percent }
+    list[#list + 1] = { unit .. "Text.big", spec.big }
+    list[#list + 1] = { unit .. "Text.power", 0 }
+    return list
+end
+
+-- FRAME_KEYS is the one key list every look fills. The sizes keys keep a style
+-- swap from writing old heights back over a look. Flagon alone adds the extras.
+local FRAME_KEYS = {}
+local FRAME_VALUES = {}
+local SIZE_KEYS = {}
+local SIZE_BY_LOOK = {}
+local EXTRA_KEYS = {}
+local EXTRA_VALUES = {}
+
+local function buildFrames()
+    for u = 1, #UNITS do
+        local unit = UNITS[u]
+        local keys = unitPairs(unit, LOOK_SPECS.flagon)
+        for i = 1, #keys do FRAME_KEYS[#FRAME_KEYS + 1] = keys[i][1] end
+        for s = 1, #STYLES do
+            for f = 1, #SIZE_FIELDS do
+                SIZE_KEYS[#SIZE_KEYS + 1] = unit .. ".sizes." .. STYLES[s] .. "." .. SIZE_FIELDS[f]
+            end
+        end
+    end
+    for id, spec in pairs(LOOK_SPECS) do
+        local values, sizes = {}, {}
+        for u = 1, #UNITS do
+            local unit = UNITS[u]
+            local list = unitPairs(unit, spec)
+            for i = 1, #list do values[list[i][1]] = list[i][2] end
+            for f = 1, #SIZE_FIELDS do
+                local key = unit .. ".sizes." .. spec.style .. "." .. SIZE_FIELDS[f]
+                sizes[#sizes + 1] = key
+                values[key] = spec[SIZE_FIELDS[f]]
+            end
+        end
+        FRAME_VALUES[id] = values
+        SIZE_BY_LOOK[id] = sizes
+    end
+    local extras = {
+        { "media.health", "daylight" }, { "media.healthBack", "daylight" },
+        { "media.power", "daylight" }, { "media.powerBack", "daylight" },
+        { "colorHealth", "global" }, { "colorPower", "global" },
+        { "backHealth", "global" }, { "backPower", "global" },
+        { "barFx.health.style", "flow" }, { "barFx.health.speed", 1 }, { "barFx.health.strength", 1 },
+        { "barFx.health.colors", "bar" }, { "barFx.health.react", true }, { "barFx.health.reactSize", 1 },
+    }
+    for u = 1, #UNITS do
+        for i = 1, #extras do
+            local key = UNITS[u] .. "." .. extras[i][1]
+            EXTRA_KEYS[#EXTRA_KEYS + 1] = key
+            EXTRA_VALUES[key] = extras[i][2]
+        end
+    end
+end
+buildFrames()
 
 local GLOWS = {
     { id = "wick", name = "Wick", mood = "A quiet flame gathers at the corners.", spec = { label = "Wick", lap = 2, draw = drawWick } },
@@ -79,16 +273,16 @@ local GLOWS = {
 }
 
 local THEMES = {
-    { id = "hearthnight", name = "Hearthnight", palette = "ember", frame = "lintel", glow = "wick", mood = "A winter hearth of campfire gold: a named beam and a quiet corner flame." },
-    { id = "harvestide", name = "Harvestide", palette = "vanilla", frame = "sill", glow = "draught", mood = "Harvest light on dark oak and pewter, washed along the sill of the bar." },
-    { id = "tidemark", name = "Tidemark", palette = "tide", frame = "stamp", glow = "draught", mood = "Cool sea-green at the waterline: a tight stamp and a soft wash along the rim." },
-    { id = "oldroad", name = "Old Road", palette = "forever", frame = "lintel", glow = "latch", mood = "Near-black soot and weathered bronze: a weathered beam and a short catch of lantern light." },
-    { id = "vigil", name = "Vigil", palette = "paladin", frame = "sill", glow = "wick", mood = "Rose on warm plum-brown. The name tab stays, and a flame is kept lit at the corners." },
+    { id = "hearthnight", name = "Hearthnight", palette = "ember", frame = "beam", glow = "wick", mood = "A winter hearth of campfire gold: a named beam and a quiet corner flame." },
+    { id = "harvestide", name = "Harvestide", palette = "vanilla", frame = "stream", glow = "draught", mood = "Harvest light on dark oak and pewter, washed along the sill of the bar." },
+    { id = "tidemark", name = "Tidemark", palette = "tide", frame = "slate", glow = "draught", mood = "Cool sea-green at the waterline: a tight stamp and a soft wash along the rim." },
+    { id = "oldroad", name = "Old Road", palette = "forever", frame = "beam", glow = "latch", mood = "Near-black soot and weathered bronze: a weathered beam and a short catch of lantern light." },
+    { id = "vigil", name = "Vigil", palette = "paladin", frame = "stream", glow = "wick", mood = "Rose on warm plum-brown. The name tab stays, and a flame is kept lit at the corners." },
     { id = "snug", name = "Snug", palette = "gilded", frame = "flagon", glow = "latch", mood = "A deep gold cup in the quiet corner, and a short catch of lantern light." },
     { id = "bellows", name = "Bellows", palette = "forgeglow", frame = "trestle", glow = "wick", mood = "A named work board and a quiet corner flame, like a forge kept open late." },
-    { id = "drawwell", name = "Drawwell", palette = "shaman", frame = "trough", glow = "draught", mood = "Storm-grey water in a deep basin, and a soft wash along the rim." },
-    { id = "settle", name = "Settle", palette = "keepstone", frame = "lintel", glow = "latch", mood = "A walnut beam and a brief catch of brass-lantern light, like a high-backed bench by the fire." },
-    { id = "afterhours", name = "After Hours", palette = "carmine-night", frame = "signboard", glow = "latch", mood = "A hanging sign and a brief cut of carmine light, after the room has gone quiet." },
+    { id = "drawwell", name = "Drawwell", palette = "shaman", frame = "ledger", glow = "draught", mood = "Storm-grey water in a deep basin, and a soft wash along the rim." },
+    { id = "settle", name = "Settle", palette = "keepstone", frame = "beam", glow = "latch", mood = "A walnut beam and a brief catch of brass-lantern light, like a high-backed bench by the fire." },
+    { id = "afterhours", name = "After Hours", palette = "carmine-night", frame = "beam", glow = "latch", mood = "A hanging sign and a brief cut of carmine light, after the room has gone quiet." },
 }
 ns.themes = THEMES
 
@@ -110,34 +304,42 @@ local function addBox(list, x, y, w, h)
 end
 
 local ICONS = {
-    lintel = {}, sill = {}, stamp = {}, trestle = {}, flagon = {},
-    signboard = {}, trough = {}, wick = {}, draught = {}, latch = {},
+    flagon = {}, trestle = {}, beam = {}, stream = {}, ledger = {}, crest = {}, slate = {},
+    wick = {}, draught = {}, latch = {},
 }
 
-addBox(ICONS.lintel, 1, 5, 8, 8)
-addEdge(ICONS.lintel, 12, 6, 14, 1)
-addBox(ICONS.lintel, 11, 9, 23, 7)
-addBox(ICONS.sill, 1, 3, 7, 7)
-addEdge(ICONS.sill, 11, 4, 12, 1)
-addBox(ICONS.sill, 11, 7, 23, 6)
-addEdge(ICONS.sill, 11, 15, 23, 1)
-addBox(ICONS.stamp, 1, 6, 6, 6)
-addEdge(ICONS.stamp, 10, 3, 22, 1)
-addBox(ICONS.stamp, 10, 6, 24, 5)
-addEdge(ICONS.stamp, 10, 13, 24, 1)
-addBox(ICONS.trestle, 1, 2, 11, 12)
-addEdge(ICONS.trestle, 15, 4, 18, 1)
-addBox(ICONS.trestle, 15, 7, 19, 5)
-addEdge(ICONS.trestle, 15, 14, 19, 1)
-addBox(ICONS.flagon, 1, 5, 6, 6)
-addEdge(ICONS.flagon, 10, 3, 22, 1)
-addBox(ICONS.flagon, 10, 6, 24, 10)
-addBox(ICONS.signboard, 1, 2, 10, 10)
-addBox(ICONS.signboard, 14, 2, 20, 10)
-addEdge(ICONS.signboard, 14, 14, 20, 1)
-addBox(ICONS.trough, 1, 2, 10, 12)
-addBox(ICONS.trough, 14, 2, 20, 4)
-addBox(ICONS.trough, 14, 8, 20, 8)
+-- Flagon: a small boss at the cup, the name on the lip.
+addBox(ICONS.flagon, 1, 6, 7, 7)
+addBox(ICONS.flagon, 10, 3, 24, 12)
+addEdge(ICONS.flagon, 13, 6, 10, 1)
+-- Trestle: a full portrait, a name row, a bar and a hung rail.
+addBox(ICONS.trestle, 1, 2, 13, 13)
+addEdge(ICONS.trestle, 17, 3, 16, 1)
+addBox(ICONS.trestle, 17, 6, 17, 6)
+addEdge(ICONS.trestle, 17, 14, 17, 2)
+-- Beam: an angled socket and a full-width tab over a sturdy bar.
+addBox(ICONS.beam, 1, 4, 10, 10)
+addEdge(ICONS.beam, 11, 6, 1, 6)
+addBox(ICONS.beam, 13, 2, 21, 4)
+addBox(ICONS.beam, 13, 6, 21, 9)
+-- Stream: a round portrait, a floating row, a slim bar and an underline.
+addBox(ICONS.stream, 1, 3, 11, 11)
+addEdge(ICONS.stream, 15, 3, 14, 1)
+addBox(ICONS.stream, 15, 6, 19, 6)
+addEdge(ICONS.stream, 15, 14, 19, 1)
+-- Ledger: no portrait, a name above and a square bar split for health and power.
+addEdge(ICONS.ledger, 9, 2, 18, 1)
+addBox(ICONS.ledger, 1, 5, 34, 10)
+addEdge(ICONS.ledger, 2, 10, 32, 1)
+-- Crest: a thick ringed portrait, a fitted tab and a tall bar.
+addBox(ICONS.crest, 1, 1, 15, 15)
+addBox(ICONS.crest, 3, 3, 11, 11)
+addBox(ICONS.crest, 18, 2, 12, 4)
+addBox(ICONS.crest, 18, 6, 16, 9)
+-- Slate: no portrait, a floating row, a low bar and a thin strip.
+addEdge(ICONS.slate, 1, 4, 20, 1)
+addBox(ICONS.slate, 1, 6, 34, 5)
+addEdge(ICONS.slate, 1, 13, 34, 2)
 addBox(ICONS.wick, 1, 1, 34, 16)
 addEdge(ICONS.wick, 3, 3, 3, 1)
 addEdge(ICONS.wick, 30, 3, 3, 1)
@@ -150,6 +352,8 @@ addBox(ICONS.latch, 1, 1, 34, 16)
 addEdge(ICONS.latch, 4, 3, 1, 12)
 addEdge(ICONS.latch, 4, 3, 8, 1)
 addEdge(ICONS.latch, 4, 14, 8, 1)
+
+ns.frameIcons = ICONS
 
 local ORDER = {}
 for i = 1, #FRAMES do ORDER[#ORDER + 1] = FRAMES[i] end
@@ -166,7 +370,7 @@ local refreshers = {}
 local looksPending
 
 local THEME_INTRO = "Each preset is a ready-made pairing of a Colours palette with a Looks frame and glow. Pick one, then change any part on the Colours or Looks tab."
-local LOOKS_INTRO = "A preset on the Presets tab sets all three."
+local LOOKS_INTRO = "A Preset on the Presets tab sets all three."
 local PAGE_NOTE = "Starts off on first login · /looks"
 local FRAME_HEAD = "FRAME STYLES"
 local GLOW_HEAD = "GLOW STYLES"
@@ -195,7 +399,6 @@ local STYLE_H = 26
 local HEAD_H = 18
 local HINT_H = 26
 
-local DAYLIGHT_FRAME = "daylight"
 local DAYLIGHT_GLOW = "circle"
 local DAYLIGHT_LIGHT = "none"
 
@@ -217,6 +420,17 @@ local function frameById(id)
     for i = 1, #FRAMES do
         if FRAMES[i].id == id then return FRAMES[i] end
     end
+end
+
+-- A retired frame id (lintel, sill, stamp, signboard, trough) names its replacement.
+local function resolveFrame(id)
+    if type(id) ~= "string" then return nil end
+    if type(ns.canonicalFrame) == "function" then id = ns.canonicalFrame(id) end
+    if frameById(id) then return id end
+end
+
+function ns.resolveFrame(id)
+    return resolveFrame(id)
 end
 
 local function glowById(id)
@@ -304,14 +518,30 @@ local function looksAddonLoaded()
     return false
 end
 
+local function copyValues(values)
+    if type(values) ~= "table" then return nil end
+    local out, any = {}, false
+    for key, value in pairs(values) do
+        local kind = type(value)
+        if type(key) == "string" and (kind == "number" or kind == "string" or kind == "boolean") then
+            out[key] = value
+            any = true
+        end
+    end
+    if any then return out end
+end
+
+-- The restore snapshot: glow, outline, and every frame value Palettes may write.
+-- 0.4.2 also saved the frame style string. Nothing writes look.style now, so it is dropped.
 local function copyShot(shot)
     if type(shot) ~= "table" then return nil end
     return {
-        frame = type(shot.frame) == "string" and shot.frame or nil,
         glow = type(shot.glow) == "string" and shot.glow or nil,
         light = type(shot.light) == "string" and shot.light or nil,
+        frameValues = copyValues(shot.frameValues),
     }
 end
+ns.copyLooksShot = copyShot
 
 local function readSnapshot()
     local account = type(ns.accountTable) == "function" and ns.accountTable() or nil
@@ -386,17 +616,148 @@ function ns.adoptLooksSetting(value)
     end
 end
 
-local function wornFrame()
-    local api = apiOf()
-    if not api or type(api.GetUnitFrame) ~= "function" or type(api.Parts) ~= "function" then
-        return nil
+local function readSetting(scope, path)
+    local d = DaylightUI
+    if type(d) ~= "table" or type(d.Get) ~= "function" then return nil, false end
+    local ok, value = pcall(d.Get, d, scope, path)
+    if not ok then return nil, false end
+    return value, true
+end
+
+-- Every frame write goes through DaylightUI.Batch, so the frames repaint once.
+local function batch(fn)
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Batch) == "function" then
+        return pcall(d.Batch, fn)
     end
-    local ok, frame = pcall(api.GetUnitFrame, "player")
-    if not ok or type(frame) ~= "table" then return nil end
-    local okParts, parts = pcall(api.Parts, frame)
-    if not okParts or type(parts) ~= "table" then return nil end
-    local found = frameById(looksId(parts.style))
-    if found then return found.id, found.name end
+    return pcall(fn)
+end
+
+local function readValues(keys, into)
+    for i = 1, #keys do
+        local value, ok = readSetting("UnitFrames", keys[i])
+        local kind = type(value)
+        if ok and (kind == "number" or kind == "string" or kind == "boolean") then
+            into[keys[i]] = value
+        end
+    end
+    return into
+end
+
+-- The live value of every key Palettes may write: the look keys, both sizes
+-- sets and the Flagon extras. Nothing else is read.
+local function readFrameValues()
+    local d = DaylightUI
+    if type(d) ~= "table" or type(d.Get) ~= "function" then return nil end
+    local values = readValues(FRAME_KEYS, {})
+    readValues(SIZE_KEYS, values)
+    readValues(EXTRA_KEYS, values)
+    if next(values) == nil then return nil end
+    return values
+end
+
+local function writePairs(list)
+    local d = DaylightUI
+    if type(d) ~= "table" or type(d.Set) ~= "function" then return false end
+    local failed = false
+    local ran = batch(function()
+        for i = 1, #list do
+            local ok, result = pcall(d.Set, d, "UnitFrames", list[i][1], list[i][2])
+            if not ok or result == false then failed = true end
+        end
+    end)
+    return ran and not failed
+end
+
+-- Sizes first, then the live keys. A style swap copies sizes.<style> over the
+-- live heights, so both sets carry the same numbers.
+local function lookPairs(id)
+    local values = FRAME_VALUES[id]
+    local list = {}
+    local sizes = SIZE_BY_LOOK[id]
+    for i = 1, #sizes do list[#list + 1] = { sizes[i], values[sizes[i]] } end
+    for i = 1, #FRAME_KEYS do list[#list + 1] = { FRAME_KEYS[i], values[FRAME_KEYS[i]] } end
+    return list
+end
+
+-- Flagon writes the extras. Any other look puts back the ones Flagon left on
+-- the frames, from the saved values. A key the player changed since stays theirs.
+local function extraPairs(id, saved)
+    local list = {}
+    if id == "flagon" then
+        for i = 1, #EXTRA_KEYS do list[#list + 1] = { EXTRA_KEYS[i], EXTRA_VALUES[EXTRA_KEYS[i]] } end
+        return list
+    end
+    if type(saved) ~= "table" then return list end
+    for i = 1, #EXTRA_KEYS do
+        local key = EXTRA_KEYS[i]
+        local was = saved[key]
+        if was ~= nil and was ~= EXTRA_VALUES[key] and readSetting("UnitFrames", key) == EXTRA_VALUES[key] then
+            list[#list + 1] = { key, was }
+        end
+    end
+    return list
+end
+
+local function writeFrameValues(values)
+    if type(values) ~= "table" then return true end
+    local list = {}
+    local sets = { SIZE_KEYS, FRAME_KEYS, EXTRA_KEYS }
+    for s = 1, #sets do
+        for i = 1, #sets[s] do
+            local key = sets[s][i]
+            if values[key] ~= nil then list[#list + 1] = { key, values[key] } end
+        end
+    end
+    return writePairs(list)
+end
+
+local function samePairs(values, keys)
+    for i = 1, #keys do
+        local value, ok = readSetting("UnitFrames", keys[i])
+        if not ok or value ~= values[keys[i]] then return false end
+    end
+    return true
+end
+
+-- The look whose keys are all on the player and target frames, or nothing
+-- when any one has been changed.
+local function wornFrame()
+    local d = DaylightUI
+    if type(d) ~= "table" or type(d.Get) ~= "function" then return nil end
+    for i = 1, #FRAMES do
+        local id = FRAMES[i].id
+        local values = FRAME_VALUES[id]
+        if samePairs(values, FRAME_KEYS) and samePairs(values, SIZE_BY_LOOK[id]) then
+            return id, FRAMES[i].name
+        end
+    end
+end
+
+function ns.frameKeys()
+    local out = {}
+    for i = 1, #FRAME_KEYS do out[i] = FRAME_KEYS[i] end
+    return out
+end
+
+function ns.frameValues(id)
+    id = resolveFrame(id)
+    if not id then return nil end
+    local out = {}
+    for key, value in pairs(FRAME_VALUES[id]) do out[key] = value end
+    return out
+end
+
+function ns.frameExtras()
+    local out = {}
+    for i = 1, #EXTRA_KEYS do out[EXTRA_KEYS[i]] = EXTRA_VALUES[EXTRA_KEYS[i]] end
+    return out
+end
+
+function ns.frameSizeKeys()
+    local out = {}
+    for i = 1, #SIZE_KEYS do out[i] = SIZE_KEYS[i] end
+    return out
 end
 
 local function wornGlows()
@@ -450,18 +811,6 @@ local function statusLine()
     return hintLine(name, omit)
 end
 
-local function frameSetter()
-    if type(view) == "table" and type(view.SetFrameStyle) == "function" then
-        return function(key) view.SetFrameStyle(key) end
-    end
-    local api = apiOf()
-    if api and type(api.SetFrameStyle) == "function" then
-        return function(key)
-            if key == "daylight" then api.SetFrameStyle("daylight") else api.SetFrameStyle("Looks:" .. key) end
-        end
-    end
-end
-
 local function glowSetter()
     if type(view) == "table" and type(view.SetGlowStyle) == "function" then
         return function(key) view.SetGlowStyle(key) end
@@ -475,18 +824,9 @@ local function glowSetter()
 end
 
 local function allowedWrite(scope, path)
-    if scope == "UnitFrames" and path == "look.style" then return true end
     if scope == "general" and path == "buttonGlow" then return true end
     if scope == "Nameplates" and path == "targetLight" then return true end
     return false
-end
-
-local function readSetting(scope, path)
-    local d = DaylightUI
-    if type(d) ~= "table" or type(d.Get) ~= "function" then return nil, false end
-    local ok, value = pcall(d.Get, d, scope, path)
-    if not ok then return nil, false end
-    return value, true
 end
 
 local function readKnown(scope, path)
@@ -500,45 +840,39 @@ local function readKnown(scope, path)
     return nil, false
 end
 
-local function readFrameStyle()
-    local value, ok = readKnown("UnitFrames", "look.style")
-    if ok then return value, true end
-    local api = apiOf()
-    if not api or type(api.GetUnitFrame) ~= "function" or type(api.Parts) ~= "function" then
-        return nil, false
+-- Parts of the restore snapshot Palettes has not saved yet. A frame write saves
+-- the frame values and a glow write saves the glow, each once, just before the
+-- first change, so Reset Looks only puts back what Palettes changed.
+local function captureMissing(frames, glows)
+    local have = readSnapshot()
+    if type(have) ~= "table" then have = {} end
+    local shot, any = {}, false
+    if glows and have.glow == nil and have.light == nil then
+        local glow, glowOk = readKnown("general", "buttonGlow")
+        local light, lightOk = readKnown("Nameplates", "targetLight")
+        if glowOk then shot.glow = glow; any = true end
+        if lightOk then shot.light = light; any = true end
     end
-    local frameOk, frame = pcall(api.GetUnitFrame, "player")
-    if not frameOk or type(frame) ~= "table" then return nil, false end
-    local partsOk, parts = pcall(api.Parts, frame)
-    if not partsOk or type(parts) ~= "table" or type(parts.style) ~= "string" then
-        return nil, false
+    if frames and have.frameValues == nil then
+        local values = readFrameValues()
+        if values then shot.frameValues = values; any = true end
     end
-    return parts.style, true
+    if any then return shot end
 end
 
-local function capture()
-    if readSnapshot() then return nil end
-    local frame, frameOk = readFrameStyle()
-    local glow, glowOk = readKnown("general", "buttonGlow")
-    local light, lightOk = readKnown("Nameplates", "targetLight")
-    if not frameOk and not glowOk and not lightOk then return nil end
-    return {
-        frame = frameOk and frame or nil,
-        glow = glowOk and glow or nil,
-        light = lightOk and light or nil,
-    }
+local function mergeSnapshot(add)
+    local out = copyShot(readSnapshot()) or {}
+    if type(add) == "table" then
+        if add.glow ~= nil then out.glow = add.glow end
+        if add.light ~= nil then out.light = add.light end
+        if add.frameValues ~= nil then out.frameValues = add.frameValues end
+    end
+    storeSnapshot(out)
 end
 
 local function hasWrite()
     local d = DaylightUI
     return type(d) == "table" and type(d.Set) == "function"
-end
-
-local function hasMenuStyle()
-    local d = DaylightUI
-    if type(d) ~= "table" or type(d.GetModule) ~= "function" then return false end
-    local ok, mod = pcall(d.GetModule, d, "UnitFrames")
-    return ok and type(mod) == "table" and type(mod.ns) == "table" and type(mod.ns.SetStyle) == "function"
 end
 
 local function writeSetting(scope, path, value)
@@ -548,19 +882,6 @@ local function writeSetting(scope, path, value)
     local ok, result = pcall(d.Set, d, scope, path, value)
     if not ok or result == false then return false end
     local got, readable = readSetting(scope, path)
-    if readable and got ~= value then return false end
-    return true
-end
-
-local function menuSetStyle(value)
-    local d = DaylightUI
-    if type(d) ~= "table" or type(d.GetModule) ~= "function" then return false end
-    local ok, mod = pcall(d.GetModule, d, "UnitFrames")
-    if not ok or type(mod) ~= "table" or type(mod.ns) ~= "table" or type(mod.ns.SetStyle) ~= "function" then
-        return false
-    end
-    if not pcall(mod.ns.SetStyle, "look.style", value) then return false end
-    local got, readable = readSetting("UnitFrames", "look.style")
     if readable and got ~= value then return false end
     return true
 end
@@ -576,15 +897,6 @@ local function refreshLooks()
     for i = 1, #refreshers do pcall(refreshers[i]) end
 end
 ns.refreshLooks = refreshLooks
-
-local function pointAtFrame(id)
-    if id == "daylight" then
-        say("Looks: pick Daylight in the Frame style menu.")
-        return
-    end
-    local found = frameById(id)
-    say("Looks: pick " .. (found and found.name or id) .. " in the Frame style menu.")
-end
 
 local function pointAtGlow(id)
     if id == "none" then
@@ -608,17 +920,12 @@ local function pointAtGlowValue(value)
     say("Looks: pick " .. value .. " in the glow menu.")
 end
 
-local function frameKey(id)
-    if id == "daylight" then return "daylight" end
-    return "Looks:" .. id
-end
-
--- Frame style preview. A pick on the Looks tab shows on the unit frames at
--- once and writes nothing. BeginPreview(style) shows a style, RevertPreview()
--- puts the saved one back, and CommitPreview(write) reverts, then runs the real
--- write. Which frames wear it, and how, is the backend's job: apply(style,
--- targets) returns a token, revert(token) undoes it. A new unit frame
--- implementation plugs in through ns.SetPreviewBackend.
+-- Frame look preview. A pick on the Looks tab shows on the player and target
+-- frames at once and writes nothing saved. BeginPreview(id) shows a look,
+-- RevertPreview() puts the saved values back, and CommitPreview(write) reverts,
+-- then runs the real write. Which frames wear it, and how, is the backend's
+-- job: apply(id, targets) returns a token, revert(token) undoes it. A new unit
+-- frame implementation plugs in through ns.SetPreviewBackend.
 local previewTargets = { "player", "target" }
 local previewBackend
 local previewShown
@@ -626,8 +933,7 @@ local previewWant
 local previewWarned
 local looksOpen = false
 
--- Daylight's own single frames follow the global frame style, as Apply does.
--- Override changes it for a while: never saved, and API.Off puts it back.
+-- Override holds a value for a while: never saved, and API.Off puts it back.
 local function overrideHost()
     if type(view) == "table" and type(view.Override) == "function" then return view end
     local api = apiOf()
@@ -637,16 +943,49 @@ local function overrideHost()
     end
 end
 
-local overrideBackend = {
-    apply = function(id)
+-- Only the player and target frames, and only their look keys. look.style and
+-- every other frame stay as they are.
+local function previewPairs(id, targets)
+    local want = {}
+    for i = 1, #targets do
+        if targets[i] == "player" or targets[i] == "target" then
+            want[targets[i] .. "."] = true
+            want[targets[i] .. "Text."] = true
+        end
+    end
+    local all = lookPairs(id)
+    if id == "flagon" then
+        local extras = extraPairs(id)
+        for i = 1, #extras do all[#all + 1] = extras[i] end
+    end
+    local list = {}
+    for i = 1, #all do
+        local prefix = string.match(all[i][1], "^(%a+%.)")
+        if prefix and want[prefix] then list[#list + 1] = all[i] end
+    end
+    return list
+end
+
+local previewBackendDefault = {
+    apply = function(id, targets)
         local host = overrideHost()
         if not host then return nil end
-        local ok, handle = pcall(host.Override, "UnitFrames", "look.style", frameKey(id))
-        if ok and type(handle) == "table" then return handle end
+        local list = previewPairs(id, targets)
+        local handles = {}
+        batch(function()
+            for i = 1, #list do
+                local ok, handle = pcall(host.Override, "UnitFrames", list[i][1], list[i][2])
+                if ok and type(handle) == "table" then handles[#handles + 1] = handle end
+            end
+        end)
+        if #handles > 0 then return handles end
     end,
-    revert = function(handle)
+    revert = function(handles)
         local api = apiOf()
-        if api and type(api.Off) == "function" then pcall(api.Off, handle) end
+        if not api or type(api.Off) ~= "function" or type(handles) ~= "table" then return end
+        batch(function()
+            for i = #handles, 1, -1 do pcall(api.Off, handles[i]) end
+        end)
     end,
 }
 
@@ -660,7 +999,7 @@ local function previewSync()
         previewShown = nil
     end
     if want and not previewShown then
-        local backend = previewBackend or overrideBackend
+        local backend = previewBackend or previewBackendDefault
         local ok, token = pcall(backend.apply, want, previewTargets)
         if ok and token then
             previewShown = { id = want, token = token, backend = backend }
@@ -747,10 +1086,16 @@ local function queueLook(kind, id, name)
     refreshLooks()
 end
 
+local function failFrame(id)
+    local found = frameById(id)
+    say("Looks: couldn't change the player and target frames to " .. (found and found.name or id) .. ".")
+end
+
 local function applyFrame(id, quiet)
+    id = resolveFrame(id)
+    if not id then return false end
     if inCombat() then
-        local found = frameById(id)
-        queueLook("frame", id, found and found.name or id)
+        queueLook("frame", id, frameById(id).name)
         return false
     end
     local undoShot = (not ns.applyingTheme and type(ns.captureUndo) == "function") and ns.captureUndo("frame") or nil
@@ -762,23 +1107,21 @@ local function applyFrame(id, quiet)
         end
         return ok
     end
-    local set = frameSetter()
-    local shot = (set or hasMenuStyle() or hasWrite()) and capture() or nil
-    if set and pcall(set, id) then
-        if shot then storeSnapshot(shot) end
-        refreshPage()
-        refreshLooks()
-        return finish(true)
+    if not hasWrite() then
+        if not quiet then failFrame(id) end
+        return finish(false)
     end
-    local key = frameKey(id)
-    if menuSetStyle(key) or writeSetting("UnitFrames", "look.style", key) then
-        if shot then storeSnapshot(shot) end
-        refreshPage()
-        refreshLooks()
-        return finish(true)
-    end
-    if not quiet then pointAtFrame(id) end
-    return finish(false)
+    local snapshot = readSnapshot()
+    local shot = captureMissing(true, false)
+    local list = lookPairs(id)
+    local extras = extraPairs(id, type(snapshot) == "table" and snapshot.frameValues or nil)
+    for i = 1, #extras do list[#list + 1] = extras[i] end
+    local ok = writePairs(list)
+    if shot then mergeSnapshot(shot) end
+    refreshPage()
+    refreshLooks()
+    if not ok and not quiet then failFrame(id) end
+    return finish(ok)
 end
 
 local function applyGlow(id, quiet)
@@ -797,9 +1140,9 @@ local function applyGlow(id, quiet)
         return ok
     end
     local set = glowSetter()
-    local shot = (set or hasWrite()) and capture() or nil
+    local shot = (set or hasWrite()) and captureMissing(false, true) or nil
     if set and pcall(set, id) then
-        if shot then storeSnapshot(shot) end
+        if shot then mergeSnapshot(shot) end
         refreshPage()
         refreshLooks()
         return finish(true)
@@ -813,7 +1156,7 @@ local function applyGlow(id, quiet)
     local buttons = writeSetting("general", "buttonGlow", buttonKey)
     local light = writeSetting("Nameplates", "targetLight", lightKey)
     if buttons or light then
-        if shot then storeSnapshot(shot) end
+        if shot then mergeSnapshot(shot) end
     end
     if buttons and light then
         refreshPage()
@@ -826,16 +1169,12 @@ local function applyGlow(id, quiet)
     return finish(false)
 end
 
-local function writeFrameValue(value)
-    if menuSetStyle(value) or writeSetting("UnitFrames", "look.style", value) then
-        return true
-    end
-    local set = frameSetter()
-    if not set then return false end
-    if value == DAYLIGHT_FRAME and pcall(set, "daylight") then return true end
-    local id = looksId(value)
-    if id and frameById(id) and pcall(set, id) then return true end
-    return false
+-- Puts back the frame values saved before Palettes first changed them. With
+-- nothing saved there is nothing to put back.
+local function restoreSavedFrames()
+    local saved = readSnapshot()
+    if type(saved) ~= "table" or type(saved.frameValues) ~= "table" then return true end
+    return writeFrameValues(saved.frameValues)
 end
 
 local function writeGlowValue(buttonValue, lightValue)
@@ -976,12 +1315,11 @@ end
 
 function ns.captureUndo(kind)
     local themeId, changed = ns.readTheme()
-    local frame = select(1, readFrameStyle())
     local glow = select(1, readKnown("general", "buttonGlow"))
     local light = select(1, readKnown("Nameplates", "targetLight"))
     return {
         kind = kind,
-        frame = frame,
+        frameValues = readFrameValues(),
         glow = glow,
         light = light,
         theme = themeId or false,
@@ -992,7 +1330,7 @@ end
 function ns.applyUndoShot(shot)
     if type(shot) ~= "table" then return end
     if shot.kind == "theme" or shot.kind == "frame" or shot.kind == "looks" or shot.kind == "full" then
-        if type(shot.frame) == "string" then writeFrameValue(shot.frame) end
+        if type(shot.frameValues) == "table" then writeFrameValues(shot.frameValues) end
     end
     if shot.kind == "theme" or shot.kind == "glow" or shot.kind == "looks" or shot.kind == "full" then
         if type(shot.glow) == "string" or type(shot.light) == "string" then
@@ -1010,8 +1348,8 @@ end
 function ns.applyShareLook(look)
     if type(look) ~= "table" then return end
     if type(look.frame) == "string" then
-        if look.frame == "daylight" then writeFrameValue(DAYLIGHT_FRAME)
-        elseif frameById(look.frame) then applyFrame(look.frame, true) end
+        if look.frame == "daylight" then restoreSavedFrames()
+        elseif resolveFrame(look.frame) then applyFrame(look.frame, true) end
     end
     if type(look.glow) == "string" then
         if look.glow == "daylight" then writeGlowValue(DAYLIGHT_GLOW, DAYLIGHT_LIGHT)
@@ -1050,7 +1388,7 @@ function ns.takeTheme(account, char, db, onlyOn)
     end
     if db.theme ~= nil then write("theme", db.theme) end
     if db.themeChanged ~= nil then write("themeChanged", db.themeChanged == true) end
-    if db.frame ~= nil then write("frame", db.frame) end
+    if db.frame ~= nil then write("frame", resolveFrame(db.frame) or db.frame) end
     if db.glow ~= nil then write("glow", db.glow) end
     return true
 end
@@ -1058,8 +1396,9 @@ end
 function ns.applyProfileLook(db)
     if type(db) ~= "table" or not ns.looksApiOk() then return end
     if type(db.frame) == "string" then
-        if db.frame == "daylight" then writeFrameValue(DAYLIGHT_FRAME)
-        elseif frameById(db.frame) then writeFrameValue("Looks:" .. db.frame) end
+        local id = resolveFrame(db.frame)
+        if db.frame == "daylight" then restoreSavedFrames()
+        elseif id then writePairs(lookPairs(id)) end
     end
     if type(db.glow) == "string" then
         if db.glow == "daylight" then writeGlowValue(DAYLIGHT_GLOW, DAYLIGHT_LIGHT)
@@ -1099,7 +1438,7 @@ local function applyTheme(theme)
     ns.quietPalette = false
     ns.undoHold = nil
     say("Palettes: " .. theme.name .. " is on. Your layout is unchanged.")
-    if not frameOk then pointAtFrame(theme.frame) end
+    if not frameOk then failFrame(theme.frame) end
     if not glowOk then pointAtGlow(theme.glow) end
     refreshLooks()
 end
@@ -1112,6 +1451,16 @@ function ns.restoreColoursOnly()
     end
 end
 
+-- Puts back only what Palettes saved: frame values, and the glow with its outline.
+local function restoreSaved(saved)
+    local frameOk, glowOk = true, true
+    local hadFrames = type(saved.frameValues) == "table"
+    local hadGlow = saved.glow ~= nil or saved.light ~= nil
+    if hadFrames then frameOk = writeFrameValues(saved.frameValues) end
+    if hadGlow then glowOk = writeGlowValue(saved.glow or DAYLIGHT_GLOW, saved.light or DAYLIGHT_LIGHT) end
+    return frameOk, glowOk, hadFrames, hadGlow
+end
+
 function ns.restoreLooksOnly()
     if not ns.looksApiOk() then return false end
     local saved = readSnapshot()
@@ -1122,22 +1471,19 @@ function ns.restoreLooksOnly()
         return false
     end
     local undoShot = type(ns.captureUndo) == "function" and ns.captureUndo("looks") or nil
-    local frame = DAYLIGHT_FRAME
-    local glow = DAYLIGHT_GLOW
-    local light = DAYLIGHT_LIGHT
-    if saved.frame ~= nil then frame = saved.frame end
-    if saved.glow ~= nil then glow = saved.glow end
-    if saved.light ~= nil then light = saved.light end
-    local frameOk = writeFrameValue(frame)
-    local glowOk = writeGlowValue(glow, light)
+    ns.RevertPreview()
+    local frameOk, glowOk, hadFrames, hadGlow = restoreSaved(saved)
     if frameOk or glowOk then refreshPage() end
     if frameOk and glowOk then storeSnapshot(false) end
     if undoShot and (frameOk or glowOk) and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
-    local frameId = looksId(frame) or (frame == DAYLIGHT_FRAME and "daylight" or nil)
-    if frameId then ns.storeLookPart("frame", frameId) end
-    local glowId = looksId(saved.glow or glow)
-    if glow == DAYLIGHT_GLOW and light == DAYLIGHT_LIGHT then glowId = "daylight" end
-    if glowId then ns.storeLookPart("glow", glowId) end
+    if hadFrames then ns.storeLookPart("frame", wornFrame() or "daylight") end
+    if hadGlow then
+        local glow = saved.glow or DAYLIGHT_GLOW
+        local light = saved.light or DAYLIGHT_LIGHT
+        local glowId = looksId(glow)
+        if glow == DAYLIGHT_GLOW and light == DAYLIGHT_LIGHT then glowId = "daylight" end
+        if glowId then ns.storeLookPart("glow", glowId) end
+    end
     ns.notePalette(ns.screenPalette())
     refreshLooks()
     return frameOk and glowOk
@@ -1178,8 +1524,8 @@ function ns.applyLiveShare(parsed)
         d:Set("Palettes", "palette", parsed.palette)
     end
     if parsed.frame and parsed.frame ~= "none" then
-        if parsed.frame == "daylight" then writeFrameValue(DAYLIGHT_FRAME)
-        elseif frameById(parsed.frame) then applyFrame(parsed.frame, true) end
+        if parsed.frame == "daylight" then restoreSavedFrames()
+        elseif resolveFrame(parsed.frame) then applyFrame(parsed.frame, true) end
     end
     if parsed.glow and parsed.glow ~= "none" then
         if parsed.glow == "daylight" then writeGlowValue(DAYLIGHT_GLOW, DAYLIGHT_LIGHT)
@@ -1239,17 +1585,11 @@ function ns.restoreLooks(quiet)
         refreshLooks()
         return false
     end
-    local frame = DAYLIGHT_FRAME
-    local glow = DAYLIGHT_GLOW
-    local light = DAYLIGHT_LIGHT
-    if saved.frame ~= nil then frame = saved.frame end
-    if saved.glow ~= nil then glow = saved.glow end
-    if saved.light ~= nil then light = saved.light end
-    local frameOk = writeFrameValue(frame)
-    local glowOk = writeGlowValue(glow, light)
+    ns.RevertPreview()
+    local frameOk, glowOk = restoreSaved(saved)
     if frameOk or glowOk then refreshPage() end
     if frameOk and glowOk then storeSnapshot(false) end
-    if not frameOk and not quiet then pointAtFrame(looksId(frame) or "daylight") end
+    if not frameOk and not quiet then say("Looks: couldn't put your player and target frames back.") end
     if not glowOk and not quiet then pointAtGlowValue(saved.glow) end
     refreshLooks()
     return frameOk and glowOk
@@ -1341,8 +1681,9 @@ function looksSlashRun(msg)
         end
         return
     end
-    if frameById(arg) then
-        applyFrame(arg)
+    local frameId = resolveFrame(arg)
+    if frameId then
+        applyFrame(frameId)
         return
     end
     if glowById(arg) then
@@ -1879,8 +2220,8 @@ function ns.looksPage()
     for i = 1, #FRAMES do
         local frame = FRAMES[i]
         frames[#frames + 1] = {
-            kind = "frame", id = frame.id, name = frame.name, desc = frame.spec.desc,
-            key = "Looks:" .. frame.id, icon = ICONS[frame.id],
+            kind = "frame", id = frame.id, name = frame.name, desc = frame.desc,
+            key = frame.id, icon = ICONS[frame.id],
             select = function()
                 ns.RevertPreview()
                 local live = wornFrame() == frame.id
@@ -1948,16 +2289,50 @@ function ns.looksPage()
 end
 
 local function registerStyles()
-    if type(view) ~= "table" or type(view.AddFrameStyle) ~= "function" or type(view.AddGlowStyle) ~= "function" then
+    if type(view) ~= "table" or type(view.AddGlowStyle) ~= "function" then
         return false
-    end
-    for i = 1, #FRAMES do
-        view.AddFrameStyle(FRAMES[i].id, FRAMES[i].spec)
     end
     for i = 1, #GLOWS do
         view.AddGlowStyle(GLOWS[i].id, GLOWS[i].spec)
     end
     return true
+end
+
+-- 0.4.2 and earlier wrote look.style = "Looks:<frame>". Once, a leftover one
+-- goes back to daylight, and a saved frame name that was retired takes the
+-- look that replaced it. The standalone Looks add-on owns its own Looks:
+-- styles, so with it loaded the style is left alone. When Daylight can't be
+-- read yet, nothing is marked done and the next login tries again.
+function ns.migrateFrames()
+    local account = type(ns.accountTable) == "function" and ns.accountTable() or nil
+    local char = type(ns.charTable) == "function" and ns.charTable() or nil
+    local slots = { account, char }
+    for i = 1, 2 do
+        local slot = slots[i]
+        if type(slot) == "table" then
+            if type(slot.frame) == "string" then slot.frame = resolveFrame(slot.frame) or slot.frame end
+            if type(slot.looks) == "table" then slot.looks.frame = nil end
+        end
+    end
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Get) == "function" and type(d.Set) == "function" then
+        local stored = select(1, readSetting("Palettes", "frame"))
+        local fixed = type(stored) == "string" and resolveFrame(stored) or nil
+        if fixed and fixed ~= stored then
+            ns.writingLooks = true
+            pcall(d.Set, d, "Palettes", "frame", fixed)
+            ns.writingLooks = false
+        end
+    end
+    if type(account) ~= "table" or account.framesMigrated == true then return end
+    if looksAddonLoaded() then return end
+    local style, readable = readSetting("UnitFrames", "look.style")
+    if not readable or style == nil then return end
+    local prefix = "Looks:"
+    if type(style) == "string" and string.sub(style, 1, #prefix) == prefix then
+        if not pcall(d.Set, d, "UnitFrames", "look.style", "daylight") then return end
+    end
+    account.framesMigrated = true
 end
 
 function ns.noteLooksAddon()
