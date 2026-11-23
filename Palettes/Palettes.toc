@@ -3,7 +3,7 @@
 ## Title: Palettes (DaylightUI Plugin)
 ## Notes: Recolor Daylight's windows, panels, borders, accent and text, and add frame styles and glow styles. Class and combat colors stay Daylight's.
 ## Author: odd-brew
-## Version: 0.5.0
+## Version: 0.5.1
 ## Dependencies: DaylightUI
 ## SavedVariables: PalettesAccount
 ## SavedVariablesPerCharacter: PalettesChar

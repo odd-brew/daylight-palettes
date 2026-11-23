@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.1] - 2026-11-23
+
+### Changed
+- On DaylightUI's Appearance page, the Palettes section and its dropdown are now called **Colours**, to match the Colours tab. The description and help text now say that editing Accent or Window tint switches Palettes colours off.
+
 ## [0.5.0] - 2026-11-22
 
 ### Changed
