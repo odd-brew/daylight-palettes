@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.2] - 2026-11-23
+
+### Fixed
+- Since 0.5.0, a picked frame look or glow was applied again on every login and `/reload`, which overwrote changes you made in DaylightUI's own settings, such as your Player and Target frames. A look or glow now applies only when you pick it, and your later DaylightUI edits stay. A fresh install doesn't change your frames until you apply something. Restore Daylight and Reset Looks work as before.
+
 ## [0.5.1] - 2026-11-23
 
 ### Changed
