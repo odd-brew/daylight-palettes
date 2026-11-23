@@ -613,6 +613,125 @@ local function frameKey(id)
     return "Looks:" .. id
 end
 
+-- Frame style preview. A pick on the Looks tab shows on the unit frames at
+-- once and writes nothing. BeginPreview(style) shows a style, RevertPreview()
+-- puts the saved one back, and CommitPreview(write) reverts, then runs the real
+-- write. Which frames wear it, and how, is the backend's job: apply(style,
+-- targets) returns a token, revert(token) undoes it. A new unit frame
+-- implementation plugs in through ns.SetPreviewBackend.
+local previewTargets = { "player", "target" }
+local previewBackend
+local previewShown
+local previewWant
+local previewWarned
+local looksOpen = false
+
+-- Daylight's own single frames follow the global frame style, as Apply does.
+-- Override changes it for a while: never saved, and API.Off puts it back.
+local function overrideHost()
+    if type(view) == "table" and type(view.Override) == "function" then return view end
+    local api = apiOf()
+    if api and type(api.For) == "function" then
+        local ok, host = pcall(api.For, "Palettes")
+        if ok and type(host) == "table" and type(host.Override) == "function" then return host end
+    end
+end
+
+local overrideBackend = {
+    apply = function(id)
+        local host = overrideHost()
+        if not host then return nil end
+        local ok, handle = pcall(host.Override, "UnitFrames", "look.style", frameKey(id))
+        if ok and type(handle) == "table" then return handle end
+    end,
+    revert = function(handle)
+        local api = apiOf()
+        if api and type(api.Off) == "function" then pcall(api.Off, handle) end
+    end,
+}
+
+-- Protected frames repaint after combat, so a change asked for in combat waits
+-- here and runs from ns.finishLooksCombat.
+local function previewSync()
+    if inCombat() then return end
+    local want = previewWant
+    if previewShown and previewShown.id ~= want then
+        pcall(previewShown.backend.revert, previewShown.token)
+        previewShown = nil
+    end
+    if want and not previewShown then
+        local backend = previewBackend or overrideBackend
+        local ok, token = pcall(backend.apply, want, previewTargets)
+        if ok and token then
+            previewShown = { id = want, token = token, backend = backend }
+        elseif not previewWarned then
+            previewWarned = true
+            say("Looks: can't preview on the unit frames right now. Apply still works.")
+        end
+    end
+end
+
+function ns.BeginPreview(id)
+    if not frameById(id) then return false end
+    previewWant = id
+    previewSync()
+    return true
+end
+
+function ns.RevertPreview()
+    previewWant = nil
+    previewSync()
+end
+
+function ns.CommitPreview(write)
+    previewWant = nil
+    previewSync()
+    if type(write) == "function" then return write() end
+end
+
+function ns.SetPreviewBackend(backend, targets)
+    ns.RevertPreview()
+    if type(backend) == "table" and type(backend.apply) == "function" and type(backend.revert) == "function" then
+        previewBackend = backend
+    else
+        previewBackend = nil
+    end
+    if type(targets) == "table" then previewTargets = targets end
+end
+
+function ns.previewShownId()
+    return previewShown and previewShown.id or nil
+end
+
+-- The staged frame pick is what shows, and only while the Looks tab is open.
+function ns.syncFramePreview()
+    local staged = ns.staged
+    if looksOpen and type(staged) == "table" and staged.kind == "frame" and frameById(staged.id) then
+        ns.BeginPreview(staged.id)
+    else
+        ns.RevertPreview()
+    end
+end
+
+-- Drops an unapplied frame pick and its preview. Anything that writes a look
+-- from somewhere else calls this first, so it reads the saved style.
+function ns.dropFramePreview()
+    local staged = ns.staged
+    if type(staged) == "table" and staged.kind == "frame" then
+        ns.staged = nil
+        refreshLooks()
+    end
+    ns.RevertPreview()
+end
+
+-- Leaving the tab, the page or the window drops the pick.
+function ns.setLooksOpen(open)
+    open = open == true
+    if open == looksOpen then return end
+    looksOpen = open
+    if not open then ns.dropFramePreview() end
+end
+
 local function queueLook(kind, id, name)
     if type(looksPending) == "table" and looksPending.kind == kind and looksPending.id == id then
         looksPending = nil
@@ -1137,6 +1256,7 @@ function ns.restoreLooks(quiet)
 end
 
 function ns.finishLooksCombat()
+    if not inCombat() then ns.syncFramePreview() end
     local pending = looksPending
     if type(pending) ~= "table" then return end
     if inCombat() then return end
@@ -1174,6 +1294,7 @@ end
 local looksSlashRun
 
 function ns.looksSlash(msg)
+    ns.dropFramePreview()
     local function run()
         looksSlashRun(msg)
     end
@@ -1761,7 +1882,9 @@ function ns.looksPage()
             kind = "frame", id = frame.id, name = frame.name, desc = frame.spec.desc,
             key = "Looks:" .. frame.id, icon = ICONS[frame.id],
             select = function()
+                ns.RevertPreview()
                 local live = wornFrame() == frame.id
+                ns.setLooksOpen(true)
                 if type(ns.stagePick) == "function" then
                     ns.stagePick("frame", frame.id, function() applyFrame(frame.id) end, live)
                 else
