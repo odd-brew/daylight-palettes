@@ -5,6 +5,7 @@
 ## Author: odd-brew
 ## Version: 0.5.2
 ## Dependencies: DaylightUI
+## Category: DaylightUI Plugins
 ## SavedVariables: PalettesAccount
 ## SavedVariablesPerCharacter: PalettesChar
 ## X-Website: https://github.com/odd-brew/daylight-palettes
