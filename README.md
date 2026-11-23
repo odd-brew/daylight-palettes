@@ -39,7 +39,7 @@ While a palette is on and Daylight's micro-menu style is on, micro-menu icons fo
 Palettes starts switched off, so your first login looks exactly like DaylightUI. Pick a palette any of these ways:
 
 - **Plugins page:** open DaylightUI's options and go to **Plugins > Palettes**. Each palette shows a three-color swatch and a one-line description. Click one to use it. **Custom** sits above Dark: click it to apply your last saved colors and open the editor.
-- **Appearance page:** DaylightUI's **Appearance** page has a **Palette** dropdown that stays in sync with the Plugins page, including Custom.
+- **Appearance page:** DaylightUI's **Appearance** page has a **Colours** dropdown that stays in sync with the Plugins page, including Custom.
 - **Slash command:** type `/palettes` followed by a palette name, like `/palettes ember`, `/palettes custom` or `/palettes carmine night`. Type `/palettes` on its own to see which palette is on and the full list of names. `/palettes` does not take a Theme name. `/palettes off` restores DaylightUI's colors, and, when Palettes has changed them, the Player and Target frame settings and glows, and clears a Preset.
 
 ### Themes, colours and looks

@@ -1520,6 +1520,10 @@ local function freshView(name)
         styleCalls.glow = styleCalls.glow + 1
         if id == "wick" then v.glowKey = name .. ":" .. id end
     end
+    function v.AddOptionsGroup(id, spec)
+        v.optionsGroups = v.optionsGroups or {}
+        v.optionsGroups[id] = spec
+    end
     function v.On(event, fn)
         v.handlers = v.handlers or {}
         v.handlers[event] = fn
@@ -2708,6 +2712,25 @@ check(palDb.palette, "dusk", "/palettes dusk writes the palette")
 check(popupCount(), quiet + 1, "/palettes dusk asks to reload once")
 looksEnv.SlashCmdList.PALETTES("dusk")
 check(popupCount(), quiet + 1, "repeating /palettes dusk does not ask again")
+do
+    local group = ui.API.For("Palettes").optionsGroups
+    group = type(group) == "table" and group.appearance or nil
+    check(type(group), "table", "the Appearance options group is added")
+    group = type(group) == "table" and group or { items = {} }
+    local dropdown, text
+    for i = 1, #group.items do
+        local item = group.items[i]
+        if item.type == "dropdown" then dropdown = item end
+        if item.type == "text" then text = item end
+    end
+    dropdown = dropdown or {}
+    text = text or {}
+    check(group.label, "Colours", "the Appearance group label says Colours")
+    check(group.desc, "Synced with Plugins > Palettes > Colours. Changing Accent or Window tint below switches it off.", "the Appearance desc says switches it off")
+    check(dropdown.label, "Colours", "the Appearance dropdown label says Colours")
+    check(dropdown.key, "palette", "the Appearance dropdown keeps the palette key")
+    check(text.label, "Editing Accent or Window tint switches Palettes colours off. Class and combat colors stay Daylight's.", "the Appearance text row says switches Palettes colours off")
+end
 ui:Set("Palettes", "palette", "ash")
 check(palDb.palette, "ash", "an Appearance pick writes the palette")
 check(popupCount(), quiet + 2, "an Appearance palette pick asks to reload once")
