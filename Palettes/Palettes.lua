@@ -1231,6 +1231,11 @@ function ns.setClassAccent(account, char, on)
     char.classAccent = nil
 end
 
+local function copyLooks(shot)
+    if type(ns.copyLooksShot) == "function" then return ns.copyLooksShot(shot) end
+    return { glow = shot.glow, light = shot.light }
+end
+
 -- Ticking copies the account look onto this character, so the screen does not jump.
 -- Unticking throws that copy away and this character follows the account again.
 function ns.setOnly(account, char, on)
@@ -1249,11 +1254,7 @@ function ns.setOnly(account, char, on)
             if account.looks == false then
                 char.looks = false
             elseif type(account.looks) == "table" then
-                char.looks = {
-                    frame = account.looks.frame,
-                    glow = account.looks.glow,
-                    light = account.looks.light,
-                }
+                char.looks = copyLooks(account.looks)
             else
                 char.looks = nil
             end
@@ -1509,7 +1510,7 @@ function onSettingRun(scope, path)
         local looksStored
         if char.only == true then looksStored = char.looks else looksStored = account.looks end
         if type(looksStored) == "table" then
-            looksStored = { frame = looksStored.frame, glow = looksStored.glow, light = looksStored.light }
+            looksStored = copyLooks(looksStored)
         elseif looksStored ~= false then
             looksStored = nil
         end
@@ -2642,6 +2643,7 @@ local function onEnable(_, db)
     if type(db) == "table" then db.mixAccent = nil end
     -- 0.1.0 still moves into the account once. After that the profile wins.
     ns.migrateLogin(account, char, db)
+    if type(ns.migrateFrames) == "function" then pcall(ns.migrateFrames) end
     local id, accent, onlyOn, unknown, capped, hadLook, changed = ns.adoptProfile(account, char, db)
     ns.resetUndo(history, id)
     heldPaint = false
@@ -3013,13 +3015,15 @@ function ns.commitStaged()
     local staged = ns.staged
     if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
     ns.staged = nil
+    -- Frame looks and glows repaint Player and Target live. Only colours need a reload.
+    local looksOnly = staged.kind == "frame" or staged.kind == "glow"
     ns.withReloadAction(function()
         if staged.kind == "frame" and type(ns.CommitPreview) == "function" then
             ns.CommitPreview(staged.commit)
         else
             staged.commit()
         end
-        ns.requestReload()
+        if not looksOnly then ns.requestReload() end
     end)
     if type(ns.notePreview) == "function" then ns.notePreview() end
     if refreshList then refreshList() end
@@ -3047,10 +3051,10 @@ end
 
 local function runTabReset(tab)
     ns.withReloadAction(function()
-        local beforeLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
-        local beforeCur, beforePend = history.current, history.pending
         ns.staged = nil
         if type(ns.RevertPreview) == "function" then ns.RevertPreview() end
+        local beforeLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
+        local beforeCur, beforePend = history.current, history.pending
         local rows = ns.tabReset
         if type(rows) == "table" then
             for i = 1, #rows do
@@ -3062,13 +3066,17 @@ local function runTabReset(tab)
             DaylightUI:Set("Palettes", "palette", "off")
         end
         local afterLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
-        if beforeLook ~= afterLook or paletteMoved(beforeCur, beforePend) then
+        -- Reset Looks only moves frames and glows, which repaint live.
+        local looksMoved = tab ~= "Looks" and beforeLook ~= afterLook
+        if looksMoved or paletteMoved(beforeCur, beforePend) then
             ns.requestReload()
         end
     end)
     if refreshList then refreshList() end
     if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
 end
+
+ns.runTabReset = runTabReset
 
 local function currentTab(panel)
     if type(panel) ~= "table" or type(panel.PageFrame) ~= "function" then return "Presets" end
@@ -3393,6 +3401,9 @@ local function listen()
         end
         if event == "ADDON_LOADED" and name == "Looks" and type(ns.noteLooksAddon) == "function" then
             ns.noteLooksAddon()
+        end
+        if event == "ADDON_LOADED" and name == "DaylightUI_UnitFrames" and type(ns.migrateFrames) == "function" then
+            pcall(ns.migrateFrames)
         end
         if event == "ADDON_LOADED" and name == "DaylightUI_Skins" and paintedId then
             local p = ns.byId[paintedId]

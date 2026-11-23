@@ -1372,11 +1372,43 @@ end
 if not looksSource:find("Each preset is a ready-made pairing of a Colours palette with a Looks frame and glow. Pick one, then change any part on the Colours or Looks tab.", 1, true) then
     fail("missing the presets intro")
 end
-if not looksSource:find("A preset on the Presets tab sets all three.", 1, true) then
+if not looksSource:find("A Preset on the Presets tab sets all three.", 1, true) then
     fail("missing the looks intro")
 end
-if not looksSource:find("A full boss, a thin health lip, power in a deep trough.", 1, true) then
-    fail("trough description is cut off")
+local frameLines = {
+    "A small boss and a deep cup, the name cut into the lip.",
+    "A full portrait on a named board, with power hung as a rail.",
+    "Sturdy Daylight bars with a full-width dark name tab and an angled 2.0 portrait socket.",
+    "Slim Ribbon bar with a floating name row, thin power underline, and a rounded 2.0 portrait sized to the bar stack.",
+    "Portrait-free square bars with a floating name above, crisp corners, and dual health and power numbers.",
+    "Tall hero bars with a 3D classic portrait, thick class ring, fitted tab, and bold health number.",
+    "Low-profile, portrait-free Ribbon bar with sharp corners and a thin power strip.",
+}
+for i = 1, #frameLines do
+    if not looksSource:find(frameLines[i], 1, true) then fail("missing frame one-liner: " .. frameLines[i]) end
+end
+if looksSource:find("A named board with a round portrait", 1, true) then
+    fail("Trestle ships the mock wording, not the spec summary")
+end
+if looksSource:find("AddFrameStyle", 1, true) or looksSource:find("SetFrameStyle", 1, true) then
+    fail("frame looks must not use the frame style API")
+end
+if main:find("look.style", 1, true) or main:find("AddFrameStyle", 1, true) then
+    fail("Palettes.lua must not touch look.style or frame styles")
+end
+do
+    local from = looksSource:find("function ns.migrateFrames()", 1, true)
+    local to = looksSource:find("function ns.noteLooksAddon()", 1, true)
+    local uses = 0
+    local at = 1
+    while true do
+        local found = looksSource:find('"look.style"', at, true)
+        if not found then break end
+        uses = uses + 1
+        if not (from and to and found > from and found < to) then fail("look.style is used outside the one-time migration") end
+        at = found + 1
+    end
+    check(uses, 2, "look.style is read and written once, in the migration")
 end
 if not main:find("Presets set a palette, a frame style and a glow. ", 1, true) then
     fail("the page subtitle must end with a period")
@@ -1408,14 +1440,10 @@ local moods = {
 for i = 1, #moods do
     if not looksSource:find(moods[i], 1, true) then fail("missing preset mood: " .. moods[i]) end
 end
-if not looksSource:find("powerHeight = 14", 1, true) then
-    fail("trough power height must ship as 14")
-end
-
-local OFF_LINE = "Looks: off. Type /looks lintel, sill, stamp, trestle, flagon, signboard, trough, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
-local LINTEL_LINE = "Looks: Lintel is on. Type /looks sill, stamp, trestle, flagon, signboard, trough, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
-local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks sill, stamp, trestle, flagon, signboard, trough, draught, latch, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
-local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks sill, stamp, trestle, flagon, signboard, trough, wick, latch, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local OFF_LINE = "Looks: off. Type /looks flagon, trestle, beam, stream, ledger, crest, slate, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local BEAM_LINE = "Looks: Beam is on. Type /looks flagon, trestle, stream, ledger, crest, slate, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks flagon, trestle, stream, ledger, crest, slate, draught, latch, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks flagon, trestle, stream, ledger, crest, slate, wick, latch, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
 
 local function piece()
     local w = {}
@@ -1461,6 +1489,9 @@ local sets = {
 local palDb = { palette = "tide", classAccent = false, only = false, carried = true }
 local views = {}
 local styleCalls = { frame = 0, glow = 0 }
+local unitWrites = {}
+local unitOverrides = {}
+local batches = { runs = 0, depth = 0, outside = 0 }
 -- Daylight's Override: a temporary value that is never saved. savedValue is
 -- what a logout would write, so the held value counts as its old one.
 local held = {}
@@ -1477,15 +1508,13 @@ local function freshView(name)
             if held[i].scope == scope and held[i].path == path then return nil end
         end
         local o = { scope = scope, path = path, was = sets[scope][path], override = true }
+        unitOverrides[#unitOverrides + 1] = { scope = scope, path = path, value = value, batch = batches.depth }
         held[#held + 1] = o
         sets[scope][path] = value
         return o
     end
-    function v.AddFrameStyle(id, spec)
+    function v.AddFrameStyle()
         styleCalls.frame = styleCalls.frame + 1
-        v.frameKey = name .. ":" .. id
-        if id == "lintel" then v.lintelKey = name .. ":" .. id end
-        if id == "trough" then v.trough = spec end
     end
     function v.AddGlowStyle(id, spec)
         styleCalls.glow = styleCalls.glow + 1
@@ -1505,15 +1534,12 @@ local ui = {
         For = function(name)
             return views[name] or freshView(name)
         end,
-        GetUnitFrame = function(unit) return { unit = unit } end,
-        Parts = function()
-            return { style = sets.UnitFrames["look.style"] }
-        end,
         Off = function(handle)
             for i = 1, #held do
                 if held[i] == handle then
                     table.remove(held, i)
                     sets[handle.scope][handle.path] = handle.was
+                    unitOverrides[#unitOverrides + 1] = { off = true, scope = handle.scope, path = handle.path, batch = batches.depth }
                     return
                 end
             end
@@ -1532,12 +1558,23 @@ function ui:Get(scope, path)
     local bag = sets[scope]
     if type(bag) == "table" then return bag[path] end
 end
+function ui.Batch(fn)
+    batches.runs = batches.runs + 1
+    batches.depth = batches.depth + 1
+    local ok, err = pcall(fn)
+    batches.depth = batches.depth - 1
+    if not ok then error(err, 0) end
+end
 function ui:Set(scope, path, value)
     if scope == "Palettes" then
         palDb[path] = value
     else
         sets[scope] = sets[scope] or {}
         sets[scope][path] = value
+        if scope == "UnitFrames" then
+            unitWrites[#unitWrites + 1] = { path = path, value = value, batch = batches.depth }
+            if batches.depth == 0 then batches.outside = batches.outside + 1 end
+        end
     end
     local pal = views.Palettes
     if not ns.writingLooks and pal and pal.handlers and pal.handlers.SettingChanged then
@@ -1581,11 +1618,172 @@ local function saidHas(text)
     return false
 end
 
-check(styleCalls.frame, 7, "seven frame styles register")
+check(styleCalls.frame, 0, "frame looks do not register frame styles")
 check(styleCalls.glow, 3, "three glow styles register")
-check(views.Looks and views.Looks.lintelKey, "Looks:lintel", "frame keys stay on Looks")
 check(views.Looks and views.Looks.glowKey, "Looks:wick", "glow keys stay on Looks")
-check(views.Looks and views.Looks.trough and views.Looks.trough.sizes.player.powerHeight, 14, "trough power height is not clamped here")
+
+local FRAME_IDS = { "flagon", "trestle", "beam", "stream", "ledger", "crest", "slate" }
+local frameKeys = ns.frameKeys()
+local sizeKeys = ns.frameSizeKeys()
+local extraValues = ns.frameExtras()
+local extraKeys = {}
+for key in pairs(extraValues) do extraKeys[#extraKeys + 1] = key end
+table.sort(extraKeys)
+local SENTINELS = {
+    ["look.style"] = "daylight", ["look.slant"] = 0.21,
+    ["focus.width"] = 250, ["focus.style"] = "ribbon", ["party.height"] = 30, ["raid.width"] = 120,
+    ["arena.portrait"] = "2d", ["pet.width"] = 90, ["targettarget.width"] = 100,
+    ["player.enabled"] = true, ["target.enabled"] = true, ["player.fade.mode"] = "ooc",
+    ["playerAuras.buffs"] = true, ["playerCastbar.at"] = "below", ["targetCastbar.at"] = "power",
+    ["player.predictHeals"] = true, ["player.colors"] = "mine", ["target.showMarker"] = true,
+}
+local allKeys = {}
+for _, list in ipairs({ frameKeys, sizeKeys, extraKeys }) do
+    for i = 1, #list do allKeys[#allKeys + 1] = list[i] end
+end
+local function userValue(key) return "user:" .. key end
+local function seedFrames()
+    local bag = {}
+    for key, value in pairs(SENTINELS) do bag[key] = value end
+    for i = 1, #allKeys do bag[allKeys[i]] = userValue(allKeys[i]) end
+    sets.UnitFrames = bag
+end
+local function setBundle(id)
+    for key, value in pairs(ns.frameValues(id)) do sets.UnitFrames[key] = value end
+end
+local function liveHas(id)
+    for key, value in pairs(ns.frameValues(id)) do
+        if sets.UnitFrames[key] ~= value then return false, key end
+    end
+    return true
+end
+local function liveLook()
+    for i = 1, #FRAME_IDS do
+        if liveHas(FRAME_IDS[i]) then return FRAME_IDS[i] end
+    end
+end
+local function userRestored()
+    for i = 1, #allKeys do
+        if sets.UnitFrames[allKeys[i]] ~= userValue(allKeys[i]) then return false, allKeys[i] end
+    end
+    return true
+end
+local function sentinelsIntact()
+    for key, value in pairs(SENTINELS) do
+        if sets.UnitFrames[key] ~= value then return false, key end
+    end
+    return true
+end
+local function unitOf(path)
+    return string.match(path, "^(%a+)%.")
+end
+local ALLOWED_UNIT = { player = true, playerText = true, target = true, targetText = true }
+local function logsStayOnTwoFrames(log, label)
+    local bad
+    for i = 1, #log do
+        local unit = unitOf(log[i].path)
+        if not ALLOWED_UNIT[unit] or log[i].path == "look.style" then bad = log[i].path end
+    end
+    check(bad, nil, label)
+end
+local function resetLogs()
+    for i = #unitWrites, 1, -1 do unitWrites[i] = nil end
+    for i = #unitOverrides, 1, -1 do unitOverrides[i] = nil end
+    batches.runs = 0
+    batches.outside = 0
+end
+local function popupCount()
+    local n = 0
+    for i = 1, #said do
+        if said[i] == "popup:PALETTES_RELOAD" then n = n + 1 end
+    end
+    return n
+end
+
+-- Every look carries the same keys and only touches the player and target frames.
+for i = 1, #FRAME_IDS do
+    local id = FRAME_IDS[i]
+    local values = ns.frameValues(id)
+    local missing
+    for k = 1, #frameKeys do
+        if values[frameKeys[k]] == nil then missing = frameKeys[k] end
+    end
+    check(missing, nil, id .. " fills every frame key")
+    local stray
+    for key in pairs(values) do
+        if not ALLOWED_UNIT[unitOf(key)] or key == "look.style" or key == "look.slant" then stray = key end
+        if string.find(key, "%.enabled$") or string.find(key, "%.powerAt$") and values[key] ~= "inside" then stray = key end
+    end
+    check(stray, nil, id .. " writes only player and target keys")
+    check(values["player.powerAt"], "inside", id .. " keeps power inside")
+    check(values["target.portraitAt"], "frame", id .. " keeps the portrait on the frame")
+    check(values["player.showLevel"], false, id .. " leaves the player level off")
+    check(values["target.showLevel"], true, id .. " keeps the target level on")
+    check(values["player.shell.own"], true, id .. " owns its border")
+    local style = values["player.style"]
+    for _, unit in ipairs({ "player", "target" }) do
+        for _, field in ipairs({ "height", "powerHeight", "tabHeight" }) do
+            check(values[unit .. ".sizes." .. style .. "." .. field], values[unit .. "." .. field], id .. " " .. unit .. " sizes " .. field)
+        end
+    end
+    check(values["player.portraitDragon"], id == "crest", id .. " dragon is Crest only")
+    check(values["target.levelPos"], id == "crest" and "ring" or "foot", id .. " level badge position")
+    check(values["target.portraitDragon"], nil, id .. " has no target dragon")
+end
+local borders = { flagon = 3, trestle = 3, beam = 6, stream = 4, ledger = 4, crest = 8, slate = 4 }
+local widths = { flagon = 187, trestle = 187, beam = 200, stream = 210, ledger = 196, crest = 192, slate = 188 }
+local styles = { flagon = "daylight", trestle = "ribbon", beam = "daylight", stream = "ribbon", ledger = "daylight", crest = "daylight", slate = "ribbon" }
+for _, id in ipairs(FRAME_IDS) do
+    local values = ns.frameValues(id)
+    for _, unit in ipairs({ "player", "target" }) do
+        check(values[unit .. ".shell.borderPx"], borders[id], id .. " " .. unit .. " border")
+        check(values[unit .. ".width"], widths[id], id .. " " .. unit .. " width")
+        check(values[unit .. ".style"], styles[id], id .. " " .. unit .. " style")
+    end
+end
+local trestleValues = ns.frameValues("trestle")
+check(trestleValues["player.portraitScale"], 0.80, "Trestle portrait scale is 0.80")
+check(trestleValues["target.portraitScale"], 0.80, "Trestle target portrait scale is 0.80")
+check(trestleValues["player.portraitRingWidth"], "normal", "Trestle keeps its normal ring")
+local ledgerValues = ns.frameValues("ledger")
+check(ledgerValues["player.showPowerText"], true, "Ledger shows power text")
+check(ledgerValues["target.powerFormat"], "percent", "Ledger power text is a percent")
+check(ledgerValues["player.powerFormat"], "percent", "Ledger player power text is a percent")
+check(ledgerValues["playerText.power"], 0, "Ledger power text fits the bar")
+check(ledgerValues["targetText.power"], 0, "Ledger target power text fits the bar")
+check(ledgerValues["player.portrait"], "none", "Ledger has no portrait")
+check(ledgerValues["player.namePos"], "above", "Ledger names float above")
+check(ns.frameValues("crest")["player.portrait"], "3d", "Crest is a 3D portrait")
+check(ns.frameValues("crest")["player.portraitLook"], "classic", "Crest is a classic portrait")
+check(ns.frameValues("beam")["player.portraitShape"], "angled", "Beam keeps DaylightUI's angled portrait shape")
+check(ns.frameValues("beam")["player.tab.width"], "full", "Beam has a full-width tab")
+for _, id in ipairs({ "flagon", "beam", "stream", "ledger", "crest", "slate" }) do
+    check(extraValues["player.media.health"] ~= nil and ns.frameValues(id)["player.media.health"], nil, id .. " carries no Flagon extras")
+end
+check(extraValues["player.barFx.health.style"], "flow", "Flagon extras set Flow")
+check(extraValues["target.media.powerBack"], "daylight", "Flagon extras set the DaylightUI textures")
+check(extraValues["player.colorHealth"], "global", "Flagon extras follow the Look page colours")
+check(ns.resolveFrame("lintel"), "beam", "lintel is Beam")
+check(ns.resolveFrame("sill"), "stream", "sill is Stream")
+check(ns.resolveFrame("stamp"), "slate", "stamp is Slate")
+check(ns.resolveFrame("signboard"), "beam", "signboard is Beam")
+check(ns.resolveFrame("trough"), "ledger", "trough is Ledger")
+check(ns.resolveFrame("crest"), "crest", "a look keeps its own id")
+check(ns.resolveFrame("nope"), nil, "an unknown frame has no look")
+do
+    local icons = ns.frameIcons
+    for _, id in ipairs(FRAME_IDS) do
+        local parts = icons and icons[id]
+        check(type(parts) == "table" and #parts > 0, true, id .. " has a silhouette")
+        local inside = true
+        for _, part in ipairs(parts or {}) do
+            if part[1] < 0 or part[2] < 0 or part[1] + part[3] > 36 or part[2] + part[4] > 18 then inside = false end
+        end
+        check(inside, true, id .. " silhouette fits 36 x 18")
+    end
+    check(icons and icons.lintel, nil, "retired frames have no silhouette")
+end
+
 local pages = ui.module and ui.module.options and ui.module.options.pages
 check(type(pages) == "table" and #pages or 0, 1, "palettes is one page")
 check(pages[1] and pages[1].id, "main", "the page id is main")
@@ -1626,27 +1824,42 @@ account.looks = nil
 char.only = false
 char.looks = nil
 said = {}
+seedFrames()
 ns.looksSlash("")
 check(said[#said], OFF_LINE, "fresh /looks lists every name")
-ns.looksSlash("lintel")
-check(sets.UnitFrames["look.style"], "Looks:lintel", "lintel writes the looks key")
-check(type(account.looks) == "table" and account.looks.frame, "daylight", "the first write keeps the old frame")
-check(account.looks.glow, "circle", "the first write keeps the old glow")
-check(account.looks.light, "none", "the first write keeps the old outline")
-check(palDb.looks and palDb.looks.frame, "daylight", "the snapshot is in the palettes profile")
+resetLogs()
+ns.looksSlash("beam")
+check(liveHas("beam"), true, "beam writes the beam bundle")
+check(sets.UnitFrames["look.style"], "daylight", "a frame look never writes look.style")
+check(sentinelsIntact(), true, "a frame look leaves other frames and settings alone")
+logsStayOnTwoFrames(unitWrites, "a frame look writes only the player and target keys")
+check(batches.outside, 0, "every frame write is inside DaylightUI.Batch")
+check(batches.runs, 1, "a frame look is one batch")
+check(sets.UnitFrames["player.barFx.health.style"], userValue("player.barFx.health.style"), "Beam does not write the bar animation")
+check(sets.UnitFrames["target.media.health"], userValue("target.media.health"), "Beam does not write textures")
+check(sets.UnitFrames["player.colorHealth"], userValue("player.colorHealth"), "Beam does not write colours")
+check(type(account.looks) == "table" and type(account.looks.frameValues) == "table", true, "the first write saves the frame values")
+check(account.looks.frameValues["player.width"], userValue("player.width"), "the snapshot keeps the old width")
+check(account.looks.frameValues["target.sizes.ribbon.height"], userValue("target.sizes.ribbon.height"), "the snapshot keeps the sizes keys")
+check(account.looks.frameValues["player.barFx.health.style"], userValue("player.barFx.health.style"), "the snapshot keeps the Flagon extras")
+check(account.looks.frame, nil, "the snapshot does not save a frame style")
+check(account.looks.glow, nil, "a frame look saves no glow")
+check(palDb.looks and palDb.looks.frameValues and palDb.looks.frameValues["target.portrait"], userValue("target.portrait"), "the snapshot is in the palettes profile")
 check(palDb.palette, "tide", "a frame pick does not change the palette")
 said = {}
 ns.looksSlash("")
-check(said[#said], LINTEL_LINE, "/looks names lintel and leaves it out of the list")
+check(said[#said], BEAM_LINE, "/looks names beam and leaves it out of the list")
 ns.looksSlash("nope")
-check(said[#said], LINTEL_LINE, "an unknown name reprints the status")
+check(said[#said], BEAM_LINE, "an unknown name reprints the status")
 ns.looksSlash("hearthnight")
 check(palDb.palette, "ember", "hearthnight sets the ember palette")
-check(sets.UnitFrames["look.style"], "Looks:lintel", "hearthnight sets lintel")
+check(liveHas("beam"), true, "hearthnight sets beam")
 check(sets.general.buttonGlow, "Looks:wick", "hearthnight sets wick on the buttons")
 check(sets.Nameplates.targetLight, "Looks:wick", "hearthnight sets wick on the nameplate")
 check(account.theme, "hearthnight", "hearthnight remembers the theme")
-check(account.looks.frame, "daylight", "a second look does not replace the snapshot")
+check(account.looks.frameValues["player.width"], userValue("player.width"), "a second look does not replace the snapshot")
+check(account.looks.glow, "circle", "the first glow write saves the old glow")
+check(account.looks.light, "none", "the first glow write saves the old outline")
 check(saidHas("Palettes: Hearthnight is on. Your layout is unchanged."), true, "a theme says it is on")
 said = {}
 ns.looksSlash("")
@@ -1662,56 +1875,69 @@ check(said[#said], CHANGED_LINE, "/looks reports the changed theme")
 ns.looksSlash("hearthnight")
 check(account.themeChanged, false, "picking the theme again clears changed")
 check(sets.general.buttonGlow, "Looks:wick", "picking the theme again restores its glow")
-local frameBefore = sets.UnitFrames["look.style"]
 local glowBefore = sets.general.buttonGlow
 looksEnv.SlashCmdList.PALETTES("hearthnight")
-check(sets.UnitFrames["look.style"], frameBefore, "/palettes does not take a theme name")
+check(liveLook(), "beam", "/palettes does not take a theme name")
 check(sets.general.buttonGlow, glowBefore, "/palettes hearthnight does not change the glow")
 said = {}
 ns.looksSlash("off")
 check(account.theme, false, "a full restore clears the theme")
-check(sets.UnitFrames["look.style"], "daylight", "restore writes the saved frame back")
+check(userRestored(), true, "restore writes every saved frame value back")
+check(sets.UnitFrames["look.style"], "daylight", "restore does not write look.style")
 check(sets.general.buttonGlow, "circle", "restore writes the saved glow back")
 check(sets.Nameplates.targetLight, "none", "restore writes the saved outline back")
 check(account.looks, false, "a successful restore clears the snapshot")
 check(saidHas("Palettes: off. Daylight's own colors, frame style and glows are restored."), true, "full restore chat")
-sets.UnitFrames["look.style"] = "Looks:sill"
+setBundle("slate")
 local left = ns.restoreLooks(true)
 check(left, false, "restore with no snapshot does nothing")
-check(sets.UnitFrames["look.style"], "Looks:sill", "no snapshot leaves the frame alone")
+check(liveHas("slate"), true, "no snapshot leaves the frame alone")
 
 char.only = false
 account.looks = nil
-sets.UnitFrames["look.style"] = "daylight"
+seedFrames()
 sets.general.buttonGlow = "circle"
 sets.Nameplates.targetLight = "none"
 ns.setOnly(account, char, true)
-ns.looksSlash("sill")
-check(char.looks and char.looks.frame, "daylight", "save for this character keeps the snapshot on the character")
+ns.looksSlash("stream")
+check(char.looks and char.looks.frameValues and char.looks.frameValues["player.width"], userValue("player.width"), "save for this character keeps the snapshot on the character")
 check(type(account.looks) == "table", false, "a character snapshot stays off the account")
 ns.setOnly(account, char, false)
 check(char.looks, nil, "untick drops the character snapshot")
 
-local imported = { palette = "ember", classAccent = false, seeded = true, looks = { frame = "daylight", glow = "circle", light = "none" } }
+local imported = { palette = "ember", classAccent = false, seeded = true, looks = { frameValues = { ["player.width"] = 187 }, glow = "circle", light = "none" } }
 local importedChar = { only = false, ready = true }
-local importedDb = { palette = "tide", classAccent = false, carried = true, looks = { frame = "Looks:lintel", glow = "Looks:wick", light = "Looks:wick" } }
+local importedDb = { palette = "tide", classAccent = false, carried = true, looks = { frameValues = { ["player.width"] = 220, ["target.portrait"] = "2d" }, glow = "Looks:wick", light = "Looks:wick" } }
 ns.adoptProfile(imported, importedChar, importedDb)
-check(imported.looks and imported.looks.frame, "Looks:lintel", "a profile switch adopts the snapshot")
+check(imported.looks and imported.looks.frameValues and imported.looks.frameValues["player.width"], 220, "a profile switch adopts the frame snapshot")
+check(imported.looks and imported.looks.frameValues and imported.looks.frameValues["target.portrait"], "2d", "a profile switch adopts every saved frame value")
+check(imported.looks and imported.looks.glow, "Looks:wick", "a profile switch adopts the glow snapshot")
 check(imported.palette, "tide", "a profile switch still adopts the palette")
-local keep = { palette = "tide", classAccent = false, seeded = true, looks = { frame = "daylight", glow = "circle", light = "none" } }
+local legacy = { palette = "ember", classAccent = false, seeded = true, looks = false }
+local legacyChar = { only = false, ready = true }
+local legacyDb = { palette = "tide", classAccent = false, carried = true, looks = { frame = "Looks:lintel", glow = "Looks:wick", light = "Looks:wick" } }
+ns.adoptProfile(legacy, legacyChar, legacyDb)
+check(legacy.looks and legacy.looks.frame, nil, "a 0.4.2 snapshot's frame style string is dropped")
+check(legacy.looks and legacy.looks.glow, "Looks:wick", "a 0.4.2 snapshot keeps its glow")
+local keep = { palette = "tide", classAccent = false, seeded = true, looks = { frameValues = { ["player.width"] = 187 }, glow = "circle", light = "none" } }
 local keepChar = { only = false, ready = true }
 local keepDb = { palette = "ember", classAccent = false, carried = true }
 ns.adoptProfile(keep, keepChar, keepDb)
-check(keep.looks and keep.looks.frame, "daylight", "a profile with no snapshot leaves yours")
+check(keep.looks and keep.looks.frameValues and keep.looks.frameValues["player.width"], 187, "a profile with no snapshot leaves yours")
 
+seedFrames()
+account.looks = nil
+resetLogs()
 looksEnv.InCombatLockdown = function() return true end
-local during = sets.UnitFrames["look.style"]
-ns.looksSlash("trough")
-check(sets.UnitFrames["look.style"], during, "a combat pick does not write yet")
-check(said[#said], "Looks: Trough queued until combat ends.", "a combat pick says it is waiting")
+ns.looksSlash("ledger")
+check(#unitWrites, 0, "a combat pick does not write yet")
+check(said[#said], "Looks: Ledger queued until combat ends.", "a combat pick says it is waiting")
+check(ns.looksWaiting(), true, "a combat pick is queued")
 looksEnv.InCombatLockdown = function() return false end
 ns.finishLooksCombat()
-check(sets.UnitFrames["look.style"], "Looks:trough", "combat end applies the waiting frame")
+ns.finishQueuedReload(true)
+check(liveHas("ledger"), true, "combat end applies the waiting frame")
+check(ns.looksWaiting(), false, "combat end empties the queue")
 
 styleCalls.frame = 0
 styleCalls.glow = 0
@@ -1727,12 +1953,13 @@ check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow
 check(themeGroups[1].items[1].hidden(), true, "api 1.7 hides the presets tab")
 check(lookGroups[1].items[1].hidden(), true, "api 1.7 hides the looks tab")
 check(type(colourGroups[1].items[1].hidden) ~= "function" or colourGroups[1].items[1].hidden() ~= true, true, "api 1.7 still shows colours")
-local beforeGuard = sets.UnitFrames["look.style"]
+seedFrames()
 local paletteGuard = palDb.palette
+resetLogs()
 ns.looksSlash("lintel")
-check(sets.UnitFrames["look.style"], beforeGuard, "api 1.7 /looks does not apply")
+check(#unitWrites, 0, "api 1.7 /looks does not apply")
 ns.looksSlash("hearthnight")
-check(sets.UnitFrames["look.style"], beforeGuard, "api 1.7 /looks hearthnight does not apply a theme")
+check(#unitWrites, 0, "api 1.7 /looks hearthnight does not apply a theme")
 check(palDb.palette, paletteGuard, "api 1.7 /looks hearthnight does not change colours")
 check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", "/looks repeats the guard")
 
@@ -1746,8 +1973,59 @@ said = {}
 ns.bootLooks()
 check(styleCalls.frame, 0, "a loaded Looks add-on is not registered twice")
 check(said[#said], "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes.", "both add-ons get one line")
+looksEnv.C_AddOns = nil
+ns.looksReady = nil
+ns.looksGuard = nil
+ns.looksBothSaid = nil
+ns.bootLooks()
+check(styleCalls.frame, 0, "booting again still registers no frame styles")
+check(styleCalls.glow, 3, "booting again registers the glows")
 
-check(resetNamed("Looks") and resetNamed("Looks").label, "Reset Looks", "looks reset is labelled Reset Looks")
+-- Leftover Looks: styles from 0.4.2 go back to daylight once, and retired frame names move.
+do
+    seedFrames()
+    sets.UnitFrames["look.style"] = "Looks:lintel"
+    account.framesMigrated = nil
+    account.frame = "lintel"
+    char.frame = "trough"
+    account.looks = { frame = "Looks:sill", glow = "circle", light = "none" }
+    palDb.frame = "signboard"
+    resetLogs()
+    ns.migrateFrames()
+    check(sets.UnitFrames["look.style"], "daylight", "a leftover Looks: style goes back to daylight")
+    check(account.frame, "beam", "a saved lintel becomes beam")
+    check(char.frame, "ledger", "a saved trough becomes ledger")
+    check(palDb.frame, "beam", "a profile's saved signboard becomes beam")
+    check(account.looks.frame, nil, "the old snapshot style string is dropped")
+    check(account.looks.glow, "circle", "the old snapshot glow stays")
+    check(account.framesMigrated, true, "the migration is marked done")
+    check(sentinelsIntact() or sets.UnitFrames["look.style"] == "daylight", true, "migration leaves other settings alone")
+    check(#unitWrites, 1, "migration writes one key")
+    sets.UnitFrames["look.style"] = "Looks:stamp"
+    ns.migrateFrames()
+    check(sets.UnitFrames["look.style"], "Looks:stamp", "the migration only runs once")
+    account.framesMigrated = nil
+    sets.UnitFrames["look.style"] = "ribbon"
+    ns.migrateFrames()
+    check(sets.UnitFrames["look.style"], "ribbon", "a style that is not Looks: stays")
+    check(account.framesMigrated, true, "a clean profile is marked done")
+    account.framesMigrated = nil
+    sets.UnitFrames["look.style"] = "Looks:sill"
+    looksEnv.C_AddOns = { IsAddOnLoaded = function(name) return name == "Looks" end }
+    ns.migrateFrames()
+    check(sets.UnitFrames["look.style"], "Looks:sill", "the standalone Looks add-on keeps its own styles")
+    check(account.framesMigrated, nil, "no migration is marked while Looks is loaded")
+    looksEnv.C_AddOns = nil
+    sets.UnitFrames["look.style"] = nil
+    ns.migrateFrames()
+    check(account.framesMigrated, nil, "an unreadable style tries again next login")
+    account.framesMigrated = true
+    account.frame = false
+    char.frame = nil
+    palDb.frame = nil
+    account.looks = nil
+end
+
 local row = piece()
 local body = lookGroups[1].items[1]
 ui.API.minor = 9
@@ -1757,6 +2035,16 @@ if type(body) == "table" and type(body.build) == "function" then
     local built, buildErr = pcall(body.build, row)
     if not built then fail("looks tab did not build: " .. tostring(buildErr)) end
     check(type(row.lines) == "table" and #row.lines or 0, 10, "frames and glows are rows")
+    for i = 1, #FRAME_IDS do
+        check(row.lines[i] and row.lines[i].id, FRAME_IDS[i], "frame row " .. i .. " is " .. FRAME_IDS[i])
+        check(row.lines[i] and row.lines[i].kind, "frame", "frame row " .. i .. " is a frame")
+        check(type(row.lines[i].button) == "table" and type(row.lines[i].button.scripts.OnClick), "function", "frame row " .. i .. " is a button")
+    end
+    check(row.lines[8] and row.lines[8].kind, "glow", "glow rows follow the frames")
+    for i = 1, #frameLines do
+        check(row.lines[i].desc.words, frameLines[i], "frame row " .. i .. " reads the mock one-liner")
+    end
+    check(row.lines[2].desc.words, "A full portrait on a named board, with power hung as a rail.", "Trestle ships the mock wording")
     if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
     local active = row.lines[1]
     active.SetOn(true, false)
@@ -1775,126 +2063,294 @@ if type(body) == "table" and type(body.build) == "function" then
     check(active.onText.words == "HOVER", false, "a hovered row does not say HOVER")
     check(type(active.washColor) == "table", true, "hover still paints the row highlight")
     active.SetHover(false)
-    local beforeStyle = sets.UnitFrames["look.style"]
-    local lintel = row.lines[1]
-    if type(lintel.button) ~= "table" or type(lintel.button.scripts.OnClick) ~= "function" then
-        fail("a style row is not a button")
-    else
-        local function wearing(unit)
-            return ui.API.Parts(ui.API.GetUnitFrame(unit)).style
+
+    local flagonRow, trestleRow, beamRow = row.lines[1], row.lines[2], row.lines[3]
+    local function unitShows(id, unit)
+        local n = 0
+        for key, value in pairs(ns.frameValues(id)) do
+            if string.sub(key, 1, #unit + 1) == unit .. "." or string.sub(key, 1, #unit + 5) == unit .. "Text." then
+                n = n + 1
+                if sets.UnitFrames[key] ~= value then return false end
+            end
         end
-        account.looks = nil
-        local looksBefore = account.looks
-        lintel.button.scripts.OnClick()
-        check(savedValue("UnitFrames", "look.style"), beforeStyle, "a row click does not write the saved style")
-        check(account.looks, looksBefore, "a row click does not write the snapshot")
-        check(type(ns.staged) == "table" and ns.staged.kind, "frame", "a frame click is staged")
-        check(wearing("player"), "Looks:lintel", "a row click previews on the player frame")
-        check(wearing("target"), "Looks:lintel", "a row click previews on the target frame")
-        check(ns.previewShownId(), "lintel", "the preview knows what is showing")
-        row.lines[2].button.scripts.OnClick()
-        check(wearing("player"), "Looks:sill", "another row moves the preview on the player frame")
-        check(wearing("target"), "Looks:sill", "another row moves the preview on the target frame")
-        check(#held, 1, "one preview is held at a time")
-        check(savedValue("UnitFrames", "look.style"), beforeStyle, "a second pick still writes nothing")
-        row.lines[2].button.scripts.OnClick()
-        check(wearing("player"), beforeStyle, "clicking the previewed row again reverts the player frame")
-        check(wearing("target"), beforeStyle, "clicking the previewed row again reverts the target frame")
-        check(ns.staged, nil, "clicking the previewed row again drops the pick")
-        lintel.button.scripts.OnClick()
-        row.lines[8].button.scripts.OnClick()
-        check(wearing("player"), beforeStyle, "a glow pick replaces the frame preview")
-        check(#held, 0, "a glow pick holds no frame preview")
-        lintel.button.scripts.OnClick()
-        ns.setLooksOpen(false)
-        check(wearing("player"), beforeStyle, "leaving the Looks tab reverts the player frame")
-        check(wearing("target"), beforeStyle, "leaving the Looks tab reverts the target frame")
-        check(ns.staged, nil, "leaving the Looks tab drops the pick")
-        check(#held, 0, "leaving the Looks tab releases the preview")
-        looksEnv.InCombatLockdown = function() return true end
-        lintel.button.scripts.OnClick()
-        check(wearing("player"), beforeStyle, "a combat click waits to preview")
-        looksEnv.InCombatLockdown = function() return false end
-        ns.finishLooksCombat()
-        check(wearing("player"), "Looks:lintel", "combat end shows the waiting preview on the player frame")
-        check(wearing("target"), "Looks:lintel", "combat end shows the waiting preview on the target frame")
-        looksEnv.InCombatLockdown = function() return true end
-        ns.setLooksOpen(false)
-        check(wearing("player"), "Looks:lintel", "leaving in combat keeps the frame until combat ends")
-        looksEnv.InCombatLockdown = function() return false end
-        ns.finishLooksCombat()
-        check(wearing("player"), beforeStyle, "combat end reverts the preview")
-        check(#held, 0, "combat end releases the preview")
-        local backendCalls = {}
-        ns.SetPreviewBackend({
-            apply = function(id, targets) backendCalls[#backendCalls + 1] = "apply:" .. id .. ":" .. table.concat(targets, ","); return {} end,
-            revert = function() backendCalls[#backendCalls + 1] = "revert" end,
-        }, { "player", "target" })
-        lintel.button.scripts.OnClick()
-        check(backendCalls[1], "apply:lintel:player,target", "a backend gets the style and the frames")
-        ns.setLooksOpen(false)
-        check(backendCalls[2], "revert", "a backend is told to revert")
-        ns.SetPreviewBackend(nil)
-        lintel.button.scripts.OnClick()
-        looksEnv.StaticPopupDialogs = {}
-        looksEnv.StaticPopup_Show = function(which) said[#said + 1] = "popup:" .. which end
-        local committed = ns.commitStaged()
-        check(committed, true, "apply commits the staged pick")
-        check(sets.UnitFrames["look.style"], "Looks:lintel", "apply writes the frame")
-        check(said[#said], "popup:PALETTES_RELOAD", "apply asks to reload")
-        check(#held, 0, "apply releases the preview")
-        check(wearing("target"), "Looks:lintel", "apply keeps the style on the target frame")
-        check(type(account.looks) == "table" and account.looks.frame, beforeStyle, "apply keeps the saved style as the snapshot")
-        row.lines[3].button.scripts.OnClick()
-        check(wearing("player"), "Looks:stamp", "a new preview shows after an apply")
-        looksEnv.InCombatLockdown = function() return true end
-        ns.commitStaged()
-        check(#held, 1, "a combat apply leaves the preview up until combat ends")
-        check(savedValue("UnitFrames", "look.style"), "Looks:lintel", "a combat apply does not write the saved style yet")
-        looksEnv.InCombatLockdown = function() return false end
-        ns.finishLooksCombat()
-        check(#held, 0, "combat end releases the preview before the apply")
-        check(sets.UnitFrames["look.style"], "Looks:stamp", "combat end writes the applied frame")
-        ns.looksSlash("lintel")
-        check(sets.UnitFrames["look.style"], "Looks:lintel", "the slash command still writes")
-        lintel.button.scripts.OnClick()
-        ns.setLooksOpen(false)
-        looksEnv.InCombatLockdown = function() return true end
-        local saidBefore = #said
-        row.lines[2].button.scripts.OnClick()
-        ns.commitStaged()
-        check(sets.UnitFrames["look.style"], "Looks:lintel", "combat apply does not write yet")
-        local poppedEarly = false
-        for i = saidBefore + 1, #said do
-            if said[i] == "popup:PALETTES_RELOAD" then poppedEarly = true end
-        end
-        check(poppedEarly, false, "combat apply waits to ask for a reload")
-        looksEnv.InCombatLockdown = function() return false end
-        ns.finishLooksCombat()
-        ns.finishQueuedReload(true)
-        check(sets.UnitFrames["look.style"], "Looks:sill", "combat end paints the queued frame")
-        check(said[#said], "popup:PALETTES_RELOAD", "the reload popup follows the paint")
-        local entered = false
-        local menuButton = piece()
-        function menuButton:GetScript(name)
-            if name == "OnEnter" then return function() entered = true end end
-            if name == "OnLeave" then return function() end end
-        end
-        looksEnv.GameMenuFrame = {
-            buttonPool = {
-                EnumerateActive = function()
-                    local done = false
-                    return function()
-                        if done then return nil end
-                        done = true
-                        return menuButton
-                    end
-                end,
-            },
-        }
-        check(ns.refreshGameMenu(), true, "game menu refresh touches a pooled button")
-        check(entered, true, "game menu refresh runs the button hover script")
+        return n > 0
     end
+    local function savedAreUser()
+        for i = 1, #allKeys do
+            if savedValue("UnitFrames", allKeys[i]) ~= userValue(allKeys[i]) then return false, allKeys[i] end
+        end
+        return true
+    end
+    local function heldExtras()
+        local n = 0
+        for i = 1, #held do
+            if string.find(held[i].path, "barFx", 1, true) or string.find(held[i].path, "media", 1, true) then n = n + 1 end
+        end
+        return n
+    end
+    seedFrames()
+    account.looks = nil
+    palDb.looks = nil
+    resetLogs()
+    local looksBefore = account.looks
+    flagonRow.button.scripts.OnClick()
+    check(savedAreUser(), true, "a row click does not write the saved values")
+    check(account.looks, looksBefore, "a row click does not write the snapshot")
+    check(type(ns.staged) == "table" and ns.staged.kind, "frame", "a frame click is staged")
+    check(unitShows("flagon", "player"), true, "a row click previews on the player frame")
+    check(unitShows("flagon", "target"), true, "a row click previews on the target frame")
+    check(sets.UnitFrames["player.barFx.health.style"], "flow", "the Flagon preview shows its extras on the player")
+    check(sets.UnitFrames["target.media.health"], "daylight", "the Flagon preview shows its extras on the target")
+    check(ns.previewShownId(), "flagon", "the preview knows what is showing")
+    check(sets.UnitFrames["look.style"], "daylight", "a preview never touches look.style")
+    check(sentinelsIntact(), true, "a preview never touches another frame")
+    logsStayOnTwoFrames(unitOverrides, "a preview overrides only the player and target keys")
+    local outsideBatch = 0
+    for i = 1, #unitOverrides do
+        if unitOverrides[i].batch == 0 then outsideBatch = outsideBatch + 1 end
+    end
+    check(outsideBatch, 0, "a preview overrides inside DaylightUI.Batch")
+    check(#unitWrites, 0, "a preview writes nothing with Set")
+    local previewed = {}
+    for i = 1, #unitOverrides do previewed[unitOverrides[i].path] = true end
+    local wantPaths = ns.frameValues("flagon")
+    local extras = ns.frameExtras()
+    local missingPath
+    for key in pairs(wantPaths) do if not previewed[key] then missingPath = key end end
+    for key in pairs(extras) do if not previewed[key] then missingPath = key end end
+    check(missingPath, nil, "the Flagon preview covers every look key, sizes key and extra")
+    local flagonMark = #unitOverrides
+    beamRow.button.scripts.OnClick()
+    check(unitShows("beam", "player"), true, "another row moves the preview on the player frame")
+    check(unitShows("beam", "target"), true, "another row moves the preview on the target frame")
+    check(heldExtras(), 0, "leaving Flagon in a preview lets go of its extras")
+    check(sets.UnitFrames["player.barFx.health.style"], userValue("player.barFx.health.style"), "Beam's preview shows the player's own animation")
+    local beamOverrides = 0
+    for i = flagonMark + 1, #unitOverrides do
+        local o = unitOverrides[i]
+        if not o.off and extras[o.path] ~= nil then beamOverrides = beamOverrides + 1 end
+    end
+    check(beamOverrides, 0, "only the Flagon preview overrides the extras")
+    check(savedAreUser(), true, "a second pick still writes nothing")
+    beamRow.button.scripts.OnClick()
+    check(userRestored(), true, "clicking the previewed row again reverts both frames")
+    check(ns.staged, nil, "clicking the previewed row again drops the pick")
+    check(#held, 0, "reverting releases every override")
+    flagonRow.button.scripts.OnClick()
+    row.lines[8].button.scripts.OnClick()
+    check(userRestored(), true, "a glow pick replaces the frame preview")
+    check(#held, 0, "a glow pick holds no frame preview")
+    row.lines[8].button.scripts.OnClick()
+    flagonRow.button.scripts.OnClick()
+    ns.setLooksOpen(false)
+    check(userRestored(), true, "leaving the Looks tab reverts the frames")
+    check(ns.staged, nil, "leaving the Looks tab drops the pick")
+    check(#held, 0, "leaving the Looks tab releases the preview")
+    check(sentinelsIntact(), true, "reverting leaves other frames alone")
+    looksEnv.InCombatLockdown = function() return true end
+    flagonRow.button.scripts.OnClick()
+    check(userRestored(), true, "a combat click waits to preview")
+    looksEnv.InCombatLockdown = function() return false end
+    ns.finishLooksCombat()
+    check(unitShows("flagon", "player"), true, "combat end shows the waiting preview on the player frame")
+    check(unitShows("flagon", "target"), true, "combat end shows the waiting preview on the target frame")
+    looksEnv.InCombatLockdown = function() return true end
+    ns.setLooksOpen(false)
+    check(unitShows("flagon", "player"), true, "leaving in combat keeps the frames until combat ends")
+    looksEnv.InCombatLockdown = function() return false end
+    ns.finishLooksCombat()
+    check(userRestored(), true, "combat end reverts the preview")
+    check(#held, 0, "combat end releases the preview")
+    local backendCalls = {}
+    ns.SetPreviewBackend({
+        apply = function(id, targets) backendCalls[#backendCalls + 1] = "apply:" .. id .. ":" .. table.concat(targets, ","); return {} end,
+        revert = function() backendCalls[#backendCalls + 1] = "revert" end,
+    }, { "player", "target" })
+    flagonRow.button.scripts.OnClick()
+    check(backendCalls[1], "apply:flagon:player,target", "a backend gets the look and the frames")
+    ns.setLooksOpen(false)
+    check(backendCalls[2], "revert", "a backend is told to revert")
+    ns.SetPreviewBackend(nil)
+    ns.SetPreviewBackend(nil, { "target" })
+    resetLogs()
+    flagonRow.button.scripts.OnClick()
+    local sawPlayer = false
+    for i = 1, #unitOverrides do
+        local unit = unitOf(unitOverrides[i].path)
+        if unit == "player" or unit == "playerText" then sawPlayer = true end
+    end
+    check(sawPlayer, false, "a preview limited to the target leaves the player frame alone")
+    check(unitShows("flagon", "target"), true, "a preview limited to the target shows on it")
+    ns.setLooksOpen(false)
+    ns.SetPreviewBackend(nil, { "player", "target" })
+    ns.setLooksOpen(true)
+
+    looksEnv.StaticPopupDialogs = {}
+    looksEnv.StaticPopup_Show = function(which) said[#said + 1] = "popup:" .. which end
+    flagonRow.button.scripts.OnClick()
+    local popupsBefore = popupCount()
+    resetLogs()
+    local committed = ns.commitStaged()
+    check(committed, true, "apply commits the staged pick")
+    check(liveHas("flagon"), true, "apply writes the Flagon bundle")
+    check(sets.UnitFrames["player.barFx.health.style"], "flow", "apply writes the Flagon bar animation")
+    check(sets.UnitFrames["target.media.power"], "daylight", "apply writes the Flagon textures")
+    check(sets.UnitFrames["look.style"], "daylight", "apply never writes look.style")
+    check(sentinelsIntact(), true, "apply leaves other frames alone")
+    check(batches.outside, 0, "apply writes inside DaylightUI.Batch")
+    check(popupCount(), popupsBefore, "applying a frame look does not ask to reload")
+    check(#held, 0, "apply releases the preview")
+    check(unitShows("flagon", "target"), true, "apply keeps the look on the target frame")
+    check(account.looks.frameValues["player.width"], userValue("player.width"), "apply saves the player's values, not the preview")
+    check(account.looks.frameValues["player.barFx.health.style"], userValue("player.barFx.health.style"), "apply saves the animation before Flagon changes it")
+    check(liveLook(), "flagon", "Flagon shows as the worn look")
+    -- Leaving Flagon puts back what Flagon wrote, and keeps what the player changed since.
+    sets.UnitFrames["player.media.health"] = "mine"
+    beamRow.button.scripts.OnClick()
+    check(unitShows("beam", "player"), true, "Beam previews over Flagon")
+    check(sets.UnitFrames["player.barFx.health.style"], "flow", "a Beam preview leaves the extras to Apply")
+    check(#held > 0, true, "the Beam preview is held")
+    for i = 1, #held do
+        if extraValues[held[i].path] ~= nil then fail("a Beam preview must not override " .. held[i].path) end
+    end
+    ns.commitStaged()
+    check(liveHas("beam"), true, "Beam replaces Flagon")
+    for _, key in ipairs(extraKeys) do
+        if key == "player.media.health" then
+            check(sets.UnitFrames[key], "mine", "a texture the player changed on Flagon stays theirs")
+        else
+            check(sets.UnitFrames[key], userValue(key), "leaving Flagon puts back " .. key)
+        end
+    end
+    check(popupCount(), popupsBefore, "leaving Flagon does not ask to reload")
+    sets.UnitFrames["player.media.health"] = userValue("player.media.health")
+    trestleRow.button.scripts.OnClick()
+    looksEnv.InCombatLockdown = function() return true end
+    ns.commitStaged()
+    check(#held > 0, true, "a combat apply leaves the preview up until combat ends")
+    check(ns.looksWaiting(), true, "a combat apply is queued")
+    check(liveHas("beam") or savedValue("UnitFrames", "player.width") == widths.beam, true, "a combat apply does not write the saved values yet")
+    looksEnv.InCombatLockdown = function() return false end
+    ns.finishLooksCombat()
+    check(#held, 0, "combat end releases the preview before the apply")
+    check(liveHas("trestle"), true, "combat end writes the applied frame")
+    check(popupCount(), popupsBefore, "a combat frame apply never asks to reload")
+    ns.finishQueuedReload(true)
+    check(popupCount(), popupsBefore, "a combat frame apply still does not ask once combat ends")
+    ns.looksSlash("lintel")
+    check(liveHas("beam"), true, "the slash command still writes, and lintel is Beam")
+    ns.looksSlash("trough")
+    check(liveHas("ledger"), true, "trough is Ledger")
+    ns.looksSlash("sill")
+    check(liveHas("stream"), true, "sill is Stream")
+    ns.looksSlash("stamp")
+    check(liveHas("slate"), true, "stamp is Slate")
+    ns.looksSlash("signboard")
+    check(liveHas("beam"), true, "signboard is Beam")
+    ns.looksSlash("crest")
+    check(liveHas("crest"), true, "/looks crest applies Crest")
+    check(sets.UnitFrames["player.portraitDragon"], true, "Crest turns the player dragon on")
+    ns.looksSlash("slate")
+    check(sets.UnitFrames["player.portraitDragon"], false, "leaving Crest turns the dragon off")
+    check(sets.UnitFrames["target.levelPos"], "foot", "leaving Crest puts the level badge back at the foot")
+
+    -- Glow applies repaint live too.
+    local glowRow = row.lines[8]
+    local beforeGlowPopups = popupCount()
+    glowRow.button.scripts.OnClick()
+    ns.commitStaged()
+    check(popupCount(), beforeGlowPopups, "applying a glow does not ask to reload")
+
+    -- Reset Looks puts back every saved value, including the Flagon extras.
+    account.looks = nil
+    palDb.looks = nil
+    seedFrames()
+    ns.looksSlash("flagon")
+    check(sets.UnitFrames["player.barFx.health.style"], "flow", "Flagon turns Flow on")
+    ns.looksSlash("ledger")
+    ns.looksSlash("flagon")
+    local resetPopups = popupCount()
+    local resetBatches = batches.runs
+    resetLogs()
+    check(type(ns.runTabReset), "function", "the tab reset can be run")
+    ns.runTabReset("Looks")
+    check(userRestored(), true, "Reset Looks puts back every saved value")
+    check(sets.UnitFrames["player.barFx.health.style"], userValue("player.barFx.health.style"), "Reset Looks does not leave Flow on")
+    check(sets.UnitFrames["look.style"], "daylight", "Reset Looks never writes look.style")
+    check(sentinelsIntact(), true, "Reset Looks leaves other frames alone")
+    check(account.looks, false, "Reset Looks clears the snapshot")
+    check(popupCount(), resetPopups, "Reset Looks does not ask to reload when only frames or glows changed")
+    resetLogs()
+    ns.runTabReset("Looks")
+    check(#unitWrites, 0, "Reset Looks with no snapshot changes nothing")
+    check(popupCount(), resetPopups, "Reset Looks with no snapshot does not ask to reload")
+
+    -- 1-step undo of a frame look.
+    seedFrames()
+    account.looks = nil
+    local before = ns.captureUndo("frame")
+    ns.looksSlash("flagon")
+    ns.applyUndoShot(before)
+    check(userRestored(), true, "undo puts the previous frame values and extras back")
+    check(sets.UnitFrames["look.style"], "daylight", "undo never writes look.style")
+    account.looks = nil
+    palDb.looks = nil
+    seedFrames()
+    sets.general.buttonGlow = "circle"
+    sets.Nameplates.targetLight = "none"
+    ns.looksSlash("beam")
+
+    -- Apply asks to reload for a Preset, and a Preset applies its frame look.
+    local themeRowForReload = piece()
+    local themeBodyForReload = themeGroups[1].items[1]
+    pcall(themeBodyForReload.build, themeRowForReload)
+    seedFrames()
+    account.looks = nil
+    account.theme = false
+    palDb.palette = "tide"
+    local presetPopups = popupCount()
+    themeRowForReload.lines[6].button.scripts.OnClick()
+    check(type(ns.staged) == "table" and ns.staged.kind, "theme", "a preset click is staged")
+    ns.commitStaged()
+    check(liveHas("flagon"), true, "Snug applies the Flagon bundle")
+    check(palDb.palette, "gilded", "Snug applies its palette")
+    check(popupCount(), presetPopups + 1, "a Preset commit still asks to reload")
+    palDb.palette = "tide"
+    local colourPopups = popupCount()
+    if type(ns.stagePick) == "function" then
+        ns.stagePick("palette", "dusk", function() ui:Set("Palettes", "palette", "dusk") end, false)
+        ns.commitStaged()
+        check(popupCount(), colourPopups + 1, "a Colours commit still asks to reload")
+    end
+    local lookPopups = popupCount()
+    ns.stagePick("frame", "slate", function() end, false)
+    ns.commitStaged()
+    check(popupCount(), lookPopups, "a Looks-only commit never asks to reload")
+    ns.stagePick("glow", "latch", function() end, false)
+    ns.commitStaged()
+    check(popupCount(), lookPopups, "a glow commit never asks to reload")
+    row.lines[1].button.scripts.OnClick()
+    ns.setLooksOpen(false)
+    local entered = false
+    local menuButton = piece()
+    function menuButton:GetScript(name)
+        if name == "OnEnter" then return function() entered = true end end
+        if name == "OnLeave" then return function() end end
+    end
+    looksEnv.GameMenuFrame = {
+        buttonPool = {
+            EnumerateActive = function()
+                local done = false
+                return function()
+                    if done then return nil end
+                    done = true
+                    return menuButton
+                end
+            end,
+        },
+    }
+    check(ns.refreshGameMenu(), true, "game menu refresh touches a pooled button")
+    check(entered, true, "game menu refresh runs the button hover script")
 else
     fail("looks tab has no body")
 end
@@ -1909,9 +2365,28 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     check(hearth.baseName, "Hearthnight", "theme order still starts with Hearthnight")
     check(lastTheme.baseName, "After Hours", "theme order still ends with After Hours")
     check(hearth.palettePill and hearth.palettePill.words, "Ember", "hearthnight's palette pill")
-    check(hearth.lookPill and hearth.lookPill.words, "Lintel + Wick", "hearthnight's frame and glow pill")
+    check(hearth.lookPill and hearth.lookPill.words, "Beam + Wick", "hearthnight's frame and glow pill")
     check(lastTheme.palettePill and lastTheme.palettePill.words, "Carmine Night", "after hours' palette pill")
-    check(lastTheme.lookPill and lastTheme.lookPill.words, "Signboard + Latch", "after hours' frame and glow pill")
+    check(lastTheme.lookPill and lastTheme.lookPill.words, "Beam + Latch", "after hours' frame and glow pill")
+    local pills = {
+        { "Hearthnight", "Ember", "Beam + Wick" }, { "Harvestide", "Vanilla", "Stream + Draught" },
+        { "Tidemark", "Tide", "Slate + Draught" }, { "Old Road", "Forever", "Beam + Latch" },
+        { "Vigil", "Paladin", "Stream + Wick" }, { "Snug", "Gilded", "Flagon + Latch" },
+        { "Bellows", "Forgeglow", "Trestle + Wick" }, { "Drawwell", "Shaman", "Ledger + Draught" },
+        { "Settle", "Keepstone", "Beam + Latch" }, { "After Hours", "Carmine Night", "Beam + Latch" },
+    }
+    for i = 1, #pills do
+        local line = themeRow.lines[i]
+        check(line.baseName, pills[i][1], "preset " .. i .. " name")
+        check(line.palettePill.words, pills[i][2], pills[i][1] .. " palette pill")
+        check(line.lookPill.words, pills[i][3], pills[i][1] .. " frame and glow pill")
+    end
+    local crestUsed = false
+    for i = 1, #ns.themes do if ns.themes[i].frame == "crest" then crestUsed = true end end
+    check(crestUsed, false, "Crest is on the Looks tab only")
+    for i = 1, #ns.themes do
+        check(ns.frameById(ns.themes[i].frame) ~= nil, true, ns.themes[i].id .. " names one of the seven looks")
+    end
     check(hearth.mood, "A winter hearth of campfire gold: a named beam and a quiet corner flame.", "hearthnight keeps its mood")
     check(type(hearth.preview) == "table" and #hearth.preview or 0, 3, "a theme row shows three swatches")
     check(hearth.preview[1], ns.byId.ember.background, "the first swatch is the palette background")
@@ -1924,7 +2399,7 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     if type(themeRow.UpdateLooks) == "function" then themeRow.UpdateLooks() end
     check(hearth.name.words, "Hearthnight (changed)", "a changed theme still renames the row")
     check(hearth.palettePill.words, "Ember", "changed leaves the palette pill")
-    check(hearth.lookPill.words, "Lintel + Wick", "changed leaves the look pill")
+    check(hearth.lookPill.words, "Beam + Wick", "changed leaves the look pill")
     hearth.SetOn(true, false)
     local cream = { 0.95, 0.91, 0.86 }
     local dim = { 0.62, 0.56, 0.48 }
@@ -1966,7 +2441,7 @@ else
     fail("themes tab has no body")
 end
 
-sets.UnitFrames["look.style"] = "daylight"
+seedFrames()
 sets.general.buttonGlow = "circle"
 sets.Nameplates.targetLight = "none"
 account.looks = nil
@@ -1981,17 +2456,22 @@ if type(coloursButton) == "table" and type(coloursButton.run) == "function" then
     coloursButton.run()
 end
 check(palDb.palette, "off", "Restore colours turns the palette off")
-check(sets.UnitFrames["look.style"], "Looks:lintel", "Restore colours leaves the frame")
+check(liveHas("beam"), true, "Restore colours leaves the frame")
 check(sets.general.buttonGlow, "Looks:wick", "Restore colours leaves the glow")
 check(account.theme, "hearthnight", "Restore colours keeps the theme name")
 check(account.themeChanged, true, "Restore colours marks the theme changed")
 
+local function userSnapshot()
+    local values = {}
+    for i = 1, #allKeys do values[allKeys[i]] = userValue(allKeys[i]) end
+    return { frameValues = values, glow = "circle", light = "none" }
+end
 account.themeChanged = false
 palDb.palette = "ember"
-sets.UnitFrames["look.style"] = "Looks:lintel"
+setBundle("beam")
 sets.general.buttonGlow = "Looks:wick"
 sets.Nameplates.targetLight = "Looks:wick"
-account.looks = { frame = "daylight", glow = "circle", light = "none" }
+account.looks = userSnapshot()
 palDb.looks = account.looks
 local looksButton = resetNamed("Looks")
 if type(looksButton) ~= "table" or type(looksButton.run) ~= "function" then
@@ -2000,11 +2480,12 @@ else
     looksButton.run()
 end
 check(palDb.palette, "ember", "Restore looks leaves the palette")
-check(sets.UnitFrames["look.style"], "daylight", "Restore looks puts the saved frame back")
+check(userRestored(), true, "Restore looks puts the saved frame values back")
+check(sets.general.buttonGlow, "circle", "Restore looks puts the saved glow back")
 check(account.theme, "hearthnight", "Restore looks keeps the theme name")
 check(account.themeChanged, true, "Restore looks marks the theme changed")
 
-sets.UnitFrames["look.style"] = "Looks:sill"
+setBundle("stream")
 sets.general.buttonGlow = "Looks:latch"
 sets.Nameplates.targetLight = "Looks:latch"
 account.looks = nil
@@ -2013,17 +2494,34 @@ account.theme = "hearthnight"
 account.themeChanged = false
 palDb.palette = "ember"
 looksButton.run()
-check(sets.UnitFrames["look.style"], "Looks:sill", "Restore looks with no snapshot leaves the frame")
+check(liveHas("stream"), true, "Restore looks with no snapshot leaves the frame")
 check(sets.general.buttonGlow, "Looks:latch", "Restore looks with no snapshot leaves the glow")
 check(palDb.palette, "ember", "Restore looks with no snapshot leaves the palette")
 check(account.theme, "hearthnight", "Restore looks with no snapshot keeps the theme")
 check(account.themeChanged, false, "Restore looks with no snapshot does not mark the theme changed")
 
+-- A snapshot with only frame values leaves the glow alone, and the other way round.
+seedFrames()
+setBundle("slate")
+sets.general.buttonGlow = "Looks:draught"
+sets.Nameplates.targetLight = "Looks:draught"
+account.looks = { frameValues = userSnapshot().frameValues }
+palDb.looks = account.looks
+looksButton.run()
+check(userRestored(), true, "a frame-only snapshot restores the frame")
+check(sets.general.buttonGlow, "Looks:draught", "a frame-only snapshot leaves the glow")
+setBundle("slate")
+account.looks = { glow = "circle", light = "none" }
+palDb.looks = account.looks
+looksButton.run()
+check(liveHas("slate"), true, "a glow-only snapshot leaves the frame")
+check(sets.general.buttonGlow, "circle", "a glow-only snapshot restores the glow")
+
 palDb.palette = "ember"
-sets.UnitFrames["look.style"] = "Looks:lintel"
+setBundle("beam")
 sets.general.buttonGlow = "Looks:wick"
 sets.Nameplates.targetLight = "Looks:wick"
-account.looks = { frame = "daylight", glow = "circle", light = "none" }
+account.looks = userSnapshot()
 palDb.looks = account.looks
 account.theme = "hearthnight"
 account.themeChanged = false
@@ -2034,57 +2532,97 @@ else
     themesButton.run()
 end
 check(palDb.palette, "off", "Restore Daylight turns colours off")
-check(sets.UnitFrames["look.style"], "daylight", "Restore Daylight puts the frame back")
+check(userRestored(), true, "Restore Daylight puts the saved frame values back")
 check(account.theme, false, "Restore Daylight clears the theme")
 
+local retired = { lintel = "beam", sill = "stream", stamp = "slate", signboard = "beam", trough = "ledger" }
+for old, new in pairs(retired) do
+    local plain = ns.parseShare("PAL2-ember-" .. old .. "-wick")
+    check(plain and plain.frame, new, "PAL2 decodes " .. old .. " as " .. new)
+    local themed = ns.parseShare("PAL2-hearthnight-ember-" .. old .. "-wick")
+    check(themed and themed.frame, new, "a themed PAL2 decodes " .. old .. " as " .. new)
+    local custom = ns.parseShare("PAL2-C-1A1410-C4A574-" .. old .. "-wick")
+    check(custom and custom.frame, new, "PAL2-C decodes " .. old .. " as " .. new)
+    check(ns.pal2Code({ palette = "ember", frame = old, glow = "wick" }), "PAL2-ember-" .. new .. "-wick", "PAL2 never emits " .. old)
+end
+for _, id in ipairs(FRAME_IDS) do
+    local parsed = ns.parseShare("PAL2-tide-" .. id .. "-latch")
+    check(parsed and parsed.frame, id, "PAL2 decodes " .. id)
+    check(ns.pal2Code(parsed), "PAL2-tide-" .. id .. "-latch", "PAL2 emits " .. id)
+end
+check(ns.parseShare("PAL2-tide-CREST-latch") and ns.parseShare("PAL2-tide-CREST-latch").frame, "crest", "PAL2 ignores case on the new ids")
+for _, id in ipairs(FRAME_IDS) do
+    seedFrames()
+    setBundle(id)
+    palDb.palette = "ember"
+    account.theme = false
+    local code = ns.currentPal2()
+    check(code, "PAL2-ember-" .. id .. "-daylight", "Copy emits " .. id)
+end
+do
+    seedFrames()
+    check(ns.currentPal2(), "PAL2-ember-daylight-daylight", "Copy emits daylight when no look is worn")
+    for _, old in ipairs({ "lintel", "sill", "stamp", "signboard", "trough" }) do
+        check(string.find(ns.currentPal2(), old, 1, true), nil, "Copy never emits " .. old)
+    end
+end
 local round = ns.parseShare("PAL2-hearthnight-ember-lintel-wick")
 check(round and round.theme, "hearthnight", "PAL2 keeps the theme")
 check(round and round.palette, "ember", "PAL2 keeps the palette")
-check(round and round.frame, "lintel", "PAL2 keeps the frame")
+check(round and round.frame, "beam", "PAL2 turns lintel into beam")
 check(round and round.glow, "wick", "PAL2 keeps the glow")
-check(ns.pal2Code(round), "PAL2-hearthnight-ember-lintel-wick", "PAL2 theme code round-trips")
+check(ns.pal2Code(round), "PAL2-hearthnight-ember-beam-wick", "PAL2 theme code round-trips")
 local drifted = ns.parseShare("PAL2-HEARTHNIGHT-EMBER-LINTEL-DRAUGHT")
 check(drifted and drifted.glow, "draught", "PAL2 ignores case")
-check(ns.pal2Code({ theme = "hearthnight", palette = "ember", frame = "lintel", glow = "draught" }), "PAL2-hearthnight-ember-lintel-draught", "a changed theme keeps its name in the code")
+check(ns.pal2Code({ theme = "hearthnight", palette = "ember", frame = "beam", glow = "draught" }), "PAL2-hearthnight-ember-beam-draught", "a changed theme keeps its name in the code")
 local parts = ns.parseShare("PAL2-ember-lintel-wick")
 check(parts and parts.theme, nil, "PAL2 without a theme has no theme name")
-check(ns.pal2Code(parts), "PAL2-ember-lintel-wick", "PAL2 parts round-trip")
+check(ns.pal2Code(parts), "PAL2-ember-beam-wick", "PAL2 parts round-trip")
 local onlyPalette = ns.parseShare("PAL2-ember-none-none")
 check(onlyPalette and onlyPalette.frame, "none", "PAL2 none leaves the frame unset")
 local customCode = ns.parseShare("PAL2-#C-#1A1410-#C4A574-sill-wick")
 check(customCode and customCode.custom, true, "PAL2-C is custom colors")
-check(customCode and customCode.frame, "sill", "PAL2-C keeps the frame")
-check(ns.pal2Code({ custom = true, base = "1A1410", accent = "C4A574", frame = "sill", glow = "wick" }), "PAL2-C-1A1410-C4A574-sill-wick", "PAL2-C round-trips")
+check(customCode and customCode.frame, "stream", "PAL2-C turns sill into stream")
+check(ns.pal2Code({ custom = true, base = "1A1410", accent = "C4A574", frame = "stream", glow = "wick" }), "PAL2-C-1A1410-C4A574-stream-wick", "PAL2-C round-trips")
 local customOnly = ns.applyShareCode("PAL2-C-1A1410-C4A574-none-none")
 check(type(customOnly) == "table", true, "PAL2-C loads a custom draft")
 check(ns.shareLook, nil, "PAL2-C with none does not queue a frame")
 local queued = ns.applyShareCode("PAL2-C-341529-E2B14A-sill-wick")
 check(type(queued) == "table", true, "PAL2-C with a look loads the draft")
-check(ns.shareLook and ns.shareLook.frame, "sill", "PAL2-C holds the frame until Save")
+check(ns.shareLook and ns.shareLook.frame, "stream", "PAL2-C holds the frame until Save")
 check(ns.shareLook and ns.shareLook.glow, "wick", "PAL2-C holds the glow until Save")
 ns.shareLook = nil
 local pal1 = ns.applyShareCode("PAL1-341529-E2B14A")
 check(ns.shareCode(pal1), "PAL1-341529-E2B14A", "PAL1 still imports colors only")
 check(ns.shareLook, nil, "PAL1 does not queue a frame or glow")
 check(ns.parseShare("PAL2-nope-ember-lintel-wick"), nil, "a bad PAL2 is rejected")
-sets.UnitFrames["look.style"] = "daylight"
+seedFrames()
 sets.general.buttonGlow = "circle"
 sets.Nameplates.targetLight = "none"
 palDb.palette = "tide"
 account.theme = false
+account.looks = nil
 said = {}
+resetLogs()
 check(ns.applyLiveShare(ns.parseShare("PAL2-hearthnight-ember-lintel-wick")), true, "a PAL2 theme applies")
 check(palDb.palette, "ember", "PAL2 theme sets the palette")
-check(sets.UnitFrames["look.style"], "Looks:lintel", "PAL2 theme sets the frame")
+check(liveHas("beam"), true, "PAL2 theme sets the frame")
+logsStayOnTwoFrames(unitWrites, "a PAL2 look writes only the player and target keys")
+check(sets.UnitFrames["look.style"], "daylight", "a PAL2 look never writes look.style")
 check(sets.general.buttonGlow, "Looks:wick", "PAL2 theme sets the glow")
 check(account.theme, "hearthnight", "PAL2 theme marks the theme on")
 check(account.themeChanged, false, "an exact PAL2 theme is not changed")
 check(ns.applyLiveShare(ns.parseShare("PAL2-tide-none-none")), true, "a palette-only PAL2 applies")
 check(palDb.palette, "tide", "a palette-only PAL2 changes colours")
-check(sets.UnitFrames["look.style"], "Looks:lintel", "PAL2 none leaves the frame alone")
+check(liveHas("beam"), true, "PAL2 none leaves the frame alone")
 check(account.theme, false, "a PAL2 with no theme name drops a theme the parts do not match")
+check(ns.applyLiveShare(ns.parseShare("PAL2-tide-crest-wick")), true, "a PAL2 with Crest applies")
+check(liveHas("crest"), true, "PAL2 applies Crest")
+check(ns.applyLiveShare(ns.parseShare("PAL2-tide-daylight-wick")), true, "a PAL2 with daylight applies")
+check(userRestored(), true, "a PAL2 daylight frame puts the saved frame values back")
 
-sets.UnitFrames["look.style"] = "Looks:lintel"
+seedFrames()
+setBundle("beam")
 sets.general.buttonGlow = "Looks:wick"
 sets.Nameplates.targetLight = "Looks:wick"
 account.theme = "hearthnight"
@@ -2099,13 +2637,16 @@ ns.notePalette("ember")
 check(account.themeChanged, false, "parts that match the theme clear changed")
 
 local shot = ns.captureUndo("theme")
-sets.UnitFrames["look.style"] = "Looks:sill"
+setBundle("stream")
 sets.general.buttonGlow = "Looks:draught"
 sets.Nameplates.targetLight = "Looks:draught"
 account.theme = "hearthnight"
 account.themeChanged = true
+resetLogs()
 ns.applyUndoShot(shot)
-check(sets.UnitFrames["look.style"], "Looks:lintel", "undo of a theme puts the frame back")
+check(liveHas("beam"), true, "undo of a theme puts the frame back")
+check(sets.UnitFrames["look.style"], "daylight", "undo does not write look.style")
+logsStayOnTwoFrames(unitWrites, "undo writes only the player and target keys")
 check(sets.general.buttonGlow, "Looks:wick", "undo of a theme puts the glow back")
 check(account.themeChanged, false, "undo of a theme clears changed when the parts match")
 
@@ -2114,6 +2655,7 @@ local bareChar = { only = false, ready = true }
 local bareDb = { palette = "ember", classAccent = false, carried = true }
 ns.adoptProfile(bare, bareChar, bareDb)
 check(bare.theme, "vigil", "a profile with no theme keys leaves the theme")
+seedFrames()
 local brought = { palette = "tide", classAccent = false, seeded = true }
 local broughtChar = { only = false, ready = true }
 local broughtDb = {
@@ -2122,7 +2664,9 @@ local broughtDb = {
 }
 ns.adoptProfile(brought, broughtChar, broughtDb)
 check(brought.theme, "harvestide", "a profile theme is adopted")
-check(sets.UnitFrames["look.style"], "Looks:sill", "a profile frame is adopted")
+check(brought.frame, "stream", "a retired profile frame is carried as its replacement")
+check(liveHas("stream"), true, "a profile frame is adopted")
+check(sets.UnitFrames["look.style"], "daylight", "a profile frame never writes look.style")
 check(sets.general.buttonGlow, "Looks:draught", "a profile glow is adopted")
 local unknownTheme = { palette = "ember", classAccent = false, seeded = true, theme = "snug", frame = "flagon", glow = "latch" }
 local unknownChar = { only = false, ready = true }
@@ -2132,13 +2676,6 @@ check(unknownTheme.palette, "ember", "an unknown profile palette still falls bac
 check(unknownTheme.theme, "snug", "an unknown profile palette does not apply its theme")
 check(unknownTheme.frame, "flagon", "an unknown profile palette does not apply its frame")
 
-local function popupCount()
-    local n = 0
-    for i = 1, #said do
-        if said[i] == "popup:PALETTES_RELOAD" then n = n + 1 end
-    end
-    return n
-end
 looksEnv.StaticPopupDialogs = looksEnv.StaticPopupDialogs or {}
 if type(looksEnv.StaticPopup_Show) ~= "function" then
     looksEnv.StaticPopup_Show = function(which) said[#said + 1] = "popup:" .. which end
@@ -2146,59 +2683,82 @@ end
 if type(ui.module) == "table" and type(ui.module.OnEnable) == "function" then
     ui.module.OnEnable(nil, palDb)
 end
+seedFrames()
 local quiet = popupCount()
 ns.looksSlash("")
 check(popupCount(), quiet, "a blank /looks does not ask to reload")
 ns.looksSlash("nope")
 check(popupCount(), quiet, "an unknown /looks does not ask to reload")
-sets.UnitFrames["look.style"] = "daylight"
 ns.looksSlash("lintel")
-check(popupCount(), quiet + 1, "/looks lintel asks to reload once")
-ns.looksSlash("lintel")
-check(popupCount(), quiet + 1, "repeating /looks lintel does not ask again")
+check(liveHas("beam"), true, "/looks lintel still applies Beam")
+check(popupCount(), quiet, "/looks <frame> does not ask to reload")
+ns.looksSlash("flagon")
+check(liveHas("flagon"), true, "/looks flagon applies Flagon")
+check(popupCount(), quiet, "/looks flagon does not ask to reload")
+ns.looksSlash("wick")
+check(sets.general.buttonGlow, "Looks:wick", "/looks wick applies the glow")
+check(popupCount(), quiet, "/looks <glow> does not ask to reload")
+ns.looksSlash("draught")
+check(sets.general.buttonGlow, "Looks:draught", "/looks draught applies the glow")
+check(popupCount(), quiet, "a second glow does not ask to reload")
 looksEnv.SlashCmdList.PALETTES("")
-check(popupCount(), quiet + 1, "a blank /palettes does not ask to reload")
+check(popupCount(), quiet, "a blank /palettes does not ask to reload")
 looksEnv.SlashCmdList.PALETTES("dusk")
 check(palDb.palette, "dusk", "/palettes dusk writes the palette")
-check(popupCount(), quiet + 2, "/palettes dusk asks to reload once")
+check(popupCount(), quiet + 1, "/palettes dusk asks to reload once")
 looksEnv.SlashCmdList.PALETTES("dusk")
-check(popupCount(), quiet + 2, "repeating /palettes dusk does not ask again")
+check(popupCount(), quiet + 1, "repeating /palettes dusk does not ask again")
 ui:Set("Palettes", "palette", "ash")
 check(palDb.palette, "ash", "an Appearance pick writes the palette")
-check(popupCount(), quiet + 3, "an Appearance palette pick asks to reload once")
+check(popupCount(), quiet + 2, "an Appearance palette pick asks to reload once")
 ui:Set("Palettes", "palette", "ash")
-check(popupCount(), quiet + 3, "the same Appearance pick does not ask again")
+check(popupCount(), quiet + 2, "the same Appearance pick does not ask again")
 ns.looksSlash("hearthnight")
-check(popupCount(), quiet + 4, "a theme command asks to reload once")
+check(popupCount(), quiet + 3, "/looks <preset> asks to reload once")
+ns.looksSlash("hearthnight")
+check(popupCount(), quiet + 3, "repeating /looks <preset> does not ask again")
+ns.looksSlash("flagon")
+ns.looksSlash("hearthnight")
+check(palDb.palette, "ember", "the preset's palette is already on")
+check(liveHas("beam"), true, "/looks <preset> puts the preset's frame back")
+check(popupCount(), quiet + 4, "/looks <preset> asks even when only its frame and glow change")
 looksEnv.InCombatLockdown = function() return true end
 ns.looksSlash("sill")
-check(popupCount(), quiet + 4, "a combat /looks waits to ask")
+check(popupCount(), quiet + 4, "a combat /looks <frame> waits")
 looksEnv.InCombatLockdown = function() return false end
 ns.finishLooksCombat()
 ns.finishQueuedReload(true)
-check(sets.UnitFrames["look.style"], "Looks:sill", "combat end paints the slash frame")
-check(popupCount(), quiet + 5, "the slash reload follows the paint")
+check(liveHas("stream"), true, "combat end paints the slash frame")
+check(popupCount(), quiet + 4, "a combat /looks <frame> never asks to reload")
+looksEnv.InCombatLockdown = function() return true end
+ns.looksSlash("latch")
+looksEnv.InCombatLockdown = function() return false end
+ns.finishLooksCombat()
+ns.finishQueuedReload(true)
+check(sets.general.buttonGlow, "Looks:latch", "combat end paints the slash glow")
+check(popupCount(), quiet + 4, "a combat /looks <glow> never asks to reload")
 
 char.only = false
 char.looks = nil
-sets.UnitFrames["look.style"] = "Looks:sill"
+seedFrames()
+setBundle("stream")
 sets.general.buttonGlow = "Looks:wick"
 sets.Nameplates.targetLight = "Looks:wick"
-account.looks = { frame = "daylight", glow = "circle", light = "none" }
+account.looks = userSnapshot()
 if palDb.palette ~= "off" then ns.restoreColoursOnly() end
 check(palDb.palette, "off", "colours are already off before /palettes off")
-check(sets.UnitFrames["look.style"], "Looks:sill", "Reset Colours leaves the frame")
+check(liveHas("stream"), true, "Reset Colours leaves the frame")
 local offBase = popupCount()
 looksEnv.SlashCmdList.PALETTES("off")
-check(sets.UnitFrames["look.style"], "daylight", "/palettes off restores the saved frame")
+check(userRestored(), true, "/palettes off restores the saved frame values")
 check(sets.general.buttonGlow, "circle", "/palettes off restores the saved glow")
 check(popupCount(), offBase + 1, "/palettes off asks to reload when it restores Looks")
 looksEnv.SlashCmdList.PALETTES("off")
 check(popupCount(), offBase + 1, "a no-op /palettes off does not ask again")
-sets.UnitFrames["look.style"] = "Looks:sill"
+setBundle("stream")
 sets.general.buttonGlow = "Looks:wick"
 sets.Nameplates.targetLight = "Looks:wick"
-account.looks = { frame = "daylight", glow = "circle", light = "none" }
+account.looks = userSnapshot()
 local looksOff = popupCount()
 ns.looksSlash("off")
 check(popupCount(), looksOff + 1, "/looks off asks to reload when it restores Looks")
