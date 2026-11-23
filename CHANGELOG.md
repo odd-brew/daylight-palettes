@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.3] - 2026-11-22
+
+### Fixed
+- Clicking a frame style on the Looks tab now previews it on your player and target frames right away. Apply keeps it. Leaving the Looks tab, the page or the window without Apply puts your saved style back.
+
 ## [0.4.2] - 2026-11-22
 
 ### Fixed
