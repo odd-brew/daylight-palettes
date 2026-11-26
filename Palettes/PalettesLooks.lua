@@ -88,13 +88,13 @@ local LOOK_SPECS = {
 }
 
 local FRAMES = {
-    { id = "flagon", name = "Flagon", desc = "A small boss and a deep cup, the name cut into the lip." },
-    { id = "trestle", name = "Trestle", desc = "A full portrait on a named board, with power hung as a rail." },
-    { id = "beam", name = "Beam", desc = "Sturdy Daylight bars with a full-width dark name tab and an angled 2.0 portrait socket." },
-    { id = "stream", name = "Stream", desc = "Slim Ribbon bar with a floating name row, thin power underline, and a rounded 2.0 portrait sized to the bar stack." },
-    { id = "ledger", name = "Ledger", desc = "Portrait-free square bars with a floating name above, crisp corners, and dual health and power numbers." },
-    { id = "crest", name = "Crest", desc = "Tall hero bars with a 3D classic portrait, thick class ring, fitted tab, and bold health number." },
-    { id = "slate", name = "Slate", desc = "Low-profile, portrait-free Ribbon bar with sharp corners and a thin power strip." },
+    { id = "flagon", name = "Flagon", desc = "Slanted bar with round class socket and flowing health FX for smooth combat feedback.", bestFor = "All-Rounder, Solo Leveling" },
+    { id = "trestle", name = "Trestle", desc = "Slim slanted bar with hung power rail and top name tab to save vertical screen space.", bestFor = "DPS, 5-Man Dungeons" },
+    { id = "beam", name = "Beam", desc = "Tall slanted bar with angled portrait and big HP numbers for instant peripheral reads.", bestFor = "Tanking, Dungeons & Raids" },
+    { id = "stream", name = "Stream", desc = "Slim slanted ribbon with floating name and class-ring portrait to cut mid-screen bulk.", bestFor = "Healing, Ranged DPS" },
+    { id = "ledger", name = "Ledger", desc = "Square portrait-free bar with dual health and power readouts for clean resource tracking.", bestFor = "Mana Management, Raiding" },
+    { id = "crest", name = "Crest", desc = "Tall hero bar with 3D portrait, thick class ring, and big numbers for classic presence.", bestFor = "Solo Questing, Tanking" },
+    { id = "slate", name = "Slate", desc = "Flat 22px portrait-free strip with hairline power bar for the smallest combat footprint.", bestFor = "20/40-Man Raiding, Minimalists" },
 }
 
 -- Only these two frames are ever written. Everything else DaylightUI keeps is the player's.
@@ -220,18 +220,331 @@ end
 buildFrames()
 
 local THEMES = {
-    { id = "hearthnight", name = "Hearthnight", palette = "ember", frame = "beam", mood = "A winter hearth of campfire gold on a dark, named beam." },
-    { id = "harvestide", name = "Harvestide", palette = "vanilla", frame = "stream", mood = "Harvest light on dark oak and pewter, along a slim ribbon bar." },
-    { id = "tidemark", name = "Tidemark", palette = "tide", frame = "slate", mood = "Cool sea-green at the waterline on a low-profile slate bar." },
-    { id = "oldroad", name = "Old Road", palette = "forever", frame = "beam", mood = "Near-black soot and weathered bronze on a sturdy beam." },
-    { id = "vigil", name = "Vigil", palette = "paladin", frame = "stream", mood = "Rose on warm plum-brown, with a slim ribbon bar and round portrait." },
-    { id = "snug", name = "Snug", palette = "gilded", frame = "flagon", mood = "A deep gold cup with a rounded portrait in the quiet corner." },
-    { id = "bellows", name = "Bellows", palette = "forgeglow", frame = "trestle", mood = "A named work board with a full portrait and hung power rail." },
-    { id = "drawwell", name = "Drawwell", palette = "shaman", frame = "ledger", mood = "Storm-grey water in a deep, portrait-free square basin." },
-    { id = "settle", name = "Settle", palette = "keepstone", frame = "beam", mood = "A walnut beam with a full-width tab, like a high-backed bench by the fire." },
-    { id = "afterhours", name = "After Hours", palette = "carmine-night", frame = "beam", mood = "Deep carmine night on a sturdy beam, after the room has gone quiet." },
+    {
+        id = "hearthnight", name = "Hearthnight",
+        palette = "ember", frame = "beam", focus = "compact_beam", tot = "compact_pill",
+        party = "framed", raid = "framed", castbars = "molten", actionbars = "classic",
+        tags = { "Beam", "Molten" },
+        bestFor = "Dungeons, Raiding, DPS & Tanks",
+        mood = "Warm ember frames and fiery casts for high-focus combat.",
+        rationale = "Pairs Ember's dark contrast with Beam's bold portrait bars, framed group plates, and Molten casts so interrupts and threat spikes stand out in dim instances.",
+    },
+    {
+        id = "harvestide", name = "Harvestide",
+        palette = "vanilla", frame = "stream", focus = "slim_ribbon", tot = "compact_pill",
+        party = "standard", raid = "tiles", castbars = "silk", actionbars = "classic",
+        tags = { "Stream", "Silk" },
+        bestFor = "All-Rounder, Solo Leveling, Group Questing",
+        mood = "Warm classic ribbons and soft bars for relaxed sessions.",
+        rationale = "Blends Vanilla tones with Stream's airy ribbons, standard party portraits, and Silk cast bars for a readable, low-fatigue UI across quests and dungeons.",
+    },
+    {
+        id = "tidemark", name = "Tidemark",
+        palette = "tide", frame = "slate", focus = "minimal_slate", tot = "slim_bar",
+        party = "compact", raid = "tight", castbars = "tide", actionbars = "flat",
+        tags = { "Slate", "Tight Grid" },
+        bestFor = "20/40-Man Raiding, DPS, Minimalists",
+        mood = "Portrait-free, razor-thin frames for maximum screen view.",
+        rationale = "Strips portraits, shadows, and extra borders across every layer—pairing Tide with Slate, Tight Raid Grid, and Crisp Flat buttons so encounter mechanics own the screen.",
+    },
+    {
+        id = "oldroad", name = "Old Road",
+        palette = "forever", frame = "crest", focus = "compact_beam", tot = "crisp_square",
+        party = "framed", raid = "framed", castbars = "brushed", actionbars = "heavy",
+        tags = { "Crest", "Heavy Rim" },
+        bestFor = "Tanking, Solo & Group Questing, Classic Feel",
+        mood = "Tall 3D hero portraits and heavy steel for classic weight.",
+        rationale = "Combines Forever's dark palette with Crest's 3D portraits, thick-bordered group frames, Brushed casts, and Heavy Rim buttons for unmistakable peripheral clarity.",
+    },
+    {
+        id = "vigil", name = "Vigil",
+        palette = "paladin", frame = "stream", focus = "slim_ribbon", tot = "compact_pill",
+        party = "healer", raid = "matte", castbars = "silk", actionbars = "circle",
+        tags = { "Healer Grid", "Medallion" },
+        bestFor = "Healing & Triage, 5-Man Dungeons, Raiding",
+        mood = "Triage-ready party grids, vertical raid bars, medallions.",
+        rationale = "Built for healers: pairs Paladin accents and low-profile Stream player bars with tall Healer Grid party frames, Vertical Healer raid cells, and Silk cast tracking.",
+    },
+    {
+        id = "snug", name = "Snug",
+        palette = "gilded", frame = "flagon", focus = "match", tot = "compact_pill",
+        party = "standard", raid = "tiles", castbars = "flow", actionbars = "circle",
+        tags = { "Flagon", "Living Flow" },
+        bestFor = "All-Rounder, Solo Leveling, 5-Man Dungeons",
+        mood = "Gilded trim with animated flow bars and round buttons.",
+        rationale = "Matches Gilded's warm metallic accents with Flagon's flowing health bars, Living Flow casts, and Rounded Medallion buttons for a cohesive, animated everyday setup.",
+    },
 }
 ns.themes = THEMES
+
+-- 7 single-row Looks sub-tab categories (Issue #42).
+local LOOK_CATEGORIES = {
+    { key = "player_target", short = "Player & Target", label = "Player & Target" },
+    { key = "focus", short = "Focus", label = "Focus" },
+    { key = "tot", short = "ToT", label = "Target of Target", tooltip = "Target of Target" },
+    { key = "party", short = "Party", label = "Party" },
+    { key = "raid", short = "Raid", label = "Raid" },
+    { key = "castbars", short = "Cast Bars", label = "Cast Bars" },
+    { key = "actionbars", short = "Action Bars", label = "Action Bars" },
+}
+ns.lookCategories = LOOK_CATEGORIES
+
+local CASTBAR_UNITS = { "playerCastbar", "targetCastbar", "focusCastbar", "partyCastbar" }
+
+local EXTRA_LOOKS = {
+    focus = {
+        { id = "match", name = "Match Player & Target", isMatch = true,
+          desc = "Mirrors your active Player & Target style so focus stays visually unified with targets.",
+          bestFor = "All-Rounder, Visual Consistency" },
+        { id = "compact_beam", name = "Compact Beam",
+          desc = "Slanted mini-frame with square class icon and full tab for clear interrupt tracking.",
+          bestFor = "DPS Interrupts, PvP",
+          settings = {
+              style = "daylight", width = 186, height = 28, powerHeight = 5, slant = true,
+              portrait = "class", portraitLook = "socket", portraitShape = "square",
+              portraitRing = "class", portraitRingWidth = "normal", portraitScale = 0.9,
+              nameOnBar = false, namePos = "above", tabHeight = 16, bigNumber = false,
+              showPower = true, showPowerText = false, showLevel = false,
+              ["tab.own"] = true, ["tab.width"] = "full", ["tab.slant"] = "frame", ["tab.cornerPx"] = 4, ["tab.shadowPx"] = 2,
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 6, ["shell.shadowPx"] = 5,
+          } },
+        { id = "slim_ribbon", name = "Slim Ribbon",
+          desc = "Light slanted ribbon with round class icon and fitted tab for low-clutter CC watches.",
+          bestFor = "Healing, Crowd Control",
+          settings = {
+              style = "ribbon", width = 176, height = 20, powerHeight = 4, ribbonGap = 2, slant = true,
+              portrait = "class", portraitLook = "socket", portraitShape = "round",
+              portraitRing = "class", portraitRingWidth = "thin", portraitScale = 0.85,
+              nameOnBar = false, namePos = "above", tabHeight = 14, bigNumber = false,
+              showPower = true, showPowerText = false, showLevel = false,
+              ["tab.own"] = true, ["tab.width"] = "fit", ["tab.slant"] = "frame", ["tab.cornerPx"] = 4, ["tab.shadowPx"] = 2,
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 3,
+          } },
+        { id = "minimal_slate", name = "Minimal Slate",
+          desc = "Flat, portrait-free bar with name on health and zero shadow for tight raid layouts.",
+          bestFor = "Raiding, Minimalists",
+          settings = {
+              style = "ribbon", width = 164, height = 18, powerHeight = 3, ribbonGap = 1, slant = false,
+              portrait = "none", nameOnBar = true, namePos = "bar", bigNumber = false,
+              showPower = true, showPowerText = false, showLevel = false,
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 0,
+          } },
+    },
+    tot = {
+        { id = "match", name = "Match Player & Target", isMatch = true,
+          desc = "Copies your Player & Target border and slant for a seamless target cluster.",
+          bestFor = "All-Rounder, Visual Consistency" },
+        { id = "compact_pill", name = "Compact Pill",
+          desc = "Rounded capsule with soft shadow and % HP to spot aggro swaps at a glance.",
+          bestFor = "Dungeons, Tanking",
+          settings = {
+              width = 118, height = 22, slant = false, showPower = false, powerHeight = 0,
+              portrait = "none", namePos = "bar", showPercent = true,
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 8, ["shell.shadowPx"] = 4,
+          } },
+        { id = "slim_bar", name = "Slim Bar",
+          desc = "Low-profile 16px strip with 1px border and no shadow to stay out of the way.",
+          bestFor = "Raiding, DPS",
+          settings = {
+              width = 112, height = 16, slant = false, showPower = false, powerHeight = 0,
+              portrait = "none", namePos = "bar", showPercent = false,
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 2, ["shell.shadowPx"] = 0,
+          } },
+        { id = "crisp_square", name = "Crisp Square",
+          desc = "Sharp 90° frame with class icon and 2px border for fast tank target-swap reads.",
+          bestFor = "Tanking, PvP",
+          settings = {
+              width = 124, height = 22, slant = false, showPower = false, powerHeight = 0,
+              portrait = "class", namePos = "bar", showPercent = true,
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 2,
+          } },
+    },
+    party = {
+        { id = "standard", name = "Daylight Standard",
+          desc = "Slanted 34px bars with round portraits, role icons, and heals for everyday 5-mans.",
+          bestFor = "5-Man Dungeons, Group Questing",
+          settings = {
+              style = "daylight", width = 196, height = 34, powerHeight = 7, spacing = 10, slant = true,
+              portrait = "class", portraitLook = "socket", portraitShape = "round",
+              portraitRing = "class", portraitRingWidth = "normal", portraitScale = 0.95,
+              nameOnBar = false, namePos = "above", tabHeight = 16, bigNumber = true,
+              showPower = true, showPowerText = false, showLevel = false,
+              showRole = true, predictHeals = true, predictAbsorbs = true, showThreat = true,
+              ["tab.own"] = true, ["tab.width"] = "fit", ["tab.slant"] = "frame", ["tab.cornerPx"] = 4, ["tab.shadowPx"] = 2,
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 5, ["shell.shadowPx"] = 4,
+          } },
+        { id = "compact", name = "Clean Compact",
+          desc = "Portrait-free 24px square bars with zero shadow to free up left-side screen space.",
+          bestFor = "DPS, Minimalists",
+          settings = {
+              style = "ribbon", width = 168, height = 24, powerHeight = 4, ribbonGap = 1, spacing = 5, slant = false,
+              portrait = "none", nameOnBar = true, namePos = "bar", bigNumber = false,
+              showPower = true, showPowerText = false, showLevel = false,
+              showRole = true, predictHeals = true, predictAbsorbs = false, showThreat = true,
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 0,
+          } },
+        { id = "healer", name = "Healer Grid",
+          desc = "Tall 42px portrait-free bars with incoming heals, absorbs, and threat for fast triage.",
+          bestFor = "Healing & Triage, 5-Man Dungeons",
+          settings = {
+              style = "daylight", width = 184, height = 42, powerHeight = 6, spacing = 6, slant = false,
+              portrait = "none", nameOnBar = true, namePos = "bar", bigNumber = false,
+              showPower = true, showPowerText = false, showLevel = false,
+              showRole = true, predictHeals = true, predictAbsorbs = true, showThreat = true,
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 3, ["shell.shadowPx"] = 2,
+          } },
+        { id = "framed", name = "Framed Classic",
+          desc = "Thick-bordered slanted bars with square portraits and threat highlights for tanks.",
+          bestFor = "Tanking, Classic Feel",
+          settings = {
+              style = "daylight", width = 204, height = 38, powerHeight = 8, spacing = 12, slant = true,
+              portrait = "class", portraitLook = "classic", portraitShape = "square",
+              portraitRing = "dark", portraitRingWidth = "thick", portraitScale = 1.0,
+              nameOnBar = false, namePos = "above", tabHeight = 17, bigNumber = true,
+              showPower = true, showPowerText = false, showLevel = true,
+              showRole = true, predictHeals = true, predictAbsorbs = true, showThreat = true,
+              ["tab.own"] = true, ["tab.width"] = "full", ["tab.slant"] = "frame", ["tab.cornerPx"] = 3, ["tab.shadowPx"] = 3,
+              ["shell.own"] = true, ["shell.borderPx"] = 3, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 6,
+          } },
+    },
+    raid = {
+        { id = "tiles", name = "Daylight Tiles",
+          desc = "Balanced rounded tiles with power strips, role icons, and dispels for 20-man raids.",
+          bestFor = "20-Man Raiding, All-Rounder",
+          settings = {
+              width = 76, height = 32, spacing = 3, groupSpacing = 8, slant = false,
+              showPower = true, powerHeight = 4, namePos = "bar", nameAlign = "center",
+              showPercent = false, showRole = true, predictHeals = true, predictAbsorbs = true,
+              showThreat = true, showDispel = true, ["media.health"] = "daylight",
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 5, ["shell.shadowPx"] = 3,
+          } },
+        { id = "tight", name = "Tight Raid Grid",
+          desc = "Dense 64x24 cells with 1px gaps and no power bars to fit 40-man rosters cleanly.",
+          bestFor = "40-Man Raiding, DPS",
+          settings = {
+              width = 64, height = 24, spacing = 1, groupSpacing = 4, slant = false,
+              showPower = false, powerHeight = 0, namePos = "bar", nameAlign = "center",
+              showPercent = false, showRole = false, predictHeals = true, predictAbsorbs = false,
+              showThreat = true, showDispel = true, ["media.health"] = "daylight",
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 0,
+          } },
+        { id = "matte", name = "Vertical Healer",
+          desc = "Tall 72x42 silk cells with % HP, absorbs, and dispel alerts built for raid triage.",
+          bestFor = "Raid Healing, Dispel Triage",
+          settings = {
+              width = 72, height = 42, spacing = 2, groupSpacing = 6, slant = false,
+              showPower = true, powerHeight = 4, namePos = "bar", nameAlign = "center",
+              showPercent = true, showRole = true, predictHeals = true, predictAbsorbs = true,
+              showThreat = true, showDispel = true, ["media.health"] = "silk",
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 2, ["shell.shadowPx"] = 2,
+          } },
+        { id = "framed", name = "Sculpted Plates",
+          desc = "Wide slanted plates with brushed texture and thick borders for high-contrast reads.",
+          bestFor = "Tanking, Raid Leaders",
+          settings = {
+              width = 86, height = 34, spacing = 4, groupSpacing = 10, slant = true,
+              showPower = true, powerHeight = 5, namePos = "bar", nameAlign = "left",
+              showPercent = true, showRole = true, predictHeals = true, predictAbsorbs = true,
+              showThreat = true, showDispel = true, ["media.health"] = "brushed",
+              ["shell.own"] = true, ["shell.borderPx"] = 3, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 5,
+          } },
+    },
+    castbars = {
+        { id = "matte", name = "Clean Matte",
+          desc = "Flat 16px iconless bar with zero FX for distraction-free spell timing.",
+          bestFor = "Minimalists, Raiding",
+          settings = {
+              height = 16, slant = false, showIcon = false, ["media.bar"] = "matte",
+              ["barFx.style"] = "none", ["barFx.speed"] = 1.0, ["barFx.strength"] = 0.5, ["barFx.colors"] = "bar",
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 0,
+          } },
+        { id = "silk", name = "Silk Sheen",
+          desc = "Smooth 18px slanted bar with spell icon and rounded ends for clear cast reads.",
+          bestFor = "All-Rounder, Healing",
+          settings = {
+              height = 18, slant = true, showIcon = true, ["media.bar"] = "silk",
+              ["barFx.style"] = "none", ["barFx.speed"] = 1.0, ["barFx.strength"] = 0.6, ["barFx.colors"] = "bar",
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 8, ["shell.shadowPx"] = 3,
+          } },
+        { id = "brushed", name = "Brushed Metal",
+          desc = "Tall 26px squared bar with heavy border and icon so enemy interrupts never blend in.",
+          bestFor = "Tanking, Interrupt Tracking",
+          settings = {
+              height = 26, slant = false, showIcon = true, ["media.bar"] = "brushed",
+              ["barFx.style"] = "none", ["barFx.speed"] = 1.0, ["barFx.strength"] = 0.6, ["barFx.colors"] = "bar",
+              ["shell.own"] = true, ["shell.borderPx"] = 4, ["shell.cornerPx"] = 2, ["shell.shadowPx"] = 6,
+          } },
+        { id = "flow", name = "Living Flow",
+          desc = "Slanted 22px tube bar with animated liquid flow to spotlight active channel/cast pace.",
+          bestFor = "Casters, Solo & Dungeons",
+          settings = {
+              height = 22, slant = true, showIcon = true, ["media.bar"] = "tube",
+              ["barFx.style"] = "flow", ["barFx.speed"] = 1.0, ["barFx.strength"] = 0.9, ["barFx.colors"] = "accent",
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 6, ["shell.shadowPx"] = 4,
+          } },
+        { id = "tide", name = "Tidal Glass",
+          desc = "Slim 15px iconless glass strip with gentle wave motion for compact cast tracking.",
+          bestFor = "DPS, Minimalists",
+          settings = {
+              height = 15, slant = true, showIcon = false, ["media.bar"] = "glass",
+              ["barFx.style"] = "tide", ["barFx.speed"] = 0.9, ["barFx.strength"] = 0.7, ["barFx.colors"] = "bar",
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 2,
+          } },
+        { id = "molten", name = "Molten Ember",
+          desc = "Bold 28px slanted bar with rising ember FX and thick rim for high-urgency casts.",
+          bestFor = "Interrupt Tracking, PvP & Dungeons",
+          settings = {
+              height = 28, slant = true, showIcon = true, ["media.bar"] = "grain",
+              ["barFx.style"] = "embers", ["barFx.speed"] = 1.15, ["barFx.strength"] = 1.1, ["barFx.colors"] = "accent",
+              ["shell.own"] = true, ["shell.borderPx"] = 4, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 6,
+          } },
+    },
+    actionbars = {
+        { id = "classic", name = "Daylight Classic",
+          desc = "Rounded square buttons with 2px border and soft shadow for clear keybind separation.",
+          bestFor = "All-Rounder, Dungeons & Questing",
+          settings = {
+              ["look.shape"] = "square", ["look.borderStyle"] = "daylight", ["look.border"] = 2,
+              ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0.06,
+          } },
+        { id = "flat", name = "Crisp Flat",
+          desc = "Sharp 90° buttons with 1px flat border and zero shadow for tight multi-bar grids.",
+          bestFor = "Raiding, Minimalists",
+          settings = {
+              ["look.shape"] = "square", ["look.borderStyle"] = "flat", ["look.border"] = 1,
+              ["look.corners"] = "square", ["look.shadow"] = false, ["look.zoom"] = 0.08,
+          } },
+        { id = "borderless", name = "Borderless Zoom",
+          desc = "Border-free icons cropped tight with drop shadow so spell art reads at small scales.",
+          bestFor = "DPS, High-Density Bars",
+          settings = {
+              ["look.shape"] = "square", ["look.borderStyle"] = "none", ["look.border"] = 1,
+              ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0.14,
+          } },
+        { id = "heavy", name = "Heavy Rim",
+          desc = "Chunky 4px square borders with shadow to anchor key cooldowns in peripheral vision.",
+          bestFor = "Tanking, Classic Feel",
+          settings = {
+              ["look.shape"] = "square", ["look.borderStyle"] = "daylight", ["look.border"] = 4,
+              ["look.corners"] = "square", ["look.shadow"] = true, ["look.zoom"] = 0.04,
+          } },
+        { id = "circle", name = "Rounded Medallion",
+          desc = "Circular masked buttons with 2px ring to soften bar edges and spotlight proc glows.",
+          bestFor = "Healing, Casters",
+          settings = {
+              ["look.shape"] = "circle", ["look.borderStyle"] = "daylight", ["look.border"] = 2,
+              ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0.12,
+          } },
+        { id = "shield", name = "Shield Crest",
+          desc = "Heraldic shield-shaped buttons with 2px rim for bold class-fantasy bar presence.",
+          bestFor = "Tanking, Solo & Group Questing",
+          settings = {
+              ["look.shape"] = "shield", ["look.borderStyle"] = "daylight", ["look.border"] = 2,
+              ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0.10,
+          } },
+    },
+}
+ns.extraLooks = EXTRA_LOOKS
 
 local GLYPH = { 0.78, 0.72, 0.62, 1 }
 
@@ -450,6 +763,8 @@ local function copyShot(shot)
         glow = type(shot.glow) == "string" and shot.glow or nil,
         light = type(shot.light) == "string" and shot.light or nil,
         frameValues = copyValues(shot.frameValues),
+        extraUnitValues = copyValues(shot.extraUnitValues),
+        actionBarValues = copyValues(shot.actionBarValues),
     }
 end
 ns.copyLooksShot = copyShot
@@ -738,9 +1053,176 @@ local function mergeSnapshot(add)
         if add.glow ~= nil then out.glow = add.glow end
         if add.light ~= nil then out.light = add.light end
         if add.frameValues ~= nil then out.frameValues = add.frameValues end
+        if type(add.extraUnitValues) == "table" then
+            out.extraUnitValues = out.extraUnitValues or {}
+            for k, v in pairs(add.extraUnitValues) do
+                if out.extraUnitValues[k] == nil then out.extraUnitValues[k] = v end
+            end
+        end
+        if type(add.actionBarValues) == "table" then
+            out.actionBarValues = out.actionBarValues or {}
+            for k, v in pairs(add.actionBarValues) do
+                if out.actionBarValues[k] == nil then out.actionBarValues[k] = v end
+            end
+        end
     end
     storeSnapshot(out)
 end
+
+local function extraLookById(catKey, id)
+    local list = EXTRA_LOOKS[catKey]
+    if type(list) ~= "table" or type(id) ~= "string" then return nil end
+    for i = 1, #list do
+        if list[i].id == id then return list[i] end
+    end
+end
+
+function ns.extraLookById(catKey, id)
+    return extraLookById(catKey, id)
+end
+
+function ns.categoryLookName(catKey, id)
+    if catKey == "player_target" then
+        local f = frameById(id)
+        return f and f.name or (type(id) == "string" and id or "Daylight")
+    end
+    local opt = extraLookById(catKey, id)
+    return opt and opt.name or (type(id) == "string" and id or "Daylight")
+end
+
+local function matchFocusSettings(ptId)
+    local spec = LOOK_SPECS[resolveFrame(ptId) or wornFrame() or "beam"] or LOOK_SPECS.beam
+    return {
+        style = spec.style,
+        width = math.max(150, math.floor(spec.width * 0.85)),
+        height = math.max(18, math.floor(spec.height * 0.72)),
+        powerHeight = math.max(3, math.floor(spec.powerHeight * 0.65)),
+        ribbonGap = spec.ribbonGap,
+        tabHeight = math.max(13, spec.tabHeight - 2),
+        slant = spec.slant,
+        portrait = spec.portrait,
+        portraitLook = spec.portraitLook,
+        portraitShape = spec.portraitShape,
+        portraitRing = spec.ring,
+        portraitRingWidth = spec.ringWidth,
+        portraitScale = math.max(0.75, spec.scale * 0.9),
+        nameOnBar = spec.nameOnBar,
+        namePos = spec.namePos,
+        bigNumber = false,
+        showPower = true,
+        showPowerText = false,
+        showLevel = false,
+        ["tab.own"] = true,
+        ["tab.width"] = spec.tabWidth,
+        ["tab.slant"] = spec.tabSlant,
+        ["tab.cornerPx"] = spec.tabCorner,
+        ["tab.shadowPx"] = spec.tabShadow,
+        ["shell.own"] = true,
+        ["shell.borderPx"] = math.max(1, math.floor(spec.border * 0.65)),
+        ["shell.cornerPx"] = spec.corner,
+        ["shell.shadowPx"] = spec.shadow,
+    }
+end
+
+local function matchTotSettings(ptId)
+    local spec = LOOK_SPECS[resolveFrame(ptId) or wornFrame() or "beam"] or LOOK_SPECS.beam
+    return {
+        width = 116,
+        height = 20,
+        slant = spec.slant,
+        showPower = false,
+        powerHeight = 0,
+        portrait = "none",
+        namePos = "bar",
+        showPercent = true,
+        ["shell.own"] = true,
+        ["shell.borderPx"] = math.max(1, math.floor(spec.border * 0.5)),
+        ["shell.cornerPx"] = spec.corner,
+        ["shell.shadowPx"] = math.max(0, math.floor(spec.shadow * 0.75)),
+    }
+end
+
+local function categoryPairs(catKey, optId, activePT)
+    local list = {}
+    if catKey == "player_target" then
+        local fid = resolveFrame(optId)
+        if not fid then return list end
+        local pairsList = lookPairs(fid)
+        for i = 1, #pairsList do
+            list[#list + 1] = { "UnitFrames", pairsList[i][1], pairsList[i][2] }
+        end
+        return list
+    end
+    local opt = extraLookById(catKey, optId)
+    if not opt then return list end
+    local settings = opt.settings
+    if opt.isMatch then
+        if catKey == "focus" then settings = matchFocusSettings(activePT)
+        elseif catKey == "tot" then settings = matchTotSettings(activePT) end
+    end
+    if type(settings) ~= "table" then return list end
+    if catKey == "actionbars" then
+        for k, v in pairs(settings) do
+            list[#list + 1] = { "ActionBars", k, v }
+        end
+    elseif catKey == "castbars" then
+        for u = 1, #CASTBAR_UNITS do
+            local unit = CASTBAR_UNITS[u]
+            for k, v in pairs(settings) do
+                local val = v
+                if unit == "partyCastbar" and k == "height" and type(v) == "number" then
+                    val = math.min(14, v)
+                end
+                list[#list + 1] = { "UnitFrames", unit .. "." .. k, val }
+            end
+        end
+    else
+        local prefix = catKey == "tot" and "targettarget" or catKey
+        for k, v in pairs(settings) do
+            list[#list + 1] = { "UnitFrames", prefix .. "." .. k, v }
+        end
+    end
+    return list
+end
+
+local function writeScopedPairs(list)
+    local d = DaylightUI
+    if type(d) ~= "table" or type(d.Set) ~= "function" then return false end
+    local failed = false
+    local ran = batch(function()
+        for i = 1, #list do
+            local ok, res = pcall(d.Set, d, list[i][1], list[i][2], list[i][3])
+            if not ok or res == false then failed = true end
+        end
+    end)
+    return ran and not failed
+end
+
+local function captureExtraForPairs(list)
+    local addUnit, addAB = {}, {}
+    local anyU, anyA = false, false
+    for i = 1, #list do
+        local scope, path = list[i][1], list[i][2]
+        local val, ok = readSetting(scope, path)
+        local kind = type(val)
+        if ok and (kind == "number" or kind == "string" or kind == "boolean") then
+            if scope == "UnitFrames" then
+                addUnit[path] = val
+                anyU = true
+            elseif scope == "ActionBars" then
+                addAB[path] = val
+                anyA = true
+            end
+        end
+    end
+    if anyU or anyA then
+        mergeSnapshot({
+            extraUnitValues = anyU and addUnit or nil,
+            actionBarValues = anyA and addAB or nil,
+        })
+    end
+end
+
 
 local function hasWrite()
     local d = DaylightUI
@@ -880,14 +1362,46 @@ function ns.BeginPreview(id)
     return true
 end
 
+local extraPreviewHandles = nil
+
+local function revertExtraPreview()
+    if type(extraPreviewHandles) ~= "table" then return end
+    local api = apiOf()
+    if api and type(api.Off) == "function" then
+        batch(function()
+            for i = #extraPreviewHandles, 1, -1 do
+                pcall(api.Off, extraPreviewHandles[i])
+            end
+        end)
+    end
+    extraPreviewHandles = nil
+end
+
+local function beginExtraPairs(pairsList)
+    revertExtraPreview()
+    if inCombat() or type(pairsList) ~= "table" or #pairsList == 0 then return end
+    local host = overrideHost()
+    if not host then return end
+    local handles = {}
+    batch(function()
+        for i = 1, #pairsList do
+            local ok, handle = pcall(host.Override, pairsList[i][1], pairsList[i][2], pairsList[i][3])
+            if ok and type(handle) == "table" then handles[#handles + 1] = handle end
+        end
+    end)
+    if #handles > 0 then extraPreviewHandles = handles end
+end
+
 function ns.RevertPreview()
     previewWant = nil
     previewSync()
+    revertExtraPreview()
 end
 
 function ns.CommitPreview(write)
     previewWant = nil
     previewSync()
+    revertExtraPreview()
     if type(write) == "function" then return write() end
 end
 
@@ -910,29 +1424,59 @@ function ns.themePaletteId(id)
     return theme and theme.palette or nil
 end
 
--- The staged frame or preset pick is what shows while Presets or Looks is open.
+-- The staged frame, category look, or preset pick is what shows while Presets or Looks is open.
 function ns.syncFramePreview()
     local staged = ns.staged
     if looksOpen and type(staged) == "table" then
         if staged.kind == "frame" and frameById(staged.id) then
+            revertExtraPreview()
             ns.BeginPreview(staged.id)
+            return
+        elseif staged.kind == "look" and type(staged.catKey) == "string" then
+            previewWant = nil
+            previewSync()
+            beginExtraPairs(categoryPairs(staged.catKey, staged.id))
             return
         elseif staged.kind == "theme" then
             local theme = themeById(staged.id)
-            if theme and frameById(theme.frame) then
-                ns.BeginPreview(theme.frame)
+            if theme then
+                if frameById(theme.frame) then ns.BeginPreview(theme.frame) end
+                local extra = {}
+                local extraCats = { "focus", "tot", "party", "raid", "castbars", "actionbars" }
+                for c = 1, #extraCats do
+                    local ck = extraCats[c]
+                    if theme[ck] then
+                        local list = categoryPairs(ck, theme[ck], theme.frame)
+                        for j = 1, #list do extra[#extra + 1] = list[j] end
+                    end
+                end
+                beginExtraPairs(extra)
                 return
             end
+        elseif staged.kind == "mypreset" and type(staged.recipe) == "table" then
+            local rec = staged.recipe
+            if frameById(rec.frame) then ns.BeginPreview(rec.frame) end
+            local extra = {}
+            local extraCats = { "focus", "tot", "party", "raid", "castbars", "actionbars" }
+            for c = 1, #extraCats do
+                local ck = extraCats[c]
+                if rec[ck] then
+                    local list = categoryPairs(ck, rec[ck], rec.frame)
+                    for j = 1, #list do extra[#extra + 1] = list[j] end
+                end
+            end
+            beginExtraPairs(extra)
+            return
         end
     end
     ns.RevertPreview()
 end
 
--- Drops an unapplied frame/preset pick and its preview. Anything that writes a look
+-- Drops an unapplied frame/look/preset pick and its preview. Anything that writes a look
 -- from somewhere else calls this first, so it reads the saved style.
 function ns.dropFramePreview()
     local staged = ns.staged
-    if type(staged) == "table" and (staged.kind == "frame" or staged.kind == "theme") then
+    if type(staged) == "table" and (staged.kind == "frame" or staged.kind == "theme" or staged.kind == "look" or staged.kind == "mypreset") then
         ns.staged = nil
         refreshLooks()
     end
@@ -1093,12 +1637,204 @@ function ns.screenPalette()
     return "off"
 end
 
+local EXTRA_CAT_KEYS = { "focus", "tot", "party", "raid", "castbars", "actionbars" }
+
+local function readLookPicks()
+    local slot = activeSlot()
+    if type(slot) == "table" and type(slot.lookPicks) == "table" then
+        return slot.lookPicks
+    end
+    return {}
+end
+
+local function writeLookPick(catKey, optId)
+    local slot, account, onlyOn = activeSlot()
+    local target = (onlyOn and type(slot) == "table") and slot or account
+    if type(target) ~= "table" then return end
+    if type(target.lookPicks) ~= "table" then target.lookPicks = {} end
+    target.lookPicks[catKey] = optId
+end
+
+function ns.readLookPick(catKey)
+    if catKey == "player_target" then return wornFrame() end
+    local picks = readLookPicks()
+    return picks[catKey]
+end
+
+local function copyLookPicks()
+    local src = readLookPicks()
+    local out = {}
+    for i = 1, #EXTRA_CAT_KEYS do
+        local k = EXTRA_CAT_KEYS[i]
+        if type(src[k]) == "string" then out[k] = src[k] end
+    end
+    return out
+end
+
+local function readCurrentExtraValues()
+    local unitVals, abVals = {}, {}
+    local anyU, anyA = false, false
+    local saved = readSnapshot()
+    if type(saved) == "table" then
+        if type(saved.extraUnitValues) == "table" then
+            for k in pairs(saved.extraUnitValues) do
+                local v, ok = readSetting("UnitFrames", k)
+                if ok and v ~= nil then unitVals[k] = v; anyU = true end
+            end
+        end
+        if type(saved.actionBarValues) == "table" then
+            for k in pairs(saved.actionBarValues) do
+                local v, ok = readSetting("ActionBars", k)
+                if ok and v ~= nil then abVals[k] = v; anyA = true end
+            end
+        end
+    end
+    return anyU and unitVals or nil, anyA and abVals or nil
+end
+
+local function restoreExtraValues(unitVals, abVals)
+    local list = {}
+    if type(unitVals) == "table" then
+        for k, v in pairs(unitVals) do list[#list + 1] = { "UnitFrames", k, v } end
+    end
+    if type(abVals) == "table" then
+        for k, v in pairs(abVals) do list[#list + 1] = { "ActionBars", k, v } end
+    end
+    if #list == 0 then return true end
+    return writeScopedPairs(list)
+end
+
+function ns.applyCategoryLook(catKey, optId, quiet)
+    if catKey == "player_target" then return applyFrame(optId, quiet) end
+    local opt = extraLookById(catKey, optId)
+    if not opt then return false end
+    if inCombat() then
+        queueLook("look", catKey .. ":" .. optId, opt.name)
+        return false
+    end
+    local undoShot = (not ns.applyingTheme and type(ns.captureUndo) == "function") and ns.captureUndo("look") or nil
+    if not hasWrite() then return false end
+    local list = categoryPairs(catKey, optId)
+    if #list == 0 then return false end
+    captureExtraForPairs(list)
+    local ok = writeScopedPairs(list)
+    if ok then
+        writeLookPick(catKey, optId)
+        if undoShot and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
+        if not ns.applyingTheme then
+            local themeId = ns.readTheme()
+            if themeId then
+                local theme = themeById(themeId)
+                if theme and theme[catKey] ~= optId then
+                    writeThemeSlot(themeId, true)
+                end
+            end
+        end
+    end
+    refreshPage()
+    refreshLooks()
+    return ok
+end
+
+-- My Presets (4 slots, Issue #41). Stored on the active account/character slot.
+local MY_PRESET_SLOTS = 4
+
+function ns.readMyPresets()
+    local slot = activeSlot()
+    if type(slot) == "table" and type(slot.myPresets) == "table" then
+        return slot.myPresets
+    end
+    return {}
+end
+
+function ns.currentRecipe()
+    local picks = readLookPicks()
+    local themeId = ns.readTheme()
+    local theme = themeId and themeById(themeId) or nil
+    return {
+        palette = ns.screenPalette() or "off",
+        frame = wornFrame() or (theme and theme.frame) or "beam",
+        focus = picks.focus or (theme and theme.focus) or "match",
+        tot = picks.tot or (theme and theme.tot) or "match",
+        party = picks.party or (theme and theme.party) or "standard",
+        raid = picks.raid or (theme and theme.raid) or "tiles",
+        castbars = picks.castbars or (theme and theme.castbars) or "silk",
+        actionbars = picks.actionbars or (theme and theme.actionbars) or "classic",
+    }
+end
+
+function ns.saveMyPreset(slotIdx, name)
+    if type(slotIdx) ~= "number" or slotIdx < 1 or slotIdx > MY_PRESET_SLOTS then return false end
+    local slot, account, onlyOn = activeSlot()
+    local target = (onlyOn and type(slot) == "table") and slot or account
+    if type(target) ~= "table" then return false end
+    if type(target.myPresets) ~= "table" then target.myPresets = {} end
+    local cleanName = trim(name or "")
+    if cleanName == "" then cleanName = "My Preset " .. tostring(slotIdx) end
+    target.myPresets[slotIdx] = {
+        name = cleanName,
+        recipe = ns.currentRecipe(),
+    }
+    refreshLooks()
+    return true
+end
+
+function ns.deleteMyPreset(slotIdx)
+    if type(slotIdx) ~= "number" or slotIdx < 1 or slotIdx > MY_PRESET_SLOTS then return false end
+    local slot, account, onlyOn = activeSlot()
+    local target = (onlyOn and type(slot) == "table") and slot or account
+    if type(target) ~= "table" or type(target.myPresets) ~= "table" then return false end
+    target.myPresets[slotIdx] = nil
+    refreshLooks()
+    return true
+end
+
+function ns.applyMyPreset(entry)
+    if type(entry) ~= "table" or type(entry.recipe) ~= "table" then return false end
+    local rec = entry.recipe
+    if inCombat() then return false end
+    if type(ns.captureUndo) == "function" then
+        ns.undoHold = ns.captureUndo("theme")
+    end
+    ns.applyingTheme = true
+    ns.quietPalette = true
+    local d = DaylightUI
+    if type(d) == "table" and type(d.Set) == "function" and type(rec.palette) == "string" then
+        d:Set("Palettes", "palette", rec.palette)
+    end
+    if type(rec.frame) == "string" and resolveFrame(rec.frame) then
+        applyFrame(rec.frame, true)
+    end
+    for i = 1, #EXTRA_CAT_KEYS do
+        local ck = EXTRA_CAT_KEYS[i]
+        if type(rec[ck]) == "string" then
+            ns.applyCategoryLook(ck, rec[ck], true)
+        end
+    end
+    writeThemeSlot(nil, false)
+    ns.applyingTheme = false
+    ns.quietPalette = false
+    ns.undoHold = nil
+    say("Palettes: " .. (entry.name or "My Preset") .. " is on. Your layout is unchanged.")
+    refreshLooks()
+    return true
+end
+
 function ns.exactTheme(palette, frameId)
     if type(palette) ~= "string" then return nil end
+    local picks = readLookPicks()
     for i = 1, #THEMES do
         local theme = THEMES[i]
         if theme.palette == palette and theme.frame == frameId then
-            return theme
+            local extraMatch = true
+            for c = 1, #EXTRA_CAT_KEYS do
+                local ck = EXTRA_CAT_KEYS[c]
+                if picks[ck] ~= nil and theme[ck] ~= nil and picks[ck] ~= theme[ck] then
+                    extraMatch = false
+                    break
+                end
+            end
+            if extraMatch then return theme end
         end
     end
 end
@@ -1129,9 +1865,13 @@ end
 
 function ns.captureUndo(kind)
     local themeId, changed = ns.readTheme()
+    local extraU, extraAB = readCurrentExtraValues()
     return {
         kind = kind,
         frameValues = readFrameValues(),
+        extraUnitValues = extraU,
+        actionBarValues = extraAB,
+        lookPicks = copyLookPicks(),
         theme = themeId or false,
         themeChanged = changed == true,
     }
@@ -1139,8 +1879,14 @@ end
 
 function ns.applyUndoShot(shot)
     if type(shot) ~= "table" then return end
-    if shot.kind == "theme" or shot.kind == "frame" or shot.kind == "looks" or shot.kind == "full" then
+    if shot.kind == "theme" or shot.kind == "frame" or shot.kind == "look" or shot.kind == "looks" or shot.kind == "full" then
         if type(shot.frameValues) == "table" then writeFrameValues(shot.frameValues) end
+        restoreExtraValues(shot.extraUnitValues, shot.actionBarValues)
+        if type(shot.lookPicks) == "table" then
+            local slot, account, onlyOn = activeSlot()
+            local target = (onlyOn and type(slot) == "table") and slot or account
+            if type(target) == "table" then target.lookPicks = shot.lookPicks end
+        end
     end
     if shot.theme == false or type(shot.theme) == "string" then
         writeThemeSlot(shot.theme, shot.themeChanged == true)
@@ -1221,6 +1967,12 @@ local function applyTheme(theme)
         d:Set("Palettes", "palette", theme.palette)
     end
     local frameOk = applyFrame(theme.frame, true)
+    for i = 1, #EXTRA_CAT_KEYS do
+        local ck = EXTRA_CAT_KEYS[i]
+        if type(theme[ck]) == "string" then
+            pcall(ns.applyCategoryLook, ck, theme[ck], true)
+        end
+    end
     writeThemeSlot(theme.id, false)
     ns.applyingTheme = false
     ns.quietPalette = false
@@ -1238,13 +1990,19 @@ function ns.restoreColoursOnly()
     end
 end
 
--- Puts back only what Palettes saved: frame values, plus any pre-update glow snapshot.
+-- Puts back only what Palettes saved: frame values, extra category values, plus any pre-update glow snapshot.
 local function restoreSaved(saved)
     local frameOk, glowOk = true, true
     local hadFrames = type(saved.frameValues) == "table"
     local hadGlow = saved.glow ~= nil or saved.light ~= nil
     if hadFrames then frameOk = writeFrameValues(saved.frameValues) end
+    if type(saved.extraUnitValues) == "table" or type(saved.actionBarValues) == "table" then
+        restoreExtraValues(saved.extraUnitValues, saved.actionBarValues)
+    end
     if hadGlow then glowOk = writeGlowValue(saved.glow, saved.light) end
+    local slot, account, onlyOn = activeSlot()
+    local target = (onlyOn and type(slot) == "table") and slot or account
+    if type(target) == "table" then target.lookPicks = nil end
     return frameOk, glowOk, hadFrames, hadGlow
 end
 
@@ -1962,37 +2720,622 @@ local function hiddenStyles()
     return ns.looksApiOk() ~= true
 end
 
-function ns.themesPage()
-    local rows = {}
+local AMBER_BG = { 0.85, 0.47, 0.02, 1 }
+local AMBER_INK = { 0.07, 0.05, 0.02, 1 }
+
+local function activeSurface()
+    local screenId = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+    local p = type(screenId) == "string" and type(ns.byId) == "table" and ns.byId[screenId] or nil
+    local win = (p and (p.window or p.background)) or { 0.08, 0.10, 0.08 }
+    local bg = (p and p.background) or win
+    local bnd = (p and p.band) or { 0.14, 0.18, 0.14 }
+    local bndLit = (p and p.bandLit) or bnd
+    local brd = (p and p.border) or { 0.22, 0.28, 0.22 }
+    local acc = (p and p.c2) or { 0.91, 0.63, 0.29 }
+    local txt = (p and p.text) or CREAM
+    local lbl = (p and p.label) or DIM
+    return win, bg, bnd, bndLit, brd, acc, txt, lbl
+end
+
+local function tintText(fs, color)
+    if type(fs) == "table" and type(fs.SetTextColor) == "function" and type(color) == "table" then
+        fs:SetTextColor(color[1], color[2], color[3], color[4] or 1)
+    end
+end
+
+local function setShownSafe(frame, shown)
+    if type(frame) ~= "table" then return end
+    if shown then
+        if type(frame.Show) == "function" then frame:Show()
+        elseif type(frame.SetShown) == "function" then frame:SetShown(true) end
+    else
+        if type(frame.Hide) == "function" then frame:Hide()
+        elseif type(frame.SetShown) == "function" then frame:SetShown(false) end
+    end
+end
+
+local function showTooltip(owner, text)
+    if type(GameTooltip) ~= "table" or type(GameTooltip.SetOwner) ~= "function" then return end
+    pcall(function()
+        GameTooltip:SetOwner(owner, "ANCHOR_TOP")
+        GameTooltip:SetText(text, 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+end
+
+local function hideTooltip()
+    if type(GameTooltip) == "table" and type(GameTooltip.Hide) == "function" then
+        pcall(GameTooltip.Hide, GameTooltip)
+    end
+end
+
+-- Active Looks sub-tab (Issue #42): bidirectionally synced with Preview Deck.
+local activeLooksSubTab = "player_target"
+local looksSubTabRefresh = nil
+
+function ns.getLooksSubTab()
+    return activeLooksSubTab
+end
+
+function ns.setLooksSubTab(catKey, fromDeck)
+    local valid = false
+    for i = 1, #LOOK_CATEGORIES do
+        if LOOK_CATEGORIES[i].key == catKey then valid = true; break end
+    end
+    if not valid then return end
+    activeLooksSubTab = catKey
+    if not fromDeck and type(ns.setPreviewDeckMode) == "function" then
+        pcall(ns.setPreviewDeckMode, catKey, true)
+    end
+    if type(looksSubTabRefresh) == "function" then pcall(looksSubTabRefresh) end
+end
+
+function ns.jumpToTab(tabName, subTabKey)
+    if type(subTabKey) == "string" and subTabKey ~= "" then
+        ns.setLooksSubTab(subTabKey, false)
+    end
+    local d = DaylightUI
+    local panel = type(d) == "table" and d.OptionsPanel
+    if type(panel) == "table" and type(panel.PageFrame) == "function" then
+        local pf = panel.PageFrame("Palettes.main")
+        if type(pf) == "table" then
+            if type(pf.SetTab) == "function" then
+                pcall(pf.SetTab, tabName)
+            else
+                pf.tab = tabName
+            end
+        end
+        if type(panel.Refresh) == "function" then pcall(panel.Refresh) end
+    end
+    refreshLooks()
+end
+
+-- Issue #41: Presets Tab — 6 core themes in 3x2 grid + split Recipe / My Presets footer.
+local PRESET_GRID_CARD_H = 86
+local PRESET_FOOTER_H = 154
+
+local function buildPresetsPage(row)
+    if row.made or type(CreateFrame) ~= "function" then return end
+    row.made = true
+    row.lines = {}
+    local blend = type(ns.blendColor) == "function" and ns.blendColor or function(a) return a end
+
+    local cards = {}
     for i = 1, #THEMES do
         local theme = THEMES[i]
         local paletteName, lookName = themePills(theme)
-        rows[#rows + 1] = {
-            kind = "theme", id = theme.id, name = theme.name, desc = theme.mood,
-            paletteName = paletteName, lookName = lookName,
-            palette = theme.palette,
-            rowH = THEME_H,
-            key = "Looks:" .. theme.id, icon = ICONS[theme.frame],
-            select = function()
-                ns.RevertPreview()
-                local id, changed, pending = ns.shownTheme()
-                local live = id == theme.id and not changed and not pending
-                ns.setLooksOpen(true)
-                if type(ns.stagePick) == "function" then
-                    ns.stagePick("theme", theme.id, function() applyTheme(theme) end, live)
+        local hold = CreateFrame("Button", nil, row)
+        hold:SetHeight(PRESET_GRID_CARD_H)
+        local card = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(hold) or nil
+
+        -- Top row: Preset Name + status badge (Applied / Preview)
+        local nameFs = uiFont(hold, 12, CREAM)
+        nameFs:SetText(theme.name)
+        if type(nameFs.SetWordWrap) == "function" then nameFs:SetWordWrap(false) end
+
+        local badge = CreateFrame("Frame", nil, hold)
+        badge:SetHeight(16)
+        local badgeCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(badge) or nil
+        local badgeFs = uiFont(badge, 9, AMBER_INK)
+        badgeFs:SetText("")
+        badgeFs:SetPoint("CENTER", badge, "CENTER", 0, 0)
+        setShownSafe(badge, false)
+
+        local check = drawCheck(hold)
+        local onText = uiFont(hold, 10, ON_INK)
+        onText:SetText("")
+        setShownSafe(onText, false)
+
+        -- Middle row: 3-stop swatch bar + 2 hero layer tags
+        local swatch, preview = paletteSwatches(hold, theme.palette)
+        local tagText = (type(theme.tags) == "table" and table.concat(theme.tags, " · ")) or (paletteName .. " · " .. lookName)
+        local tagsFs = uiFont(hold, 10, DIM)
+        tagsFs:SetText(tagText)
+        if type(tagsFs.SetWordWrap) == "function" then tagsFs:SetWordWrap(false) end
+
+        -- Bottom row: 1-line mood phrase
+        local moodFs = uiFont(hold, 10, DIM)
+        moodFs:SetText(theme.mood)
+        if type(moodFs.SetWordWrap) == "function" then moodFs:SetWordWrap(false) end
+
+        local pillAFs = uiFont(hold, 9, DIM)
+        pillAFs:SetText(paletteName)
+        setShownSafe(pillAFs, false)
+        local pillBFs = uiFont(hold, 9, DIM)
+        pillBFs:SetText(lookName)
+        setShownSafe(pillBFs, false)
+
+        local cue = hold:CreateTexture(nil, "OVERLAY")
+        cue:SetWidth(3)
+        cue:SetPoint("TOPLEFT", hold, "TOPLEFT", 0, 0)
+        cue:SetPoint("BOTTOMLEFT", hold, "BOTTOMLEFT", 0, 0)
+        setShownSafe(cue, false)
+
+        local line = {
+            id = theme.id, kind = "theme", name = nameFs, baseName = theme.name,
+            mood = theme.mood, preview = preview, rowH = PRESET_GRID_CARD_H,
+            button = hold, paletteId = theme.palette,
+            palettePill = pillAFs, lookPill = pillBFs, cue = cue,
+            onText = onText, check = check, badge = badge, badgeCard = badgeCard, badgeFs = badgeFs,
+            swatch = swatch, tagsFs = tagsFs, desc = moodFs, card = card,
+        }
+
+        local function paintCard()
+            local win, _, bnd, _, brd, acc, txt, lbl = activeSurface()
+            local own = type(ns.byId) == "table" and ns.byId[theme.palette] or nil
+            local cueCol = (own and own.c2) or acc
+            local rest = blend(win, bnd, 0.28)
+            local hover = blend(win, bnd, 0.52)
+            local fill, edge, fa, ea = rest, brd, 0.90, 0.55
+            local light = nil
+            if line.markStaged or line.markOn or line.markPending then
+                local source = own
+                local window = (source and (source.window or source.background)) or win
+                local inks = {}
+                if source and source.title then inks[#inks + 1] = source.title end
+                if source and source.text then inks[#inks + 1] = source.text end
+                inks[#inks + 1] = CREAM
+                if source and type(ns.accentWash) == "function" then
+                    fill, light = ns.accentWash(cueCol, window, inks)
                 else
-                    applyTheme(theme)
+                    fill, light = ROW_PICK, CREAM
                 end
-                refreshLooks()
-            end,
+                edge = cueCol
+                fa, ea = 1, line.markStaged and 1.0 or 0.95
+            elseif line.hover then
+                fill = hover
+                edge = blend(brd, cueCol, 0.55)
+                fa, ea = 0.94, 0.85
+            end
+            line.washColor = fill
+            line.ink = light
+            if card then card.paint(fill, fa, edge, ea) end
+            setShownSafe(cue, false)
+            if light then
+                tintText(nameFs, light)
+                tintText(tagsFs, light)
+                tintText(moodFs, light)
+                if type(cue.SetColorTexture) == "function" then
+                    cue:SetColorTexture(cueCol[1], cueCol[2], cueCol[3], 1)
+                end
+                setShownSafe(cue, true)
+            else
+                tintText(nameFs, txt)
+                tintText(tagsFs, lbl)
+                tintText(moodFs, lbl)
+            end
+            setShownSafe(check, false)
+            setShownSafe(onText, false)
+            setShownSafe(badge, false)
+            if line.markPending then
+                onText:SetText("PENDING")
+                tintText(onText, light or cueCol)
+                setShownSafe(onText, true)
+            elseif line.markStaged then
+                badgeFs:SetText("PREVIEW")
+                badge:SetWidth(52)
+                if badgeCard then badgeCard.paint(AMBER_BG, 1, AMBER_BG, 1) end
+                tintText(badgeFs, AMBER_INK)
+                setShownSafe(badge, true)
+            elseif line.markOn then
+                badgeFs:SetText("APPLIED")
+                badge:SetWidth(50)
+                if badgeCard then badgeCard.paint(cueCol, 1, cueCol, 1) end
+                tintText(badgeFs, AMBER_INK)
+                setShownSafe(badge, true)
+                local ck = light or cueCol
+                if type(check.SetVertexColor) == "function" then
+                    check:SetVertexColor(ck[1], ck[2], ck[3], 1)
+                end
+                setShownSafe(check, true)
+            end
+        end
+
+        function line.SetOn(on, pending, staged)
+            line.markOn = on and true or false
+            line.markPending = pending and true or false
+            line.markStaged = staged and true or false
+            paintCard()
+        end
+        function line.SetHover(on)
+            line.hover = on and true or false
+            paintCard()
+        end
+
+        hold:SetScript("OnClick", function()
+            ns.RevertPreview()
+            local id, changed, pending = ns.shownTheme()
+            local live = id == theme.id and not changed and not pending
+            ns.setLooksOpen(true)
+            if type(ns.stagePick) == "function" then
+                ns.stagePick("theme", theme.id, function() applyTheme(theme) end, live, theme.name)
+            else
+                applyTheme(theme)
+            end
+            refreshLooks()
+        end)
+        hold:SetScript("OnEnter", function() line.SetHover(true) end)
+        hold:SetScript("OnLeave", function() line.SetHover(false) end)
+
+        row.lines[#row.lines + 1] = line
+        cards[#cards + 1] = line
+    end
+
+    -- Two-Column Footer Split: Left = Preset Recipe Card, Right = My Presets (2x2)
+    local recipeBox = CreateFrame("Frame", nil, row)
+    recipeBox:SetHeight(PRESET_FOOTER_H)
+    local recipeCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(recipeBox) or nil
+    local recipeTitle = uiFont(recipeBox, 12, CREAM)
+    row.recipeTitle = recipeTitle
+    local recipeQuickSave = CreateFrame("Button", nil, recipeBox)
+    recipeQuickSave:SetSize(116, 18)
+    local quickSaveCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(recipeQuickSave) or nil
+    local quickSaveFs = uiFont(recipeQuickSave, 10, CREAM)
+    quickSaveFs:SetPoint("CENTER", recipeQuickSave, "CENTER", 0, 0)
+    quickSaveFs:SetText("Save to My Presets")
+    recipeQuickSave:SetScript("OnClick", function()
+        local existing = ns.readMyPresets()
+        for s = 1, MY_PRESET_SLOTS do
+            if existing[s] == nil then
+                local themeId = ns.readTheme()
+                local t = themeId and themeById(themeId) or nil
+                ns.saveMyPreset(s, t and (t.name .. " Custom") or ("My Setup " .. s))
+                return
+            end
+        end
+        say("Palettes: all 4 My Presets slots are full. Delete a slot to save a new one.")
+    end)
+
+    local recipeDesc = uiFont(recipeBox, 10, DIM)
+    if type(recipeDesc.SetWordWrap) == "function" then recipeDesc:SetWordWrap(true) end
+
+    local LAYER_DEFS = {
+        { key = "palette", label = "Colour", tab = "Colours" },
+        { key = "frame", label = "Player/Tgt", tab = "Looks", sub = "player_target" },
+        { key = "focus", label = "Focus", tab = "Looks", sub = "focus" },
+        { key = "tot", label = "ToT", tab = "Looks", sub = "tot" },
+        { key = "party", label = "Party", tab = "Looks", sub = "party" },
+        { key = "raid", label = "Raid", tab = "Looks", sub = "raid" },
+        { key = "castbars", label = "Cast Bars", tab = "Looks", sub = "castbars" },
+        { key = "actionbars", label = "Action Bars", tab = "Looks", sub = "actionbars" },
+    }
+    local layerButtons = {}
+    for i = 1, #LAYER_DEFS do
+        local def = LAYER_DEFS[i]
+        local b = CreateFrame("Button", nil, recipeBox)
+        b:SetHeight(28)
+        local c = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(b) or nil
+        local topFs = uiFont(b, 9, DIM)
+        topFs:SetPoint("TOPLEFT", b, "TOPLEFT", 6, -3)
+        topFs:SetText(def.label)
+        local valFs = uiFont(b, 10, CREAM)
+        valFs:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 6, 3)
+        valFs:SetPoint("RIGHT", b, "RIGHT", -4, 0)
+        if type(valFs.SetWordWrap) == "function" then valFs:SetWordWrap(false) end
+        b:SetScript("OnClick", function()
+            ns.jumpToTab(def.tab, def.sub)
+        end)
+        b:SetScript("OnEnter", function()
+            showTooltip(b, "Click to edit " .. def.label .. " on the " .. def.tab .. " tab")
+        end)
+        b:SetScript("OnLeave", hideTooltip)
+        layerButtons[#layerButtons + 1] = { def = def, btn = b, card = c, topFs = topFs, valFs = valFs }
+    end
+
+    -- Right Column: My Presets (2x2 grid, 4 slots)
+    local myBox = CreateFrame("Frame", nil, row)
+    myBox:SetHeight(PRESET_FOOTER_H)
+    local myCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(myBox) or nil
+    local myTitle = uiFont(myBox, 12, CREAM)
+    myTitle:SetText("My Presets")
+    local myCount = uiFont(myBox, 10, DIM)
+
+    local mySlots = {}
+    for s = 1, MY_PRESET_SLOTS do
+        local slotBtn = CreateFrame("Button", nil, myBox)
+        slotBtn:SetHeight(52)
+        local sCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(slotBtn) or nil
+        local sName = uiFont(slotBtn, 11, CREAM)
+        if type(sName.SetWordWrap) == "function" then sName:SetWordWrap(false) end
+        local sSub = uiFont(slotBtn, 10, DIM)
+        if type(sSub.SetWordWrap) == "function" then sSub:SetWordWrap(false) end
+
+        local swEdge = slotBtn:CreateTexture(nil, "BORDER")
+        swEdge:SetSize(38, 12)
+        local swBg = slotBtn:CreateTexture(nil, "ARTWORK")
+        swBg:SetSize(10, 10)
+        swBg:SetPoint("LEFT", swEdge, "LEFT", 1, 0)
+        local swBand = slotBtn:CreateTexture(nil, "ARTWORK")
+        swBand:SetSize(10, 10)
+        swBand:SetPoint("LEFT", swBg, "RIGHT", 1, 0)
+        local swAcc = slotBtn:CreateTexture(nil, "ARTWORK")
+        swAcc:SetSize(14, 10)
+        swAcc:SetPoint("LEFT", swBand, "RIGHT", 1, 0)
+
+        local delBtn = CreateFrame("Button", nil, slotBtn)
+        delBtn:SetSize(18, 18)
+        delBtn:SetPoint("TOPRIGHT", slotBtn, "TOPRIGHT", -3, -3)
+        local delFs = uiFont(delBtn, 11, DIM)
+        delFs:SetPoint("CENTER", delBtn, "CENTER", 0, 0)
+        delFs:SetText("x")
+        setShownSafe(delBtn, false)
+
+        delBtn:SetScript("OnClick", function()
+            ns.deleteMyPreset(s)
+        end)
+        delBtn:SetScript("OnEnter", function() showTooltip(delBtn, "Delete saved preset") end)
+        delBtn:SetScript("OnLeave", hideTooltip)
+
+        slotBtn:SetScript("OnClick", function()
+            local saved = ns.readMyPresets()[s]
+            if type(saved) ~= "table" then
+                local themeId = ns.readTheme()
+                local t = themeId and themeById(themeId) or nil
+                ns.saveMyPreset(s, t and (t.name .. " " .. s) or ("My Preset " .. s))
+                return
+            end
+            ns.RevertPreview()
+            ns.setLooksOpen(true)
+            if type(ns.stagePick) == "function" then
+                ns.stagePick("mypreset", "slot-" .. s, function() ns.applyMyPreset(saved) end, false, saved.name, saved.recipe)
+            else
+                ns.applyMyPreset(saved)
+            end
+            refreshLooks()
+        end)
+        slotBtn:SetScript("OnEnter", function()
+            local saved = ns.readMyPresets()[s]
+            if type(saved) == "table" then setShownSafe(delBtn, true) end
+        end)
+        slotBtn:SetScript("OnLeave", function()
+            setShownSafe(delBtn, false)
+        end)
+
+        mySlots[s] = {
+            btn = slotBtn, card = sCard, name = sName, sub = sSub,
+            swEdge = swEdge, swBg = swBg, swBand = swBand, swAcc = swAcc, delBtn = delBtn,
         }
     end
-    local spec = {
-        intro = THEME_INTRO,
-        introH = 44,
-        frameOn = function() return false end,
-        sections = { { head = THEME_HEAD, rows = rows, rowH = THEME_H } },
-    }
+
+    local combatNote = uiFont(row, 11, ON_INK)
+    combatNote:SetText("Applies when combat ends.")
+    setShownSafe(combatNote, false)
+
+    local function layout()
+        local w = type(row.GetWidth) == "function" and row:GetWidth() or 0
+        if type(w) ~= "number" or w < 240 then w = 760 end
+        local cols = w >= 540 and 3 or 2
+        local cardW = math.floor((w - 8 - (cols - 1) * CARD_GAP_X) / cols)
+        for i = 1, #cards do
+            local s = cards[i]
+            local idx = i - 1
+            local r = math.floor(idx / cols)
+            local c = idx - r * cols
+            local x = 4 + c * (cardW + CARD_GAP_X)
+            local y = 4 + r * (PRESET_GRID_CARD_H + CARD_GAP_Y)
+            s.button:ClearAllPoints()
+            s.button:SetPoint("TOPLEFT", row, "TOPLEFT", x, -y)
+            s.button:SetWidth(cardW)
+            s.name:ClearAllPoints()
+            s.name:SetPoint("TOPLEFT", s.button, "TOPLEFT", 10, -8)
+            s.name:SetWidth(math.max(60, cardW - 76))
+            s.badge:ClearAllPoints()
+            s.badge:SetPoint("TOPRIGHT", s.button, "TOPRIGHT", -8, -7)
+            s.check:ClearAllPoints()
+            s.check:SetPoint("RIGHT", s.badge, "LEFT", -3, 0)
+            s.onText:ClearAllPoints()
+            s.onText:SetPoint("TOPRIGHT", s.button, "TOPRIGHT", -8, -8)
+            s.swatch:ClearAllPoints()
+            s.swatch:SetPoint("TOPLEFT", s.button, "TOPLEFT", 10, -32)
+            s.tagsFs:ClearAllPoints()
+            s.tagsFs:SetPoint("LEFT", s.swatch, "RIGHT", 8, 0)
+            s.tagsFs:SetPoint("RIGHT", s.button, "RIGHT", -8, 0)
+            s.desc:ClearAllPoints()
+            s.desc:SetPoint("BOTTOMLEFT", s.button, "BOTTOMLEFT", 10, 8)
+            s.desc:SetPoint("RIGHT", s.button, "RIGHT", -10, 0)
+        end
+
+        local gridRows = math.ceil(#cards / cols)
+        local footerY = 4 + gridRows * (PRESET_GRID_CARD_H + CARD_GAP_Y) + 8
+        local halfW = math.floor((w - 8 - CARD_GAP_X) / 2)
+
+        recipeBox:ClearAllPoints()
+        recipeBox:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -footerY)
+        recipeBox:SetWidth(halfW)
+        recipeTitle:ClearAllPoints()
+        recipeTitle:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -8)
+        recipeQuickSave:ClearAllPoints()
+        recipeQuickSave:SetPoint("TOPRIGHT", recipeBox, "TOPRIGHT", -8, -6)
+        recipeDesc:ClearAllPoints()
+        recipeDesc:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -26)
+        recipeDesc:SetWidth(math.max(120, halfW - 20))
+
+        local pillW = math.floor((halfW - 20 - 3 * 5) / 4)
+        for i = 1, #layerButtons do
+            local lb = layerButtons[i]
+            local idx = i - 1
+            local lr = math.floor(idx / 4)
+            local lc = idx - lr * 4
+            local lx = 10 + lc * (pillW + 5)
+            local ly = 84 + lr * 33
+            lb.btn:ClearAllPoints()
+            lb.btn:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", lx, -ly)
+            lb.btn:SetWidth(pillW)
+        end
+
+        myBox:ClearAllPoints()
+        myBox:SetPoint("TOPLEFT", row, "TOPLEFT", 4 + halfW + CARD_GAP_X, -footerY)
+        myBox:SetWidth(halfW)
+        myTitle:ClearAllPoints()
+        myTitle:SetPoint("TOPLEFT", myBox, "TOPLEFT", 10, -8)
+        myCount:ClearAllPoints()
+        myCount:SetPoint("TOPRIGHT", myBox, "TOPRIGHT", -10, -9)
+
+        local slotW = math.floor((halfW - 20 - 6) / 2)
+        for s = 1, MY_PRESET_SLOTS do
+            local sl = mySlots[s]
+            local idx = s - 1
+            local sr = math.floor(idx / 2)
+            local sc = idx - sr * 2
+            local sx = 10 + sc * (slotW + 6)
+            local sy = 32 + sr * 58
+            sl.btn:ClearAllPoints()
+            sl.btn:SetPoint("TOPLEFT", myBox, "TOPLEFT", sx, -sy)
+            sl.btn:SetWidth(slotW)
+        end
+
+        combatNote:ClearAllPoints()
+        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 6, -(footerY + PRESET_FOOTER_H + 6))
+    end
+
+    function row.UpdateLooks()
+        local win, bg, bnd, _, brd, acc, txt, lbl = activeSurface()
+        local waiting = type(looksPending) == "table"
+        setShownSafe(combatNote, waiting)
+
+        local shownId, changed, pendingTheme = ns.shownTheme()
+        local staged = ns.staged
+        local stagedThemeId = (type(staged) == "table" and staged.kind == "theme") and staged.id or nil
+
+        for i = 1, #cards do
+            local line = cards[i]
+            local pending = rowPending("theme", line.id)
+            local on = (shownId == line.id and not changed and not pendingTheme)
+            local isStaged = (stagedThemeId == line.id)
+            line.SetOn(on, pending, isStaged)
+        end
+
+        -- Update Preset Recipe card
+        if recipeCard then recipeCard.paint(bg, 0.92, brd, 0.70) end
+        local focusTheme = (stagedThemeId and themeById(stagedThemeId))
+            or (shownId and themeById(shownId))
+            or THEMES[1]
+        local isModified = (shownId ~= nil and changed == true and stagedThemeId == nil)
+        if isModified then
+            recipeTitle:SetText("Custom (based on " .. (focusTheme and focusTheme.name or "Preset") .. ")")
+            recipeDesc:SetText("Modified from " .. (focusTheme and focusTheme.name or "Preset") .. ". Click any layer below to tweak or save to My Presets.")
+            setShownSafe(recipeQuickSave, true)
+            if quickSaveCard then quickSaveCard.paint(bnd, 0.95, acc, 0.85) end
+            tintText(quickSaveFs, acc)
+        else
+            recipeTitle:SetText((focusTheme and focusTheme.name or "Preset") .. " Recipe")
+            recipeDesc:SetText(focusTheme and focusTheme.rationale or THEME_INTRO)
+            setShownSafe(recipeQuickSave, false)
+        end
+        tintText(recipeTitle, txt)
+        tintText(recipeDesc, lbl)
+
+        local rec = (stagedThemeId and focusTheme) or (isModified and ns.currentRecipe()) or focusTheme or ns.currentRecipe()
+        for i = 1, #layerButtons do
+            local lb = layerButtons[i]
+            if lb.card then lb.card.paint(blend(win, bnd, 0.45), 0.90, brd, 0.65) end
+            tintText(lb.topFs, lbl)
+            tintText(lb.valFs, txt)
+            local key = lb.def.key
+            local valText = "—"
+            if key == "palette" then
+                valText = partLabel("palette", rec.palette)
+            elseif key == "frame" then
+                valText = partLabel("frame", rec.frame)
+            else
+                valText = ns.categoryLookName(key, rec[key])
+            end
+            lb.valFs:SetText(valText)
+        end
+
+        -- Update My Presets 2x2 slots
+        if myCard then myCard.paint(bg, 0.92, brd, 0.70) end
+        tintText(myTitle, txt)
+        tintText(myCount, lbl)
+        local savedList = ns.readMyPresets()
+        local used = 0
+        for s = 1, MY_PRESET_SLOTS do
+            local sl = mySlots[s]
+            local entry = savedList[s]
+            local isStagedSlot = (type(staged) == "table" and staged.kind == "mypreset" and staged.id == ("slot-" .. s))
+            if type(entry) == "table" then
+                used = used + 1
+                if sl.card then
+                    sl.card.paint(
+                        isStagedSlot and blend(win, acc, 0.18) or blend(win, bnd, 0.35),
+                        0.94,
+                        isStagedSlot and acc or brd,
+                        isStagedSlot and 0.95 or 0.65
+                    )
+                end
+                sl.name:ClearAllPoints()
+                sl.name:SetPoint("TOPLEFT", sl.btn, "TOPLEFT", 8, -7)
+                sl.name:SetPoint("RIGHT", sl.btn, "RIGHT", -22, 0)
+                sl.name:SetText(entry.name or ("Preset " .. s))
+                tintText(sl.name, txt)
+
+                sl.swEdge:ClearAllPoints()
+                sl.swEdge:SetPoint("BOTTOMLEFT", sl.btn, "BOTTOMLEFT", 8, 8)
+                local pal = type(entry.recipe) == "table" and type(ns.byId) == "table" and ns.byId[entry.recipe.palette] or nil
+                paintChip(sl.swEdge, (pal and pal.border) or { 0.05, 0.05, 0.05 })
+                paintChip(sl.swBg, (pal and pal.background) or bg)
+                paintChip(sl.swBand, (pal and pal.band) or bnd)
+                paintChip(sl.swAcc, (pal and pal.c2) or acc)
+                setShownSafe(sl.swEdge, true)
+                setShownSafe(sl.swBg, true)
+                setShownSafe(sl.swBand, true)
+                setShownSafe(sl.swAcc, true)
+
+                sl.sub:ClearAllPoints()
+                sl.sub:SetPoint("LEFT", sl.swEdge, "RIGHT", 6, 0)
+                sl.sub:SetPoint("RIGHT", sl.btn, "RIGHT", -6, 0)
+                sl.sub:SetText(partLabel("frame", type(entry.recipe) == "table" and entry.recipe.frame or nil))
+                tintText(sl.sub, lbl)
+                setShownSafe(sl.sub, true)
+            else
+                if sl.card then sl.card.paint(blend(win, bnd, 0.16), 0.72, brd, 0.50) end
+                sl.name:ClearAllPoints()
+                sl.name:SetPoint("CENTER", sl.btn, "CENTER", 0, 0)
+                sl.name:SetText("+ Save Current")
+                tintText(sl.name, lbl)
+                setShownSafe(sl.sub, false)
+                setShownSafe(sl.swEdge, false)
+                setShownSafe(sl.swBg, false)
+                setShownSafe(sl.swBand, false)
+                setShownSafe(sl.swAcc, false)
+                setShownSafe(sl.delBtn, false)
+            end
+        end
+        myCount:SetText(tostring(used) .. " / " .. tostring(MY_PRESET_SLOTS) .. " slots")
+
+        layout()
+    end
+
+    hookSize(row, function()
+        if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+    end)
+    row.UpdateLooks()
+    refreshers[#refreshers + 1] = function()
+        if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+    end
+end
+
+function ns.themesPage()
     return {
         id = "themes",
         label = "Presets",
@@ -2007,11 +3350,13 @@ function ns.themesPage()
                         type = "custom",
                         label = "Presets",
                         hidden = hiddenStyles,
-                        build = function(row) buildListPage(row, spec) end,
+                        build = buildPresetsPage,
                         update = function(row)
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
-                        height = function() return listHeight(spec.sections, false, spec.introH) end,
+                        height = function()
+                            return 4 + 2 * (PRESET_GRID_CARD_H + CARD_GAP_Y) + 8 + PRESET_FOOTER_H + 16
+                        end,
                     },
                 },
             },
@@ -2019,37 +3364,304 @@ function ns.themesPage()
     }
 end
 
-function ns.looksPage()
-    local function frameOn(id)
-        return wornFrame() == id
+-- Issue #42: Looks Tab — Single-row 7 sub-tabs + bidirectional Preview Deck sync + dynamic Match labels.
+local SUBTAB_H = 24
+local LOOK_OPTION_H = 62
+
+local function buildLooksTabPage(row)
+    if row.made or type(CreateFrame) ~= "function" then return end
+    row.made = true
+    row.lines = {}
+    local blend = type(ns.blendColor) == "function" and ns.blendColor or function(a) return a end
+
+    -- Single-row 7 sub-tabs
+    local subButtons = {}
+    for i = 1, #LOOK_CATEGORIES do
+        local cat = LOOK_CATEGORIES[i]
+        local b = CreateFrame("Button", nil, row)
+        b:SetHeight(SUBTAB_H)
+        local c = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(b) or nil
+        local fs = uiFont(b, 11, CREAM)
+        fs:SetPoint("CENTER", b, "CENTER", 0, 0)
+        fs:SetText(cat.short)
+        b:SetScript("OnClick", function()
+            ns.setLooksSubTab(cat.key, false)
+        end)
+        if cat.tooltip then
+            b:SetScript("OnEnter", function() showTooltip(b, cat.tooltip) end)
+            b:SetScript("OnLeave", hideTooltip)
+        end
+        subButtons[#subButtons + 1] = { cat = cat, btn = b, card = c, fs = fs }
     end
-    local frames = {}
-    for i = 1, #FRAMES do
-        local frame = FRAMES[i]
-        frames[#frames + 1] = {
-            kind = "frame", id = frame.id, name = frame.name, desc = frame.desc,
-            key = frame.id, icon = ICONS[frame.id],
-            select = function()
-                ns.RevertPreview()
-                local live = wornFrame() == frame.id
-                ns.setLooksOpen(true)
-                if type(ns.stagePick) == "function" then
-                    ns.stagePick("frame", frame.id, function() applyFrame(frame.id) end, live)
-                else
-                    applyFrame(frame.id)
-                end
-                refreshLooks()
-            end,
+
+    -- Build option cards for all 7 categories
+    local catCards = {}
+    local function addOptionCard(catKey, opt)
+        local hold = CreateFrame("Button", nil, row)
+        hold:SetHeight(LOOK_OPTION_H)
+        local card = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(hold) or nil
+        local icon = (catKey == "player_target" and ICONS[opt.id]) and drawIcon(hold, ICONS[opt.id]) or nil
+        local nameFs = uiFont(hold, 12, CREAM)
+        nameFs:SetText(opt.name)
+        if type(nameFs.SetWordWrap) == "function" then nameFs:SetWordWrap(false) end
+
+        local matchFs = uiFont(hold, 10, ON_INK)
+        matchFs:SetText("")
+        setShownSafe(matchFs, false)
+
+        local descFs = uiFont(hold, 10, DIM)
+        descFs:SetText(opt.desc or "")
+        if type(descFs.SetWordWrap) == "function" then descFs:SetWordWrap(true) end
+
+        local badge = CreateFrame("Frame", nil, hold)
+        badge:SetHeight(16)
+        local badgeCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(badge) or nil
+        local badgeFs = uiFont(badge, 9, AMBER_INK)
+        badgeFs:SetPoint("CENTER", badge, "CENTER", 0, 0)
+        setShownSafe(badge, false)
+        local check = drawCheck(hold)
+
+        local onText = uiFont(hold, 10, ON_INK)
+        onText:SetText("")
+        setShownSafe(onText, false)
+        local keyFs = uiFont(hold, 10, DIM)
+        keyFs:SetText(opt.id)
+        setShownSafe(keyFs, false)
+
+        local line = {
+            id = opt.id, kind = (catKey == "player_target") and "frame" or "look",
+            catKey = catKey, isMatch = opt.isMatch == true,
+            name = nameFs, baseName = opt.name, desc = descFs, matchFs = matchFs,
+            button = hold, card = card, icon = icon, key = keyFs, onText = onText,
+            badge = badge, badgeCard = badgeCard, badgeFs = badgeFs, check = check,
+            rowH = LOOK_OPTION_H,
         }
+
+        local function paint()
+            local win, _, bnd, _, brd, acc, txt, lbl = activeSurface()
+            local screenId = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+            local screen = type(screenId) == "string" and type(ns.byId) == "table" and ns.byId[screenId] or nil
+            local rest = blend(win, bnd, 0.28)
+            local hover = blend(win, bnd, 0.52)
+            local fill, edge, fa, ea = rest, brd, 0.90, 0.55
+            local light = nil
+            if line.markStaged or line.markOn or line.markPending then
+                local inks = {}
+                if screen and screen.title then inks[#inks + 1] = screen.title end
+                if screen and screen.text then inks[#inks + 1] = screen.text end
+                inks[#inks + 1] = CREAM
+                if screen and type(ns.accentWash) == "function" then
+                    fill, light = ns.accentWash(acc, screen.window or screen.background or win, inks)
+                else
+                    fill, light = ROW_PICK, CREAM
+                end
+                edge = acc
+                fa, ea = 1, line.markStaged and 1.0 or 0.95
+            elseif line.hover then
+                fill, edge, fa, ea = hover, blend(brd, acc, 0.55), 0.94, 0.85
+            end
+            line.washColor = fill
+            line.ink = light
+            if card then card.paint(fill, fa, edge, ea) end
+            tintText(nameFs, light or txt)
+            tintText(descFs, light or lbl)
+            tintText(matchFs, light or acc)
+            setShownSafe(badge, false)
+            setShownSafe(check, false)
+            setShownSafe(onText, false)
+            if line.markPending then
+                onText:SetText("PENDING")
+                tintText(onText, light or acc)
+                setShownSafe(onText, true)
+            elseif line.markStaged then
+                badgeFs:SetText("PREVIEW")
+                badge:SetWidth(52)
+                if badgeCard then badgeCard.paint(AMBER_BG, 1, AMBER_BG, 1) end
+                tintText(badgeFs, AMBER_INK)
+                setShownSafe(badge, true)
+            elseif line.markOn then
+                badgeFs:SetText("APPLIED")
+                badge:SetWidth(50)
+                if badgeCard then badgeCard.paint(acc, 1, acc, 1) end
+                tintText(badgeFs, AMBER_INK)
+                setShownSafe(badge, true)
+                local ck = light or acc
+                if type(check.SetVertexColor) == "function" then
+                    check:SetVertexColor(ck[1], ck[2], ck[3], 1)
+                end
+                setShownSafe(check, true)
+            end
+        end
+
+        function line.SetOn(on, pending, staged)
+            line.markOn = on and true or false
+            line.markPending = pending and true or false
+            line.markStaged = staged and true or false
+            paint()
+        end
+        function line.SetHover(on)
+            line.hover = on and true or false
+            paint()
+        end
+
+        hold:SetScript("OnClick", function()
+            ns.RevertPreview()
+            ns.setLooksOpen(true)
+            if catKey == "player_target" then
+                local live = wornFrame() == opt.id
+                if type(ns.stagePick) == "function" then
+                    ns.stagePick("frame", opt.id, function() applyFrame(opt.id) end, live, opt.name)
+                else
+                    applyFrame(opt.id)
+                end
+            else
+                local live = ns.readLookPick(catKey) == opt.id
+                if type(ns.stagePick) == "function" then
+                    ns.stagePick("look", opt.id, function() ns.applyCategoryLook(catKey, opt.id) end, live, opt.name, nil, catKey)
+                else
+                    ns.applyCategoryLook(catKey, opt.id)
+                end
+            end
+            refreshLooks()
+        end)
+        hold:SetScript("OnEnter", function() line.SetHover(true) end)
+        hold:SetScript("OnLeave", function() line.SetHover(false) end)
+
+        row.lines[#row.lines + 1] = line
+        catCards[catKey] = catCards[catKey] or {}
+        catCards[catKey][#catCards[catKey] + 1] = line
     end
-    local spec = {
-        intro = LOOKS_INTRO,
-        introH = 22,
-        frameOn = frameOn,
-        sections = {
-            { head = FRAME_HEAD, rows = frames },
-        },
-    }
+
+    for i = 1, #FRAMES do addOptionCard("player_target", FRAMES[i]) end
+    for i = 2, #LOOK_CATEGORIES do
+        local ck = LOOK_CATEGORIES[i].key
+        local opts = EXTRA_LOOKS[ck] or {}
+        for j = 1, #opts do addOptionCard(ck, opts[j]) end
+    end
+
+    local combatNote = uiFont(row, 11, ON_INK)
+    combatNote:SetText("Applies when combat ends.")
+    setShownSafe(combatNote, false)
+
+    local function layout()
+        local w = type(row.GetWidth) == "function" and row:GetWidth() or 0
+        if type(w) ~= "number" or w < 240 then w = 760 end
+        -- Single-row 7 sub-tabs fit comfortably across ~760px
+        local gap = 4
+        local totalGap = gap * (#subButtons - 1)
+        local avail = w - 8 - totalGap
+        local weights = { 1.55, 0.85, 0.65, 0.85, 0.78, 1.12, 1.20 }
+        local sumW = 0
+        for i = 1, #weights do sumW = sumW + weights[i] end
+        local sx = 4
+        for i = 1, #subButtons do
+            local sb = subButtons[i]
+            local bw = math.floor(avail * (weights[i] / sumW))
+            sb.btn:ClearAllPoints()
+            sb.btn:SetPoint("TOPLEFT", row, "TOPLEFT", sx, -4)
+            sb.btn:SetWidth(bw)
+            sx = sx + bw + gap
+        end
+
+        local cols = w >= 520 and 2 or 1
+        local cardW = math.floor((w - 8 - (cols - 1) * CARD_GAP_X) / cols)
+        local topY = SUBTAB_H + 14
+        local shownCount = 0
+        for ck, list in pairs(catCards) do
+            local vis = (ck == activeLooksSubTab)
+            for i = 1, #list do
+                local s = list[i]
+                setShownSafe(s.button, vis)
+                if vis then
+                    local idx = i - 1
+                    local r = math.floor(idx / cols)
+                    local c = idx - r * cols
+                    local x = 4 + c * (cardW + CARD_GAP_X)
+                    local y = topY + r * (LOOK_OPTION_H + CARD_GAP_Y)
+                    s.button:ClearAllPoints()
+                    s.button:SetPoint("TOPLEFT", row, "TOPLEFT", x, -y)
+                    s.button:SetWidth(cardW)
+                    if s.icon then
+                        s.icon:ClearAllPoints()
+                        s.icon:SetPoint("TOPLEFT", s.button, "TOPLEFT", 10, -8)
+                        s.name:ClearAllPoints()
+                        s.name:SetPoint("LEFT", s.icon, "RIGHT", 8, 0)
+                    else
+                        s.name:ClearAllPoints()
+                        s.name:SetPoint("TOPLEFT", s.button, "TOPLEFT", 10, -8)
+                    end
+                    s.matchFs:ClearAllPoints()
+                    s.matchFs:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
+                    s.badge:ClearAllPoints()
+                    s.badge:SetPoint("TOPRIGHT", s.button, "TOPRIGHT", -8, -7)
+                    s.check:ClearAllPoints()
+                    s.check:SetPoint("RIGHT", s.badge, "LEFT", -3, 0)
+                    s.desc:ClearAllPoints()
+                    s.desc:SetPoint("TOPLEFT", s.button, "TOPLEFT", 10, -28)
+                    s.desc:SetWidth(math.max(100, cardW - 20))
+                    shownCount = shownCount + 1
+                end
+            end
+        end
+        local rows = math.max(1, math.ceil(shownCount / cols))
+        combatNote:ClearAllPoints()
+        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 6, -(topY + rows * (LOOK_OPTION_H + CARD_GAP_Y) + 4))
+    end
+
+    function row.UpdateLooks()
+        local win, _, bnd, _, brd, acc, txt, lbl = activeSurface()
+        setShownSafe(combatNote, type(looksPending) == "table")
+        for i = 1, #subButtons do
+            local sb = subButtons[i]
+            local active = sb.cat.key == activeLooksSubTab
+            if sb.card then
+                sb.card.paint(
+                    active and blend(win, acc, 0.18) or blend(win, bnd, 0.24),
+                    0.92,
+                    active and acc or brd,
+                    active and 0.95 or 0.55
+                )
+            end
+            tintText(sb.fs, active and acc or txt)
+        end
+
+        local staged = ns.staged
+        local activePT = (type(staged) == "table" and staged.kind == "frame" and staged.id) or wornFrame() or "beam"
+        local activePTName = partLabel("frame", activePT)
+
+        for ck, list in pairs(catCards) do
+            local activeId = (ck == "player_target") and wornFrame() or ns.readLookPick(ck)
+            for i = 1, #list do
+                local line = list[i]
+                local isStaged = false
+                if type(staged) == "table" then
+                    if ck == "player_target" and staged.kind == "frame" and staged.id == line.id then
+                        isStaged = true
+                    elseif staged.kind == "look" and staged.catKey == ck and staged.id == line.id then
+                        isStaged = true
+                    end
+                end
+                if line.isMatch then
+                    line.matchFs:SetText("Currently: " .. activePTName)
+                    setShownSafe(line.matchFs, true)
+                else
+                    setShownSafe(line.matchFs, false)
+                end
+                line.SetOn(activeId == line.id, rowPending(line.kind, line.id), isStaged)
+            end
+        end
+        layout()
+    end
+
+    looksSubTabRefresh = function()
+        if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+    end
+    hookSize(row, looksSubTabRefresh)
+    row.UpdateLooks()
+    refreshers[#refreshers + 1] = looksSubTabRefresh
+end
+
+function ns.looksPage()
     return {
         id = "looks",
         label = "Looks",
@@ -2064,11 +3676,13 @@ function ns.looksPage()
                         type = "custom",
                         label = "Looks",
                         hidden = hiddenStyles,
-                        build = function(row) buildListPage(row, spec) end,
+                        build = buildLooksTabPage,
                         update = function(row)
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
-                        height = function() return listHeight(spec.sections, false, spec.introH) end,
+                        height = function()
+                            return SUBTAB_H + 14 + 4 * (LOOK_OPTION_H + CARD_GAP_Y) + 20
+                        end,
                     },
                 },
             },
