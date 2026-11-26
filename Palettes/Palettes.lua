@@ -2361,7 +2361,7 @@ local function buildList(row)
     row.palettesOwn = true
     local ink = type(row.label) == "table" and row.label or nil
     local entries = {}
-    local activeCat = "dark"
+    local activeCat = (ns.groups[1] and ns.groups[1].key) or "_dark"
     local hoverId = nil
 
     -- Pick the category that owns the currently active palette on initial open.
