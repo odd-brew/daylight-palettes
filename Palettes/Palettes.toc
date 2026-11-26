@@ -14,4 +14,5 @@
 PalettesColors.lua
 PalettesCustom.lua
 PalettesLooks.lua
+PalettesExtras.lua
 Palettes.lua

@@ -32,7 +32,7 @@ jobs:
 
       - name: Palettes checks
         run: |
-          luac5.1 -p Palettes/PalettesColors.lua Palettes/PalettesCustom.lua Palettes/PalettesLooks.lua Palettes/Palettes.lua
+          luac5.1 -p Palettes/PalettesColors.lua Palettes/PalettesCustom.lua Palettes/PalettesLooks.lua Palettes/PalettesExtras.lua Palettes/Palettes.lua
           lua5.1 tools/palettes_check.lua
           bash tools/secret_scan.sh
 
@@ -68,10 +68,10 @@ jobs:
             -e 's/\bPalettesChar\b/PalettesTestChar/g' \
             -e 's/"Palettes\.main"/"PalettesTest.main"/g' \
             -e 's/"Palettes"/"PalettesTest"/g' \
-            PalettesTest/Palettes.lua PalettesTest/PalettesLooks.lua
+            PalettesTest/Palettes.lua PalettesTest/PalettesLooks.lua PalettesTest/PalettesExtras.lua
 
           # Verify the transformed Lua still compiles cleanly.
-          luac5.1 -p PalettesTest/PalettesColors.lua PalettesTest/PalettesCustom.lua PalettesTest/PalettesLooks.lua PalettesTest/Palettes.lua
+          luac5.1 -p PalettesTest/PalettesColors.lua PalettesTest/PalettesCustom.lua PalettesTest/PalettesLooks.lua PalettesTest/PalettesExtras.lua PalettesTest/Palettes.lua
 
           zip -r -X PalettesTest.zip PalettesTest
           unzip -l PalettesTest.zip

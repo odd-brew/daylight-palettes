@@ -967,33 +967,75 @@ function ns.themePaletteId(id)
     return theme and theme.palette or nil
 end
 
--- The staged frame or preset pick is what shows while Presets or Looks is open.
+-- The staged frame, bar, button, or preset pick is what shows while Presets or Looks is open.
 function ns.syncFramePreview()
     local staged = ns.staged
     if looksOpen and type(staged) == "table" then
         if staged.kind == "frame" and frameById(staged.id) then
+            if type(ns.RevertAllExtrasPreview) == "function" then ns.RevertAllExtrasPreview() end
             ns.BeginPreview(staged.id)
+            return
+        elseif staged.kind == "bar" then
+            ns.RevertPreview()
+            if type(ns.RevertButtonPreview) == "function" then ns.RevertButtonPreview() end
+            if type(ns.BeginBarPreview) == "function" then ns.BeginBarPreview(staged.id) end
+            return
+        elseif staged.kind == "button" then
+            ns.RevertPreview()
+            if type(ns.RevertBarPreview) == "function" then ns.RevertBarPreview() end
+            if type(ns.BeginButtonPreview) == "function" then ns.BeginButtonPreview(staged.id) end
             return
         elseif staged.kind == "theme" then
             local theme = themeById(staged.id)
             if theme and frameById(theme.frame) then
                 ns.BeginPreview(theme.frame)
-                return
+            else
+                ns.RevertPreview()
             end
+            local ex = type(ns.PRESET_EXTRAS) == "table" and ns.PRESET_EXTRAS[staged.id] or nil
+            if ex and ex.bar and type(ns.BeginBarPreview) == "function" then
+                ns.BeginBarPreview(ex.bar)
+            elseif type(ns.RevertBarPreview) == "function" then
+                ns.RevertBarPreview()
+            end
+            if ex and ex.button and type(ns.BeginButtonPreview) == "function" then
+                ns.BeginButtonPreview(ex.button)
+            elseif type(ns.RevertButtonPreview) == "function" then
+                ns.RevertButtonPreview()
+            end
+            return
+        elseif staged.kind == "user_preset" then
+            if staged.frame and frameById(staged.frame) then
+                ns.BeginPreview(staged.frame)
+            else
+                ns.RevertPreview()
+            end
+            if staged.bar and type(ns.BeginBarPreview) == "function" then
+                ns.BeginBarPreview(staged.bar)
+            elseif type(ns.RevertBarPreview) == "function" then
+                ns.RevertBarPreview()
+            end
+            if staged.button and type(ns.BeginButtonPreview) == "function" then
+                ns.BeginButtonPreview(staged.button)
+            elseif type(ns.RevertButtonPreview) == "function" then
+                ns.RevertButtonPreview()
+            end
+            return
         end
     end
     ns.RevertPreview()
+    if type(ns.RevertAllExtrasPreview) == "function" then ns.RevertAllExtrasPreview() end
 end
 
--- Drops an unapplied frame/preset pick and its preview. Anything that writes a look
--- from somewhere else calls this first, so it reads the saved style.
+-- Drops an unapplied frame/bar/button/preset pick and its preview.
 function ns.dropFramePreview()
     local staged = ns.staged
-    if type(staged) == "table" and (staged.kind == "frame" or staged.kind == "theme") then
+    if type(staged) == "table" and (staged.kind == "frame" or staged.kind == "bar" or staged.kind == "button" or staged.kind == "theme" or staged.kind == "user_preset") then
         ns.staged = nil
         refreshLooks()
     end
     ns.RevertPreview()
+    if type(ns.RevertAllExtrasPreview) == "function" then ns.RevertAllExtrasPreview() end
 end
 
 -- Leaving the tab, the page or the window drops the pick.
@@ -1278,6 +1320,11 @@ local function applyTheme(theme)
         d:Set("Palettes", "palette", theme.palette)
     end
     local frameOk = applyFrame(theme.frame, true)
+    local ex = type(ns.PRESET_EXTRAS) == "table" and ns.PRESET_EXTRAS[theme.id] or nil
+    if ex then
+        if ex.bar and type(ns.applyBarFinish) == "function" then pcall(ns.applyBarFinish, ex.bar) end
+        if ex.button and type(ns.applyButtonLook) == "function" then pcall(ns.applyButtonLook, ex.button) end
+    end
     writeThemeSlot(theme.id, false)
     ns.applyingTheme = false
     ns.quietPalette = false
@@ -1295,22 +1342,34 @@ function ns.restoreColoursOnly()
     end
 end
 
--- Puts back only what Palettes saved: frame values, plus any pre-update glow snapshot.
+-- Puts back only what Palettes saved: frame values, bar/button extras, plus any pre-update glow snapshot.
 local function restoreSaved(saved)
     local frameOk, glowOk = true, true
     local hadFrames = type(saved.frameValues) == "table"
     local hadGlow = saved.glow ~= nil or saved.light ~= nil
     if hadFrames then frameOk = writeFrameValues(saved.frameValues) end
     if hadGlow then glowOk = writeGlowValue(saved.glow, saved.light) end
+    if type(ns.restoreBarFinish) == "function" then pcall(ns.restoreBarFinish) end
+    if type(ns.restoreButtonLook) == "function" then pcall(ns.restoreButtonLook) end
     return frameOk, glowOk, hadFrames, hadGlow
 end
 
 function ns.restoreLooksOnly()
     if not ns.looksApiOk() then return false end
     local saved = readSnapshot()
+    local hadExtras = (type(ns.activeBarFinish) == "function" and ns.activeBarFinish() ~= nil)
+        or (type(ns.activeButtonLook) == "function" and ns.activeButtonLook() ~= nil)
+    if type(ns.RevertAllExtrasPreview) == "function" then pcall(ns.RevertAllExtrasPreview) end
     -- No snapshot means Palettes never changed the look, so Daylight's own
     -- frame and glow stay as they are. Same as a full restore with nothing saved.
     if type(saved) ~= "table" then
+        if hadExtras then
+            if type(ns.restoreBarFinish) == "function" then pcall(ns.restoreBarFinish) end
+            if type(ns.restoreButtonLook) == "function" then pcall(ns.restoreButtonLook) end
+            refreshPage()
+            refreshLooks()
+            return true
+        end
         refreshLooks()
         return false
     end
@@ -2019,6 +2078,183 @@ local function hiddenStyles()
     return ns.looksApiOk() ~= true
 end
 
+local function applyUserPreset(preset)
+    if type(preset) ~= "table" or inCombat() then return end
+    ns.applyingTheme = true
+    ns.quietPalette = true
+    local d = DaylightUI
+    if preset.palette and preset.palette ~= "" and type(d) == "table" and type(d.Set) == "function" then
+        d:Set("Palettes", "palette", preset.palette)
+    end
+    if preset.frame and frameById(preset.frame) then
+        applyFrame(preset.frame, true)
+    end
+    if preset.bar and type(ns.applyBarFinish) == "function" then
+        pcall(ns.applyBarFinish, preset.bar)
+    end
+    if preset.button and type(ns.applyButtonLook) == "function" then
+        pcall(ns.applyButtonLook, preset.button)
+    end
+    ns.applyingTheme = false
+    ns.quietPalette = false
+    say("Palettes: " .. (preset.name or "Custom Preset") .. " is on. Your layout is unchanged.")
+    refreshLooks()
+end
+
+local function buildUserPresets(row)
+    if row.userMade or type(CreateFrame) ~= "function" then return end
+    row.userMade = true
+    local heading = uiFont(row, 11, DIM)
+    heading:SetText("MY PRESETS (SAVE YOUR CURRENT MIX)")
+    heading:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -4)
+
+    local saveBtn = CreateFrame("Button", nil, row)
+    saveBtn:SetHeight(22)
+    saveBtn:SetWidth(116)
+    saveBtn:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, -2)
+    local saveCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(saveBtn) or nil
+    local saveLabel = uiFont(saveBtn, 11, CREAM)
+    saveLabel:SetPoint("CENTER", saveBtn, "CENTER", 0, 0)
+    saveLabel:SetText("+ Save Current")
+
+    local emptyNote = uiFont(row, 11, DIM)
+    emptyNote:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -34)
+    emptyNote:SetText("Mix any Palette, Frame Look, Bar Finish, or Button Look, then click + Save Current to keep it here.")
+
+    local slots = {}
+    local maxSlots = ns.MAX_USER_PRESETS or 4
+    for i = 1, maxSlots do
+        local b = CreateFrame("Button", nil, row)
+        b:SetHeight(42)
+        local card = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(b) or nil
+        local title = uiFont(b, 12, CREAM)
+        title:SetPoint("TOPLEFT", b, "TOPLEFT", 10, -6)
+        local sub = uiFont(b, 10, DIM)
+        sub:SetPoint("TOPLEFT", b, "TOPLEFT", 10, -23)
+        sub:SetPoint("RIGHT", b, "RIGHT", -28, 0)
+        if type(sub.SetWordWrap) == "function" then sub:SetWordWrap(false) end
+
+        local del = CreateFrame("Button", nil, b)
+        del:SetSize(18, 18)
+        del:SetPoint("TOPRIGHT", b, "TOPRIGHT", -5, -5)
+        local delText = uiFont(del, 11, DIM)
+        delText:SetPoint("CENTER", del, "CENTER", 0, 0)
+        delText:SetText("×")
+
+        slots[i] = { button = b, card = card, title = title, sub = sub, del = del, delText = delText, idx = i }
+    end
+
+    local function update()
+        local list = type(ns.getUserPresets) == "function" and ns.getUserPresets() or {}
+        local screenId = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+        local surface = screenId and type(ns.byId) == "table" and ns.byId[screenId] or nil
+        local win = (surface and (surface.window or surface.background)) or { 0.08, 0.10, 0.08 }
+        local bnd = (surface and surface.band) or { 0.14, 0.18, 0.14 }
+        local brd = (surface and surface.border) or { 0.22, 0.28, 0.22 }
+        local acc = (surface and surface.c2) or { 0.91, 0.63, 0.29 }
+        local blend = type(ns.blendColor) == "function" and ns.blendColor or function(a) return a end
+        local rest = blend(win, bnd, 0.26)
+
+        local full = #list >= maxSlots
+        saveLabel:SetText(full and ("Saved (" .. tostring(#list) .. "/" .. tostring(maxSlots) .. ")") or "+ Save Current")
+        if saveCard then
+            saveCard.paint(full and rest or blend(win, acc, 0.16), 0.92, full and brd or acc, full and 0.55 or 0.90)
+        end
+        if emptyNote.SetShown then emptyNote:SetShown(#list == 0) end
+
+        local w = row:GetWidth()
+        if type(w) ~= "number" or w < 240 then w = 760 end
+        local cols = w >= 520 and 2 or 1
+        local cardW = math.floor((w - 8 - (cols - 1) * CARD_GAP_X) / cols)
+        local staged = ns.staged
+
+        for i = 1, maxSlots do
+            local slot = slots[i]
+            local item = list[i]
+            if slot.button.SetShown then slot.button:SetShown(item ~= nil) end
+            if item then
+                local idx0 = i - 1
+                local r = math.floor(idx0 / cols)
+                local c = idx0 - r * cols
+                slot.button:ClearAllPoints()
+                slot.button:SetPoint("TOPLEFT", row, "TOPLEFT", 4 + c * (cardW + CARD_GAP_X), -(30 + r * 48))
+                slot.button:SetWidth(cardW)
+                slot.title:SetText(item.name or ("My Preset " .. tostring(i)))
+                local parts = {}
+                if item.palette and type(ns.byId) == "table" and ns.byId[item.palette] then
+                    parts[#parts + 1] = ns.byId[item.palette].name
+                end
+                if item.frame and frameById(item.frame) then parts[#parts + 1] = frameById(item.frame).name end
+                if item.bar and type(ns.BAR_BY_ID) == "table" and ns.BAR_BY_ID[item.bar] then
+                    parts[#parts + 1] = ns.BAR_BY_ID[item.bar].name
+                end
+                if item.button and type(ns.BUTTON_BY_ID) == "table" and ns.BUTTON_BY_ID[item.button] then
+                    parts[#parts + 1] = ns.BUTTON_BY_ID[item.button].name
+                end
+                slot.sub:SetText(#parts > 0 and table.concat(parts, " · ") or "Saved mix")
+
+                local on = type(staged) == "table" and staged.kind == "user_preset" and staged.id == item.id
+                if slot.card then
+                    slot.card.paint(
+                        on and blend(win, acc, 0.18) or rest,
+                        on and 0.96 or 0.86,
+                        on and acc or brd,
+                        on and 0.95 or 0.55
+                    )
+                end
+                slot.button:SetScript("OnClick", function()
+                    ns.RevertPreview()
+                    ns.setLooksOpen(true)
+                    if type(ns.stagePick) == "function" then
+                        ns.stagePick("user_preset", item.id, function() applyUserPreset(item) end, false)
+                        if type(ns.staged) == "table" then
+                            ns.staged.palette = item.palette
+                            ns.staged.frame = item.frame
+                            ns.staged.bar = item.bar
+                            ns.staged.button = item.button
+                            if type(ns.notePreview) == "function" then ns.notePreview() end
+                        end
+                    else
+                        applyUserPreset(item)
+                    end
+                    update()
+                end)
+                slot.del:SetScript("OnClick", function()
+                    if type(ns.deleteUserPreset) == "function" then
+                        ns.deleteUserPreset(i)
+                        update()
+                    end
+                end)
+            end
+        end
+        local rows = #list == 0 and 1 or math.ceil(#list / cols)
+        row.userPresetsHeight = 32 + rows * 48
+    end
+
+    saveBtn:SetScript("OnClick", function()
+        if type(ns.saveUserPreset) ~= "function" then return end
+        local list = type(ns.getUserPresets) == "function" and ns.getUserPresets() or {}
+        if #list >= maxSlots then return end
+        local pal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+        local frm = wornFrame()
+        local bar = type(ns.activeBarFinish) == "function" and ns.activeBarFinish() or nil
+        local btn = type(ns.activeButtonLook) == "function" and ns.activeButtonLook() or nil
+        ns.saveUserPreset({
+            name = "My Preset " .. tostring(#list + 1),
+            palette = pal,
+            frame = frm,
+            bar = bar,
+            button = btn,
+        })
+        update()
+    end)
+
+    row.UpdateUserPresets = update
+    hookSize(row, update)
+    update()
+    refreshers[#refreshers + 1] = update
+end
+
 function ns.themesPage()
     local rows = {}
     for i = 1, #THEMES do
@@ -2046,7 +2282,7 @@ function ns.themesPage()
     end
     local spec = {
         intro = THEME_INTRO,
-        introH = 44,
+        introH = 30,
         frameOn = function() return false end,
         sections = { { head = THEME_HEAD, rows = rows, rowH = THEME_H } },
     }
@@ -2070,10 +2306,166 @@ function ns.themesPage()
                         end,
                         height = function() return listHeight(spec.sections, false, spec.introH) end,
                     },
+                    {
+                        type = "custom",
+                        label = "My Presets",
+                        hidden = hiddenStyles,
+                        build = buildUserPresets,
+                        update = function(row)
+                            if type(row.UpdateUserPresets) == "function" then row.UpdateUserPresets() end
+                        end,
+                        height = function(row) return (type(row) == "table" and row.userPresetsHeight) or 82 end,
+                    },
                 },
             },
         },
     }
+end
+
+local function buildLooksWithCategories(row, frameSpec)
+    buildListPage(row, frameSpec)
+    local barsList = type(ns.BAR_FINISHES) == "table" and ns.BAR_FINISHES or nil
+    local btnsList = type(ns.BUTTON_LOOKS) == "table" and ns.BUTTON_LOOKS or nil
+    if not barsList or not btnsList then return end
+
+    local activeSub = "frames"
+    local pillDefs = {
+        { key = "frames", label = "Frames (" .. tostring(#FRAMES) .. ")" },
+        { key = "bars",   label = "Bars (" .. tostring(#barsList) .. ")" },
+        { key = "buttons", label = "Buttons (" .. tostring(#btnsList) .. ")" },
+    }
+    local pills = {}
+    for i = 1, #pillDefs do
+        local def = pillDefs[i]
+        local b = CreateFrame("Button", nil, row)
+        b:SetHeight(24)
+        b:SetWidth(math.max(78, 22 + string.len(def.label) * 6))
+        local card = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(b) or nil
+        local fs = uiFont(b, 11, CREAM)
+        fs:SetPoint("CENTER", b, "CENTER", 0, 0)
+        fs:SetText(def.label)
+        b:SetScript("OnClick", function()
+            activeSub = def.key
+            if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+        end)
+        pills[i] = { key = def.key, button = b, card = card, label = fs }
+    end
+
+    local function makeExtraCards(items, kind, activeFn, applyFn)
+        local out = {}
+        for i = 1, #items do
+            local item = items[i]
+            local b = CreateFrame("Button", nil, row)
+            b:SetHeight(LOOK_CARD_H)
+            local card = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(b) or nil
+            local title = uiFont(b, 12, CREAM)
+            title:SetPoint("TOPLEFT", b, "TOPLEFT", 12, -8)
+            title:SetText(item.name)
+            local desc = uiFont(b, 11, DIM)
+            desc:SetPoint("TOPLEFT", b, "TOPLEFT", 12, -26)
+            desc:SetPoint("RIGHT", b, "RIGHT", -24, 0)
+            if type(desc.SetWordWrap) == "function" then desc:SetWordWrap(true) end
+            desc:SetText(item.desc)
+            local check = drawCheck(b)
+            check:SetPoint("TOPRIGHT", b, "TOPRIGHT", -6, -7)
+            b:SetScript("OnClick", function()
+                ns.setLooksOpen(true)
+                local live = activeFn() == item.id
+                if type(ns.stagePick) == "function" then
+                    ns.stagePick(kind, item.id, function() applyFn(item.id) end, live)
+                else
+                    applyFn(item.id)
+                end
+                refreshLooks()
+            end)
+            out[i] = { id = item.id, kind = kind, button = b, card = card, title = title, desc = desc, check = check }
+        end
+        return out
+    end
+
+    local barCards = makeExtraCards(barsList, "bar", ns.activeBarFinish, ns.applyBarFinish)
+    local btnCards = makeExtraCards(btnsList, "button", ns.activeButtonLook, ns.applyButtonLook)
+
+    local origUpdate = row.UpdateLooks
+    function row.UpdateLooks()
+        origUpdate()
+        local w = row:GetWidth()
+        if type(w) ~= "number" or w < 120 then w = 760 end
+        local screenId = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
+        local surface = screenId and type(ns.byId) == "table" and ns.byId[screenId] or nil
+        local win = (surface and (surface.window or surface.background)) or { 0.08, 0.10, 0.08 }
+        local bnd = (surface and surface.band) or { 0.14, 0.18, 0.14 }
+        local brd = (surface and surface.border) or { 0.22, 0.28, 0.22 }
+        local acc = (surface and surface.c2) or { 0.91, 0.63, 0.29 }
+        local blend = type(ns.blendColor) == "function" and ns.blendColor or function(a) return a end
+        local rest = blend(win, bnd, 0.26)
+
+        local px = 4
+        for i = 1, #pills do
+            local p = pills[i]
+            local on = p.key == activeSub
+            p.button:ClearAllPoints()
+            p.button:SetPoint("TOPLEFT", row, "TOPLEFT", px, -24)
+            px = px + (p.button:GetWidth() or 84) + 6
+            if p.card then
+                p.card.paint(on and blend(win, acc, 0.18) or rest, 0.92, on and acc or brd, on and 0.95 or 0.65)
+            end
+            if type(p.label.SetTextColor) == "function" then
+                local c = on and acc or ((surface and surface.label) or DIM)
+                p.label:SetTextColor(c[1], c[2], c[3], 1)
+            end
+        end
+
+        -- Show/hide the 7 Frame Look cards depending on activeSub.
+        for i = 1, #row.lines do
+            local line = row.lines[i]
+            if line.button and line.button.SetShown then
+                line.button:SetShown(activeSub == "frames")
+            end
+        end
+
+        local cols = w >= 520 and 2 or 1
+        local cardW = math.floor((w - 8 - (cols - 1) * CARD_GAP_X) / cols)
+        local gridTop = 58
+        local staged = ns.staged
+
+        local function placeExtra(cards, vis, activeFn)
+            for i = 1, #cards do
+                local c = cards[i]
+                if c.button.SetShown then c.button:SetShown(vis) end
+                if vis then
+                    local idx0 = i - 1
+                    local r = math.floor(idx0 / cols)
+                    local col = idx0 - r * cols
+                    c.button:ClearAllPoints()
+                    c.button:SetPoint("TOPLEFT", row, "TOPLEFT", 4 + col * (cardW + CARD_GAP_X), -(gridTop + r * (LOOK_CARD_H + CARD_GAP_Y)))
+                    c.button:SetWidth(cardW)
+                    local on = (type(staged) == "table" and staged.kind == c.kind and staged.id == c.id)
+                        or (not (type(staged) == "table" and staged.kind == c.kind) and activeFn() == c.id)
+                    if c.card then
+                        c.card.paint(
+                            on and blend(win, acc, 0.18) or rest,
+                            on and 0.96 or 0.86,
+                            on and acc or brd,
+                            on and 0.95 or 0.55
+                        )
+                    end
+                    if c.check then
+                        if on and c.check.Show then
+                            if type(c.check.SetVertexColor) == "function" then c.check:SetVertexColor(acc[1], acc[2], acc[3], 1) end
+                            c.check:Show()
+                        elseif c.check.Hide then
+                            c.check:Hide()
+                        end
+                    end
+                end
+            end
+        end
+
+        placeExtra(barCards, activeSub == "bars", ns.activeBarFinish)
+        placeExtra(btnCards, activeSub == "buttons", ns.activeButtonLook)
+    end
+    row.UpdateLooks()
 end
 
 function ns.looksPage()
@@ -2101,7 +2493,7 @@ function ns.looksPage()
     end
     local spec = {
         intro = LOOKS_INTRO,
-        introH = 22,
+        introH = 54,
         frameOn = frameOn,
         sections = {
             { head = FRAME_HEAD, rows = frames },
@@ -2121,7 +2513,7 @@ function ns.looksPage()
                         type = "custom",
                         label = "Looks",
                         hidden = hiddenStyles,
-                        build = function(row) buildListPage(row, spec) end,
+                        build = function(row) buildLooksWithCategories(row, spec) end,
                         update = function(row)
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,

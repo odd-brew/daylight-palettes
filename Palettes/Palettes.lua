@@ -3094,10 +3094,11 @@ function ns.commitStaged()
     local staged = ns.staged
     if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
     ns.staged = nil
-    -- Frame looks repaint Player and Target live. Only colours need a reload.
-    local looksOnly = staged.kind == "frame"
+    -- Frame looks, bar finishes, and button looks repaint live. Only colours need a reload.
+    local looksOnly = staged.kind == "frame" or staged.kind == "bar" or staged.kind == "button"
     ns.withReloadAction(function()
-        if (staged.kind == "frame" or staged.kind == "theme") and type(ns.CommitPreview) == "function" then
+        if type(ns.RevertAllExtrasPreview) == "function" then pcall(ns.RevertAllExtrasPreview) end
+        if (staged.kind == "frame" or staged.kind == "theme" or staged.kind == "user_preset") and type(ns.CommitPreview) == "function" then
             ns.CommitPreview(staged.commit)
         else
             staged.commit()
@@ -3436,6 +3437,8 @@ local function syncColorPreview()
             wantId = staged.id
         elseif staged.kind == "theme" and type(ns.themePaletteId) == "function" then
             wantId = ns.themePaletteId(staged.id)
+        elseif staged.kind == "user_preset" and type(staged.palette) == "string" then
+            wantId = staged.palette
         end
     end
     if wantId == previewPalId then return end
