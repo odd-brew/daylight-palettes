@@ -1,0 +1,114 @@
+name: Test Build
+
+# Builds and publishes a rolling Palettes (Test) addon zip to the
+# "palettes-test" GitHub pre-release so it can be installed alongside
+# the live CurseForge Palettes addon with isolated SavedVariables.
+#
+# Runs automatically on pushes to non-main branches and on manual dispatch.
+# Does NOT match "palettes-v*", so release.yml never runs on this tag.
+on:
+  push:
+    branches-ignore:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: palettes-test-build
+  cancel-in-progress: true
+
+jobs:
+  test-build:
+    name: Build & Publish PalettesTest
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+
+      - name: Palettes checks
+        run: |
+          luac5.1 -p Palettes/PalettesColors.lua Palettes/PalettesCustom.lua Palettes/PalettesLooks.lua Palettes/Palettes.lua
+          lua5.1 tools/palettes_check.lua
+          bash tools/secret_scan.sh
+
+      - name: Build PalettesTest.zip
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="$(git rev-parse --short HEAD)"
+          base_ver="$(awk -F: '/^## Version:/ { gsub(/^[ \t]+|[ \t\r]+$/, "", $2); print $2; exit }' Palettes/Palettes.toc)"
+          test_ver="${base_ver}-test.${short_sha}"
+
+          rm -rf PalettesTest PalettesTest.zip
+          cp -r Palettes PalettesTest
+          mv PalettesTest/Palettes.toc PalettesTest/PalettesTest.toc
+
+          # Update TOC metadata for side-by-side test install with isolated SavedVariables.
+          # Remove X-Curse-Project-ID so the CurseForge app does not treat PalettesTest as live Palettes.
+          sed -i \
+            -e 's/^## Title:.*/## Title: Palettes (Test) (DaylightUI Plugin)/' \
+            -e "s/^## Version:.*/## Version: ${test_ver}/" \
+            -e 's/^## SavedVariables: PalettesAccount/## SavedVariables: PalettesTestAccount/' \
+            -e 's/^## SavedVariablesPerCharacter: PalettesChar/## SavedVariablesPerCharacter: PalettesTestChar/' \
+            -e '/^## X-Curse-Project-ID:/d' \
+            PalettesTest/PalettesTest.toc
+
+          # Point SavedVariables references in Palettes.lua to the isolated test globals.
+          sed -i \
+            -e 's/\bPalettesAccount\b/PalettesTestAccount/g' \
+            -e 's/\bPalettesChar\b/PalettesTestChar/g' \
+            PalettesTest/Palettes.lua
+
+          # Verify the transformed Lua still compiles cleanly.
+          luac5.1 -p PalettesTest/PalettesColors.lua PalettesTest/PalettesCustom.lua PalettesTest/PalettesLooks.lua PalettesTest/Palettes.lua
+
+          zip -r -X PalettesTest.zip PalettesTest
+          unzip -l PalettesTest.zip
+
+          echo "test_ver=${test_ver}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish rolling palettes-test pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TEST_VER: ${{ steps.build.outputs.test_ver }}
+          SHORT_SHA: ${{ steps.build.outputs.short_sha }}
+          BRANCH: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit_msg="$(git log -1 --pretty=%s)"
+          built_at="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+          cat > test-release-notes.md <<EOF
+          Rolling test build of **Palettes (Test)** with isolated SavedVariables (\`PalettesTestAccount\` / \`PalettesTestChar\`).
+
+          - **Version:** \`${TEST_VER}\`
+          - **Branch:** \`${BRANCH}\`
+          - **Commit:** \`${SHORT_SHA}\` — ${commit_msg}
+          - **Built:** ${built_at}
+
+          > Turn off live **Palettes** and enable **Palettes (Test)** in WoW's AddOns list, then \`/reload\`.
+          EOF
+
+          git tag -f palettes-test HEAD
+          git push -f origin refs/tags/palettes-test
+
+          if gh release view palettes-test >/dev/null 2>&1; then
+            gh release upload palettes-test PalettesTest.zip --clobber
+            gh release edit palettes-test \
+              --prerelease \
+              --title "Palettes (Test) — latest" \
+              --notes-file test-release-notes.md
+          else
+            gh release create palettes-test PalettesTest.zip \
+              --prerelease \
+              --title "Palettes (Test) — latest" \
+              --notes-file test-release-notes.md
+          fi
