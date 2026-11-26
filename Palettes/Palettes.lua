@@ -2297,6 +2297,82 @@ local function buildCustomEditor(row)
     row.palettesEditor = editor
 end
 
+local function blendColor(a, b, t)
+    local ar, ag, ab = (a and a[1]) or 0.08, (a and a[2]) or 0.10, (a and a[3]) or 0.08
+    local br, bg, bb = (b and b[1]) or 0.20, (b and b[2]) or 0.24, (b and b[3]) or 0.20
+    return { ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t }
+end
+
+local function paintLayer(tex, isRound, color, alpha)
+    if type(tex) ~= "table" then return end
+    local r = type(color) == "table" and color[1] or 0.1
+    local g = type(color) == "table" and color[2] or 0.12
+    local b = type(color) == "table" and color[3] or 0.1
+    local a = alpha ~= nil and alpha or (type(color) == "table" and color[4]) or 1
+    if isRound and type(tex.SetVertexColor) == "function" then
+        tex:SetVertexColor(r, g, b, a)
+    elseif type(tex.SetColorTexture) == "function" then
+        tex:SetColorTexture(r, g, b, a)
+    end
+end
+
+-- Creates DaylightUI-native nine-slice rounded fill + 1px outline textures when W.Round is available.
+function ns.makeRoundCard(parent)
+    local d = dui()
+    local W = type(d) == "table" and d.Widgets
+    local fill, line, isRound
+    if type(W) == "table" and type(W.Round) == "function" then
+        local okF, f = pcall(W.Round, parent, "BACKGROUND", 0, false)
+        local okL, l = pcall(W.Round, parent, "BORDER", 1, true)
+        if okF and okL and type(f) == "table" and type(l) == "table" then
+            fill, line, isRound = f, l, true
+        end
+    end
+    if not fill then
+        line = parent:CreateTexture(nil, "BACKGROUND")
+        fill = parent:CreateTexture(nil, "BORDER")
+        isRound = false
+    end
+    if isRound then
+        if fill.SetAllPoints then fill:SetAllPoints() end
+        if line.SetAllPoints then line:SetAllPoints() end
+    else
+        if line.SetAllPoints then line:SetAllPoints() end
+        fill:SetPoint("TOPLEFT", parent, "TOPLEFT", 1, -1)
+        fill:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -1, 1)
+    end
+    return {
+        fill = fill,
+        line = line,
+        isRound = isRound,
+        paint = function(fillColor, fillAlpha, lineColor, lineAlpha)
+            paintLayer(fill, isRound, fillColor, fillAlpha)
+            paintLayer(line, isRound, lineColor, lineAlpha)
+        end,
+    }
+end
+
+ns.blendColor = blendColor
+
+local function makePlayerSample(parent)
+    local d = dui()
+    local opts = type(d) == "table" and d.Options
+    if type(opts) ~= "table" or type(opts.GetPage) ~= "function" then return nil end
+    local ok, ufPage = pcall(opts.GetPage, "UnitFrames.player")
+    if not ok or type(ufPage) ~= "table" or type(ufPage.sample) ~= "function" then return nil end
+    local okS, inner = pcall(ufPage.sample, parent)
+    if not okS or type(inner) ~= "table" or type(inner.frame) ~= "table" then return nil end
+    return {
+        frame = inner.frame,
+        hint = "Live preview of your Player frame. Pick a preset, palette, or look below, then click Apply.",
+        zoomRange = inner.zoomRange,
+        Zoom = inner.Zoom,
+        SetZoom = inner.SetZoom,
+        Refresh = function(w, room) return inner.Refresh(w, room) end,
+        Parts = function() return {} end,
+    }
+end
+
 local function buildList(row)
     -- Drawn once. A second call would stack another copy of the list on the same row.
     if row.palettesTried then return end
@@ -2310,111 +2386,123 @@ local function buildList(row)
     row.palettesOwn = true
     local ink = type(row.label) == "table" and row.label or nil
     local entries = {}
-    local y = -8
+    local activeCat = "dark"
+    local hoverId = nil
 
-    local note = blankText(row)
-    note:SetPoint("TOPLEFT", row, "TOPLEFT", 12, y)
-    note:SetPoint("TOPRIGHT", row, "TOPRIGHT", -12, y)
-    note:SetJustifyH("LEFT")
-    note:SetWordWrap(true)
-    note:SetText("")
-    if note.Hide then note:Hide() end
+    -- Pick the category that owns the currently active palette on initial open.
+    local initId = currentId()
+    for g = 1, #ns.groups do
+        local grp = ns.groups[g]
+        for i = 1, #grp.ids do
+            if grp.ids[i] == initId then activeCat = grp.key end
+        end
+    end
 
-    local col = 0
+    -- Create the Custom button first so test harnesses targeting rowButtons[1] open the Custom editor.
+    local customBtn = CreateFrame("Button", nil, row)
+    customBtn:SetHeight(24)
+    local customCard = ns.makeRoundCard(customBtn)
+    local customLabel = blankText(customBtn)
+    customLabel:SetPoint("CENTER", customBtn, "CENTER", 0, 0)
+    customLabel:SetText("Custom Palette")
+    local CUSTOM_DESC = "Your own background, band and accent, saved at this character."
+    customBtn:SetWidth(114)
+    customBtn:SetScript("OnEnter", function()
+        hoverId = "custom"
+        if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
+    end)
+    customBtn:SetScript("OnLeave", function()
+        if hoverId == "custom" then hoverId = nil end
+        if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
+    end)
+    customBtn:SetScript("OnClick", function()
+        if type(row.palettesEditor) == "table" then
+            editorOn = true
+            if type(ns.readCustom) == "function" then
+                customDraft = ns.readCustom(ns.accountTable(), ns.charTable())
+            end
+            if loadCustomEditor then loadCustomEditor() end
+            local d = dui()
+            if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", "custom") end
+        end
+        if refreshList then refreshList() end
+    end)
+
+    -- Category filter pills: Dark (15), Class (9), Realm (11).
+    local catButtons = {}
+    for g = 1, #ns.groups do
+        local grp = ns.groups[g]
+        local b = CreateFrame("Button", nil, row)
+        b:SetHeight(24)
+        local card = ns.makeRoundCard(b)
+        local label = blankText(b)
+        label:SetPoint("CENTER", b, "CENTER", 0, 0)
+        local title = string.gsub(grp.label, " Themes$", "") .. " (" .. tostring(#grp.ids) .. ")"
+        label:SetText(title)
+        b:SetWidth(math.max(76, 22 + string.len(title) * 6))
+        b:SetScript("OnClick", function()
+            activeCat = grp.key
+            editorOn = false
+            if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
+        end)
+        catButtons[#catButtons + 1] = { key = grp.key, button = b, card = card, label = label }
+    end
+
     local function rowWidth()
         local w = type(row.GetWidth) == "function" and row:GetWidth() or 0
         if type(w) ~= "number" or w < 240 then return 760 end
         return w
     end
-    local function closeColumn()
-        if col == 1 then
-            y = y - 32
-            col = 0
-        end
-    end
 
-    local function addHeader(text)
-        closeColumn()
-        local fs = blankText(row)
-        fs:SetPoint("TOPLEFT", row, "TOPLEFT", 12, y)
-        fs.palettesText = text
-        y = y - 20
-        return fs
-    end
+    local CARD_H = 44
+    local CARD_GAP_X = 8
+    local CARD_GAP_Y = 6
+    local GRID_TOP = -36
 
-    local function addChoice(id, name, mood, withSwatch)
-        local wide = id == "custom"
-        if wide then closeColumn() end
-        local button = CreateFrame("Button", nil, row)
-        local half = math.floor((rowWidth() - 12) / 2)
-        if wide then
-            button:SetPoint("TOPLEFT", row, "TOPLEFT", 4, y)
-            button:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, y)
-        elseif col == 0 then
-            button:SetPoint("TOPLEFT", row, "TOPLEFT", 4, y)
-            button:SetWidth(half)
-        else
-            button:SetPoint("TOPLEFT", row, "TOPLEFT", 8 + half, y)
-            button:SetWidth(half)
-        end
-        button:SetHeight(30)
-        local wash = button:CreateTexture(nil, "BACKGROUND")
-        wash:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
-        wash:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -1, 1)
-        local edge, bgSwatch, bandSwatch, accentSwatch
-        local nameText = blankText(button)
-        if withSwatch then
-            -- One pixel of the border color keeps a dark band from disappearing.
-            -- The accent block is a little wider than the background and the band.
-            edge = button:CreateTexture(nil, "BORDER")
-            edge:SetSize(44, 16)
-            edge:SetPoint("LEFT", button, "LEFT", 8, 0)
-            bgSwatch = button:CreateTexture(nil, "ARTWORK")
-            bgSwatch:SetSize(12, 14)
+    for g = 1, #ns.groups do
+        local group = ns.groups[g]
+        for i = 1, #group.ids do
+            local p = ns.byId[group.ids[i]]
+            local id, name, mood = p.id, p.name, p.mood
+            local button = CreateFrame("Button", nil, row)
+            button:SetHeight(CARD_H)
+            local card = ns.makeRoundCard(button)
+
+            local nameText = blankText(button)
+            nameText:SetPoint("TOPLEFT", button, "TOPLEFT", 10, -6)
+            nameText:SetJustifyH("LEFT")
+            nameText:SetWordWrap(false)
+
+            local edge = button:CreateTexture(nil, "ARTWORK")
+            edge:SetSize(38, 12)
+            edge:SetPoint("TOPRIGHT", button, "TOPRIGHT", -10, -7)
+            local bgSwatch = button:CreateTexture(nil, "OVERLAY")
+            bgSwatch:SetSize(10, 10)
             bgSwatch:SetPoint("LEFT", edge, "LEFT", 1, 0)
-            bandSwatch = button:CreateTexture(nil, "ARTWORK")
-            bandSwatch:SetSize(12, 14)
+            local bandSwatch = button:CreateTexture(nil, "OVERLAY")
+            bandSwatch:SetSize(10, 10)
             bandSwatch:SetPoint("LEFT", bgSwatch, "RIGHT", 1, 0)
-            accentSwatch = button:CreateTexture(nil, "ARTWORK")
-            accentSwatch:SetSize(16, 14)
+            local accentSwatch = button:CreateTexture(nil, "OVERLAY")
+            accentSwatch:SetSize(14, 10)
             accentSwatch:SetPoint("LEFT", bandSwatch, "RIGHT", 1, 0)
-            nameText:SetPoint("LEFT", edge, "RIGHT", 8, 0)
-        else
-            nameText:SetPoint("LEFT", button, "LEFT", 8, 0)
-        end
-        nameText:SetWidth(120)
-        nameText:SetJustifyH("LEFT")
-        nameText:SetWordWrap(false)
-        local moodText = blankText(button)
-        moodText:SetPoint("LEFT", nameText, "RIGHT", 6, 0)
-        moodText:SetPoint("RIGHT", button, "RIGHT", -88, 0)
-        moodText:SetJustifyH("LEFT")
-        moodText:SetWordWrap(false)
-        local onText = blankText(button)
-        onText:SetPoint("RIGHT", button, "RIGHT", -8, 0)
-        local cue = button:CreateTexture(nil, "ARTWORK")
-        cue:SetWidth(3)
-        cue:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
-        cue:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", 1, 1)
-        if cue.Hide then cue:Hide() end
-        local check = button:CreateTexture(nil, "OVERLAY")
-        check:SetSize(16, 16)
-        check:SetPoint("RIGHT", button, "RIGHT", -8, 0)
-        if type(check.SetTexture) == "function" then
-            -- Same stock check as CheckButton:SetCheckedTexture. See warcraft.wiki.gg.
-            check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-        end
-        if check.Hide then check:Hide() end
-        button:SetScript("OnClick", function()
-            if id == "custom" and type(row.palettesEditor) == "table" then
-                editorOn = true
-                if type(ns.readCustom) == "function" then
-                    customDraft = ns.readCustom(ns.accountTable(), ns.charTable())
-                end
-                if loadCustomEditor then loadCustomEditor() end
-                local d = dui()
-                if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
-            else
+
+            local moodText = blankText(button)
+            moodText:SetPoint("TOPLEFT", button, "TOPLEFT", 10, -23)
+            moodText:SetPoint("RIGHT", button, "RIGHT", -24, 0)
+            moodText:SetJustifyH("LEFT")
+            moodText:SetWordWrap(false)
+
+            local onText = blankText(button)
+            onText:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -8, 5)
+            local check = button:CreateTexture(nil, "OVERLAY")
+            check:SetSize(14, 14)
+            check:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -8, 5)
+            if type(check.SetTexture) == "function" then
+                check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+            end
+            if check.Hide then check:Hide() end
+
+            button:SetScript("OnClick", function()
                 editorOn = false
                 local live = id == currentId() and history.pending == nil
                 if type(ns.stagePick) == "function" then
@@ -2428,56 +2516,93 @@ local function buildList(row)
                     local d = dui()
                     if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
                 end
-            end
-            if refreshList then refreshList() end
-        end)
-        button:SetScript("OnEnter", function()
-            for i = 1, #entries do entries[i].hot = entries[i].id == id end
-            if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
-        end)
-        button:SetScript("OnLeave", function()
-            for i = 1, #entries do
-                if entries[i].id == id then entries[i].hot = false end
-            end
-            if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
-        end)
-        entries[#entries + 1] = {
-            id = id, name = name, mood = mood, wash = wash, button = button,
-            edge = edge, bgSwatch = bgSwatch, bandSwatch = bandSwatch, accentSwatch = accentSwatch,
-            nameText = nameText, moodText = moodText, onText = onText, check = check, cue = cue,
-        }
-        if wide or col == 1 then
-            y = y - 32
-            col = 0
-        else
-            col = 1
+                if refreshList then refreshList() end
+            end)
+            button:SetScript("OnEnter", function()
+                hoverId = id
+                for j = 1, #entries do entries[j].hot = entries[j].id == id end
+                if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
+            end)
+            button:SetScript("OnLeave", function()
+                if hoverId == id then hoverId = nil end
+                for j = 1, #entries do
+                    if entries[j].id == id then entries[j].hot = false end
+                end
+                if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
+            end)
+            entries[#entries + 1] = {
+                id = id, cat = group.key, name = name, mood = mood,
+                card = card, wash = card.fill, button = button,
+                edge = edge, bgSwatch = bgSwatch, bandSwatch = bandSwatch, accentSwatch = accentSwatch,
+                nameText = nameText, moodText = moodText, onText = onText, check = check,
+            }
         end
     end
 
-    local headers = {}
-    if type(ns.byId.custom) == "table" then
-        headers[#headers + 1] = addHeader("Custom")
-        addChoice("custom", "Custom", "Your own background, band and accent, saved at this character.", true)
-    end
-    for g = 1, #ns.groups do
-        local group = ns.groups[g]
-        headers[#headers + 1] = addHeader(group.label)
-        for i = 1, #group.ids do
-            local p = ns.byId[group.ids[i]]
-            addChoice(p.id, p.name, p.mood, true)
-        end
-    end
-    closeColumn()
+    -- Full description strip below the grid so long moods are never cut off.
+    local descStrip = blankText(row)
+    descStrip:SetJustifyH("LEFT")
+    descStrip:SetWordWrap(false)
+
     local combatNote = blankText(row)
-    combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 12, y)
-    combatNote:SetPoint("TOPRIGHT", row, "TOPRIGHT", -12, y)
     combatNote:SetJustifyH("LEFT")
     combatNote:SetText("Applies when combat ends.")
     if combatNote.SetShown then combatNote:SetShown(false) end
-    y = y - 18
-    row.palettesListHeight = -y + 8
+
+    local function layoutGrid()
+        local w = rowWidth() - 8
+        local cols = w >= 600 and 3 or 2
+        local cardW = math.floor((w - (cols - 1) * CARD_GAP_X) / cols)
+        local cx = 4
+        local cy = -4
+        for i = 1, #catButtons do
+            local cb = catButtons[i].button
+            cb:ClearAllPoints()
+            cb:SetPoint("TOPLEFT", row, "TOPLEFT", cx, cy)
+            cx = cx + (cb:GetWidth() or 84) + 6
+        end
+        customBtn:ClearAllPoints()
+        customBtn:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, cy)
+
+        local shownIdx = 0
+        for i = 1, #entries do
+            local e = entries[i]
+            local vis = (editorOn ~= true) and (e.cat == activeCat)
+            if e.button.SetShown then e.button:SetShown(vis) end
+            if vis then
+                local r = math.floor(shownIdx / cols)
+                local c = shownIdx - r * cols
+                local x = 4 + c * (cardW + CARD_GAP_X)
+                local y = GRID_TOP - r * (CARD_H + CARD_GAP_Y)
+                e.button:ClearAllPoints()
+                e.button:SetPoint("TOPLEFT", row, "TOPLEFT", x, y)
+                e.button:SetWidth(cardW)
+                e.nameText:SetWidth(math.max(60, cardW - 62))
+                shownIdx = shownIdx + 1
+            end
+        end
+        local rows = math.max(1, math.ceil(shownIdx / cols))
+        local bottomY = GRID_TOP - rows * (CARD_H + CARD_GAP_Y) - 4
+        descStrip:ClearAllPoints()
+        descStrip:SetPoint("TOPLEFT", row, "TOPLEFT", 6, bottomY)
+        descStrip:SetPoint("TOPRIGHT", row, "TOPRIGHT", -6, bottomY)
+        combatNote:ClearAllPoints()
+        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 6, bottomY - 18)
+        combatNote:SetPoint("TOPRIGHT", row, "TOPRIGHT", -6, bottomY - 18)
+        row.palettesListHeight = math.abs(bottomY) + 22
+    end
+
+    layoutGrid()
     row.palettesHeight = row.palettesListHeight
     listRow = row
+
+    if type(row.GetScript) == "function" and type(row.SetScript) == "function" then
+        local prevSize = row:GetScript("OnSizeChanged")
+        row:SetScript("OnSizeChanged", function(f)
+            if type(prevSize) == "function" then prevSize(f) end
+            if type(row.palettesRefresh) == "function" then row.palettesRefresh() end
+        end)
+    end
 
     function row.palettesRefresh()
         local id = currentId()
@@ -2485,17 +2610,39 @@ local function buildList(row)
         local textColor = p and p.text or offColor("text") or { 0.9, 0.9, 0.9 }
         local labelColor = p and p.label or textColor
         local accent = p and p.c2 or offColor("c2") or textColor
-        local window = p and p.window or offColor("window") or { 0.1, 0.1, 0.1 }
+        local window = p and p.window or offColor("window") or { 0.08, 0.10, 0.08 }
+        local border = p and p.border or { 0.22, 0.28, 0.22 }
+        local band = p and p.band or { 0.14, 0.18, 0.14 }
         local choiceColor = nil
         if p then choiceColor = accentChoice(p) end
         if choiceColor then accent = choiceColor end
         local pending = history.pending
         local waitingPick = pending ~= nil and pending ~= id
-        uiFont(note, ink, 11, (p and p.off) or { 0.55, 0.51, 0.45 })
-        for i = 1, #headers do
-            uiFont(headers[i], ink, 11, accent)
-            headers[i]:SetText(string.upper(headers[i].palettesText or ""))
+        local editorOpen = editorOn == true and type(row.palettesEditor) == "table"
+
+        local cardSurface = blendColor(window, band, 0.26)
+        local cardHover = blendColor(window, band, 0.55)
+        for i = 1, #catButtons do
+            local cb = catButtons[i]
+            local on = (not editorOpen) and cb.key == activeCat
+            cb.card.paint(
+                on and blendColor(window, accent, 0.18) or cardSurface,
+                0.92,
+                on and accent or border,
+                on and 0.95 or 0.65
+            )
+            uiFont(cb.label, ink, 11, on and accent or labelColor)
+            if cb.button.SetShown then cb.button:SetShown(not editorOpen) end
         end
+        customCard.paint(
+            (id == "custom" or editorOpen) and blendColor(window, accent, 0.18) or cardSurface,
+            0.92,
+            (id == "custom" or editorOpen) and accent or border,
+            0.85
+        )
+        uiFont(customLabel, ink, 11, (id == "custom" or editorOpen) and accent or textColor)
+        if customBtn.SetShown then customBtn:SetShown(not editorOpen) end
+
         for i = 1, #entries do
             local entry = entries[i]
             local staged = ns.staged
@@ -2510,42 +2657,22 @@ local function buildList(row)
             local nameColor = textColor
             local moodColor = labelColor
             local markColor = waiting and labelColor or accent
-            if type(entry.wash.SetColorTexture) == "function" then
-                local fill = window
-                local alpha = 0.85
-                if on or waiting then
-                    local base = (rowPalette and (rowPalette.window or rowPalette.background)) or window
-                    local inks = {}
-                    if rowPalette and rowPalette.title then inks[#inks + 1] = rowPalette.title end
-                    if rowPalette and rowPalette.text then inks[#inks + 1] = rowPalette.text end
-                    inks[#inks + 1] = { 0.95, 0.91, 0.86 }
-                    local wash, light = cueColor, inks[#inks]
-                    if type(ns.accentWash) == "function" then
-                        wash, light = ns.accentWash(cueColor, base, inks)
-                    end
-                    fill = wash
-                    alpha = 1
-                    nameColor, moodColor, markColor = light, light, light
-                elseif hot then
-                    fill = (rowPalette and rowPalette.band) or (p and p.band) or window
-                    alpha = 0.95
-                end
-                entry.wash:SetColorTexture(fill[1], fill[2], fill[3], alpha)
+
+            if on or waiting then
+                entry.card.paint(blendColor(window, cueColor, 0.16), 0.96, cueColor, 0.95)
+                nameColor, markColor = textColor, cueColor
+            elseif hot then
+                entry.card.paint(cardHover, 0.94, blendColor(border, cueColor, 0.55), 0.85)
+            else
+                entry.card.paint(cardSurface, 0.86, border, 0.55)
             end
-            if entry.cue then
-                if on or waiting then
-                    paintSwatch(entry.cue, cueColor)
-                    if entry.cue.Show then entry.cue:Show() end
-                elseif entry.cue.Hide then
-                    entry.cue:Hide()
-                end
-            end
+
             if on and entry.check and type(entry.check.SetVertexColor) == "function" then
                 entry.check:SetVertexColor(markColor[1], markColor[2], markColor[3], 1)
             end
-            uiFont(entry.nameText, ink, 13, nameColor)
-            uiFont(entry.moodText, ink, 12, moodColor)
-            uiFont(entry.onText, ink, 12, markColor)
+            uiFont(entry.nameText, ink, 12, nameColor)
+            uiFont(entry.moodText, ink, 11, moodColor)
+            uiFont(entry.onText, ink, 10, markColor)
             entry.nameText:SetText(entry.name)
             entry.moodText:SetText(entry.mood)
             if entry.check and entry.check.Hide then entry.check:Hide() end
@@ -2566,18 +2693,26 @@ local function buildList(row)
                 paintSwatch(entry.accentSwatch, palette and accentBlock(palette))
             end
         end
+
+        local focusPal = (hoverId and hoverId ~= "custom" and ns.byId[hoverId]) or p
+        uiFont(descStrip, ink, 11, labelColor)
+        if hoverId == "custom" then
+            descStrip:SetText("Custom:  " .. CUSTOM_DESC)
+        elseif focusPal then
+            descStrip:SetText(focusPal.name .. ":  " .. (focusPal.mood or ""))
+        else
+            descStrip:SetText("Pick a palette to preview it on DaylightUI.")
+        end
+        if descStrip.SetShown then descStrip:SetShown(not editorOpen) end
+
+        layoutGrid()
         uiFont(combatNote, ink, 12, labelColor)
-        local editorOpen = editorOn == true and type(row.palettesEditor) == "table"
         if combatNote.SetShown then
             combatNote:SetShown((waitingPick or heldPaint == true) and not editorOpen)
         end
-        local function showRow(widget, on)
-            if type(widget) == "table" and widget.SetShown then widget:SetShown(on) end
+        if type(row.palettesEditor) == "table" and row.palettesEditor.SetShown then
+            row.palettesEditor:SetShown(editorOpen)
         end
-        showRow(note, not editorOpen)
-        for i = 1, #headers do showRow(headers[i], not editorOpen) end
-        for i = 1, #entries do showRow(entries[i].button, not editorOpen) end
-        showRow(row.palettesEditor, editorOpen)
         if not editorOpen and type(row.palettesAsk) == "table" and row.palettesAsk.Hide then
             row.palettesAsk:Hide()
         end
@@ -2700,14 +2835,16 @@ end
 local function buildPageShare(row)
     if row.made or type(CreateFrame) ~= "function" then return end
     row.made = true
+    local d = dui()
+    local W = type(d) == "table" and type(d.Widgets) == "table" and d.Widgets or nil
     local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     if type(label) == "table" then
         if label.SetText then label:SetText("Share code") end
         if label.SetPoint then label:SetPoint("LEFT", row, "LEFT", 8, 0) end
     end
-    local field = CreateFrame("EditBox", nil, row)
-    local copyButton = CreateFrame("Button", nil, row)
-    local applyButton = CreateFrame("Button", nil, row)
+    local field = (W and type(W.Input) == "function" and W.Input(row, { height = 22, maxLetters = 80 })) or CreateFrame("EditBox", nil, row)
+    local copyButton = (W and type(W.Button) == "function" and W.Button(row, "Copy", 22)) or CreateFrame("Button", nil, row)
+    local applyButton = (W and type(W.Button) == "function" and W.Button(row, "Apply", 22)) or CreateFrame("Button", nil, row)
     local note = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     if type(field) == "table" and field.SetPoint then
         field:SetPoint("LEFT", row, "LEFT", 110, 0)
@@ -2716,6 +2853,7 @@ local function buildPageShare(row)
         if field.SetMaxLetters then field:SetMaxLetters(80) end
     end
     if type(copyButton) == "table" and copyButton.SetPoint then
+        if copyButton.FitWidth then copyButton.FitWidth(64) elseif copyButton.SetSize then copyButton:SetSize(64, 22) end
         copyButton:SetPoint("LEFT", field, "RIGHT", 8, 0)
         buttonWords(copyButton, "Copy")
         if copyButton.SetScript then
@@ -2740,6 +2878,7 @@ local function buildPageShare(row)
         end
     end
     if type(applyButton) == "table" and applyButton.SetPoint then
+        if applyButton.FitWidth then applyButton.FitWidth(64) elseif applyButton.SetSize then applyButton:SetSize(64, 22) end
         applyButton:SetPoint("LEFT", copyButton, "RIGHT", 6, 0)
         buttonWords(applyButton, "Apply")
         if applyButton.SetScript then
@@ -2862,6 +3001,7 @@ local function boot()
                 -- fits. The trailing space is the glyph that gets clipped, so the
                 -- period stays on every load.
                 desc = "Presets set a palette and a frame look. ",
+                sample = makePlayerSample,
                 groups = groups,
             },
         } },

@@ -1573,25 +1573,26 @@ end
 local function makePill(parent, label)
     local hold = CreateFrame("Frame", nil, parent)
     hold:SetHeight(16)
-    local edge = hold:CreateTexture(nil, "BACKGROUND")
-    if type(edge.SetColorTexture) == "function" then
-        edge:SetColorTexture(0.55, 0.40, 0.22, 1)
+    local pillCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(hold) or nil
+    if pillCard then
+        pillCard.paint({ 0.14, 0.16, 0.14 }, 0.85, { 0.32, 0.38, 0.32 }, 0.70)
+    else
+        local edge = hold:CreateTexture(nil, "BACKGROUND")
+        if type(edge.SetColorTexture) == "function" then edge:SetColorTexture(0.32, 0.38, 0.32, 0.8) end
+        if edge.SetAllPoints then edge:SetAllPoints() end
+        local fill = hold:CreateTexture(nil, "BORDER")
+        if type(fill.SetColorTexture) == "function" then fill:SetColorTexture(0.14, 0.16, 0.14, 0.9) end
+        if fill.SetPoint then
+            fill:SetPoint("TOPLEFT", hold, "TOPLEFT", 1, -1)
+            fill:SetPoint("BOTTOMRIGHT", hold, "BOTTOMRIGHT", -1, 1)
+        end
     end
-    if edge.SetAllPoints then edge:SetAllPoints() end
-    local fill = hold:CreateTexture(nil, "BORDER")
-    if type(fill.SetColorTexture) == "function" then
-        fill:SetColorTexture(0.24, 0.17, 0.12, 1)
-    end
-    if fill.SetPoint then
-        fill:SetPoint("TOPLEFT", hold, "TOPLEFT", 1, -1)
-        fill:SetPoint("BOTTOMRIGHT", hold, "BOTTOMRIGHT", -1, 1)
-    end
-    local fs = uiFont(hold, 11, CREAM)
+    local fs = uiFont(hold, 10, CREAM)
     fs:SetText(label)
-    local width = 12 + string.len(label) * 6
+    local width = 10 + string.len(label) * 5
     if type(fs.GetStringWidth) == "function" then
         local sw = fs:GetStringWidth()
-        if type(sw) == "number" and sw > 8 then width = sw + 12 end
+        if type(sw) == "number" and sw > 8 then width = sw + 10 end
     end
     hold:SetWidth(width)
     fs:ClearAllPoints()
@@ -1599,26 +1600,36 @@ local function makePill(parent, label)
     return hold, fs
 end
 
+local CARD_GAP_X = 8
+local CARD_GAP_Y = 6
+local PRESET_CARD_H = 50
+local LOOK_CARD_H = 58
+
 local function styleRows(row, entries)
     row.lines = row.lines or {}
     local built = {}
     for i = 1, #entries do
         local entry = entries[i]
+        local isPreset = entry.paletteName ~= nil
+        local cardH = isPreset and PRESET_CARD_H or LOOK_CARD_H
         local hold = CreateFrame("Button", nil, row)
-        hold:SetHeight(entry.rowH or STYLE_H)
-        local hi = hold:CreateTexture(nil, "BACKGROUND")
-        if type(hi.SetColorTexture) == "function" then
-            hi:SetColorTexture(ROW_REST[1], ROW_REST[2], ROW_REST[3], ROW_REST[4])
+        hold:SetHeight(cardH)
+        local card = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(hold) or nil
+        local hi = card and card.fill or hold:CreateTexture(nil, "BACKGROUND")
+        if not card then
+            if type(hi.SetColorTexture) == "function" then
+                hi:SetColorTexture(ROW_REST[1], ROW_REST[2], ROW_REST[3], ROW_REST[4])
+            end
+            hi:SetAllPoints()
+            hi:Hide()
         end
-        hi:SetAllPoints()
-        hi:Hide()
         local icon = drawIcon(hold, entry.icon or {})
-        local name = uiFont(hold, 13, CREAM)
+        local name = uiFont(hold, 12, CREAM)
         name:SetText(entry.name)
         if type(name.SetWordWrap) == "function" then name:SetWordWrap(false) end
         local desc = uiFont(hold, 11, DIM)
         desc:SetText(entry.desc)
-        if type(desc.SetWordWrap) == "function" then desc:SetWordWrap(false) end
+        if type(desc.SetWordWrap) == "function" then desc:SetWordWrap(not isPreset) end
         local pillA, pillAText, pillB, pillBText
         if entry.paletteName then
             pillA, pillAText = makePill(hold, entry.paletteName)
@@ -1637,12 +1648,12 @@ local function styleRows(row, entries)
         cue:SetPoint("BOTTOMLEFT", hold, "BOTTOMLEFT", 0, 0)
         if cue.Hide then cue:Hide() end
         local check = drawCheck(hold)
-        local onText = uiFont(hold, 12, ON_INK)
+        local onText = uiFont(hold, 11, ON_INK)
         onText:SetText("")
         onText:Hide()
         local line = {
             id = entry.id, kind = entry.kind, name = name, baseName = entry.name,
-            mood = entry.desc, preview = preview, rowH = entry.rowH,
+            mood = entry.desc, preview = preview, rowH = cardH,
             button = hold, paletteId = entry.palette,
             palettePill = pillAText, lookPill = pillBText,
         }
@@ -1667,9 +1678,16 @@ local function styleRows(row, entries)
             local screenId = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
             local screen = paletteOf(screenId)
             local surface = screen or own
-            local rest = (surface and (surface.window or surface.background)) or ROW_REST
-            local hover = (surface and (surface.control or surface.band)) or ROW_HOVER
+            local win = (surface and (surface.window or surface.background)) or { 0.08, 0.10, 0.08 }
+            local bnd = (surface and surface.band) or { 0.14, 0.18, 0.14 }
+            local brd = (surface and surface.border) or { 0.22, 0.28, 0.22 }
+            local blend = type(ns.blendColor) == "function" and ns.blendColor or function(a) return a end
+            local rest = blend(win, bnd, 0.26)
+            local hover = blend(win, bnd, 0.55)
             local color = rest
+            local lineColor = brd
+            local fillAlpha = 0.86
+            local lineAlpha = 0.55
             local light
             local edge
             if line.markOn or line.markPending then
@@ -1685,16 +1703,26 @@ local function styleRows(row, entries)
                 else
                     color, light = ROW_PICK, CREAM
                 end
+                lineColor = accent
+                fillAlpha = 1
+                lineAlpha = 0.95
                 edge = accent
             elseif line.hover then
+                local source = own or screen
+                local accent = (source and source.c2) or { 0.91, 0.63, 0.29 }
                 color = hover
+                lineColor = blend(brd, accent, 0.50)
+                fillAlpha = 0.94
+                lineAlpha = 0.85
             end
             line.washColor = color
             line.ink = light
-            if type(hi.SetColorTexture) == "function" then
-                hi:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
+            if card then
+                card.paint(color, fillAlpha, lineColor, lineAlpha)
+            elseif type(hi.SetColorTexture) == "function" then
+                hi:SetColorTexture(color[1], color[2], color[3], fillAlpha)
+                if hi.Show then hi:Show() end
             end
-            if hi.Show then hi:Show() end
             if key.Hide then key:Hide() end
             if check.Hide then check:Hide() end
             if cue.Hide then cue:Hide() end
@@ -1710,8 +1738,8 @@ local function styleRows(row, entries)
                 end
                 if cue.Show then cue:Show() end
             else
-                tint(name, CREAM)
-                tint(desc, DIM)
+                tint(name, (surface and surface.text) or CREAM)
+                tint(desc, (surface and surface.label) or DIM)
             end
             if line.markPending then
                 onText:SetText("PENDING")
@@ -1750,60 +1778,69 @@ local function placeStyles(row, intro, heads, rows, hintText, combatNote, introH
     local w = row:GetWidth()
     if type(w) ~= "number" or w < 120 then w = 760 end
     intro:ClearAllPoints()
-    intro:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
-    intro:SetWidth(w)
-    local y = introH or INTRO_H
+    intro:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -2)
+    intro:SetWidth(w - 8)
+    local y = (introH or 22) + 4
+    local cols = w >= 520 and 2 or 1
+    local cardW = math.floor((w - 8 - (cols - 1) * CARD_GAP_X) / cols)
+
     local function placeHead(fs)
-        fs:ClearAllPoints()
-        fs:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -y)
-        y = y + HEAD_H
+        if fs.Hide then fs:Hide() end
     end
     local function placeList(list)
+        if #list == 0 then return end
+        local cardH = list[1].line.rowH or LOOK_CARD_H
         for i = 1, #list do
             local s = list[i]
+            local idx = i - 1
+            local r = math.floor(idx / cols)
+            local c = idx - r * cols
+            local x = 4 + c * (cardW + CARD_GAP_X)
+            local cy = y + r * (cardH + CARD_GAP_Y)
             s.hold:ClearAllPoints()
-            s.hold:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -y)
-            s.hold:SetWidth(w)
+            s.hold:SetPoint("TOPLEFT", row, "TOPLEFT", x, -cy)
+            s.hold:SetWidth(cardW)
             s.icon:ClearAllPoints()
-            s.icon:SetPoint("LEFT", s.hold, "LEFT", 0, 0)
-            local textX = 44
-            if s.swatch then
-                s.swatch:ClearAllPoints()
-                s.swatch:SetPoint("LEFT", s.icon, "RIGHT", 6, 0)
-                textX = 94
-            end
             s.name:ClearAllPoints()
             s.desc:ClearAllPoints()
             if s.pillA then
-                s.name:SetPoint("TOPLEFT", s.hold, "TOPLEFT", textX, -6)
-                local nameW = 96
+                s.icon:SetPoint("TOPLEFT", s.hold, "TOPLEFT", 8, -8)
+                local textX = 48
+                if s.swatch then
+                    s.swatch:ClearAllPoints()
+                    s.swatch:SetPoint("TOPRIGHT", s.hold, "TOPRIGHT", -26, -8)
+                end
+                s.name:SetPoint("TOPLEFT", s.hold, "TOPLEFT", textX, -7)
+                local nameW = 80
                 if type(s.name.GetStringWidth) == "function" then
                     local sw = s.name:GetStringWidth()
-                    if type(sw) == "number" and sw > 24 then nameW = sw + 4 end
+                    if type(sw) == "number" and sw > 20 then nameW = sw + 4 end
                 end
                 s.name:SetWidth(nameW)
                 s.pillA:ClearAllPoints()
-                s.pillA:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
+                s.pillA:SetPoint("LEFT", s.name, "RIGHT", 6, 0)
                 s.pillB:ClearAllPoints()
-                s.pillB:SetPoint("LEFT", s.pillA, "RIGHT", 6, 0)
-                s.desc:SetPoint("TOPLEFT", s.name, "BOTTOMLEFT", 0, -4)
-                s.desc:SetWidth(math.max(80, w - textX - 36))
+                s.pillB:SetPoint("LEFT", s.pillA, "RIGHT", 4, 0)
+                s.desc:SetPoint("TOPLEFT", s.hold, "TOPLEFT", textX, -27)
+                s.desc:SetWidth(math.max(80, cardW - textX - 24))
             else
+                s.icon:SetPoint("TOPLEFT", s.hold, "TOPLEFT", 10, -8)
                 s.name:SetPoint("LEFT", s.icon, "RIGHT", 8, 0)
-                s.name:SetWidth(160)
-                s.desc:SetPoint("LEFT", s.name, "RIGHT", 8, 0)
-                s.desc:SetWidth(math.max(40, w - 160 - 36 - 72))
+                s.name:SetWidth(math.max(80, cardW - 86))
+                s.desc:SetPoint("TOPLEFT", s.hold, "TOPLEFT", 10, -28)
+                s.desc:SetWidth(math.max(80, cardW - 28))
             end
             s.key:ClearAllPoints()
             s.onText:ClearAllPoints()
             if s.key.Hide then s.key:Hide() end
-            s.onText:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
+            s.onText:SetPoint("TOPRIGHT", s.hold, "TOPRIGHT", -8, -8)
             if s.check then
                 s.check:ClearAllPoints()
-                s.check:SetPoint("RIGHT", s.hold, "RIGHT", -10, 0)
+                s.check:SetPoint("TOPRIGHT", s.hold, "TOPRIGHT", -6, -7)
             end
-            y = y + (s.line.rowH or STYLE_H)
         end
+        local rowCount = math.ceil(#list / cols)
+        y = y + rowCount * (cardH + CARD_GAP_Y)
     end
     for i = 1, #heads do
         placeHead(heads[i])
@@ -1811,12 +1848,12 @@ local function placeStyles(row, intro, heads, rows, hintText, combatNote, introH
     end
     if hintText then
         hintText.hold:ClearAllPoints()
-        hintText.hold:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -(y + 6))
-        hintText.hold:SetWidth(w)
+        hintText.hold:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -(y + 6))
+        hintText.hold:SetWidth(w - 8)
     end
     if combatNote then
         combatNote:ClearAllPoints()
-        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -(y + (hintText and (HINT_H + 8) or 4)))
+        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -(y + (hintText and (HINT_H + 8) or 4)))
     end
 end
 
@@ -1824,7 +1861,7 @@ local function buildListPage(row, spec)
     if row.made or type(CreateFrame) ~= "function" then return end
     row.made = true
     row.lines = {}
-    local intro = uiFont(row, 12, DIM)
+    local intro = uiFont(row, 11, DIM)
     intro:SetText(spec.intro)
     intro:SetWordWrap(true)
     local heads, groups = {}, {}
@@ -1839,7 +1876,6 @@ local function buildListPage(row, spec)
     if spec.hint then
         local hold = CreateFrame("Frame", nil, row)
         hold:SetHeight(HINT_H)
-        -- One line of hint, then the list ends. The old 58px well left a blank band.
         flat(hold, "BACKGROUND", HINT_EDGE)
         local hintFill = hold:CreateTexture(nil, "BORDER")
         if type(hintFill.SetColorTexture) == "function" then
@@ -1901,9 +1937,12 @@ local function listHeight(sections, withHint, introH)
     local rowsH = 0
     for i = 1, #sections do
         local section = sections[i]
-        rowsH = rowsH + #section.rows * (section.rowH or STYLE_H)
+        local isPreset = section.rows[1] and section.rows[1].paletteName ~= nil
+        local cardH = isPreset and PRESET_CARD_H or LOOK_CARD_H
+        local gridRows = math.ceil(#section.rows / 2)
+        rowsH = rowsH + gridRows * (cardH + CARD_GAP_Y)
     end
-    return (introH or INTRO_H) + #sections * HEAD_H + rowsH + (withHint and (HINT_H + 4) or 4) + 8
+    return (introH or 22) + rowsH + (withHint and (HINT_H + 8) or 8) + 8
 end
 
 local function hiddenStyles()
