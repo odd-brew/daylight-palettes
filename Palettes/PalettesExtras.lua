@@ -165,6 +165,11 @@ local function barPairs(id)
         units[#units + 1] = "focus"
         units[#units + 1] = "targettarget"
     end
+    local includeGroup = select(1, readSetting("Palettes", "scopeGroup")) == true
+    if includeGroup then
+        units[#units + 1] = "party"
+        units[#units + 1] = "raid"
+    end
     local list = {}
     for i = 1, #units do
         local u = units[i]
@@ -181,6 +186,7 @@ local function barPairs(id)
     end
     -- Cast bars follow the same BarFx motion.
     local castUnits = { "playerCastbar", "targetCastbar" }
+    if includeGroup then castUnits[#castUnits + 1] = "partyCastbar" end
     for i = 1, #castUnits do
         local cu = castUnits[i]
         list[#list + 1] = { cu .. ".barFx.cast.style", spec.fx }

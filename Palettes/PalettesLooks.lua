@@ -208,6 +208,26 @@ for fu = 1, #FOCUS_UNITS do
     for fi = 1, #pairsForUnit do FOCUS_KEYS[#FOCUS_KEYS + 1] = pairsForUnit[fi][1] end
 end
 
+-- Party & Raid frames styled only when the user opts into "Also style Party & Raid frames".
+-- Only shell border/corner/shadow are written so group widths, heights, and grid layout stay intact.
+local GROUP_UNITS = { "party", "raid" }
+local GROUP_KEYS = {}
+
+local function groupStylePairs(unit, spec)
+    local list = {}
+    local function put(key, value) list[#list + 1] = { unit .. "." .. key, value } end
+    put("shell.own", true)
+    put("shell.borderPx", spec.border)
+    put("shell.cornerPx", spec.corner)
+    put("shell.shadowPx", spec.shadow)
+    return list
+end
+
+for gu = 1, #GROUP_UNITS do
+    local pairsForGroup = groupStylePairs(GROUP_UNITS[gu], LOOK_SPECS.flagon)
+    for gi = 1, #pairsForGroup do GROUP_KEYS[#GROUP_KEYS + 1] = pairsForGroup[gi][1] end
+end
+
 -- FRAME_KEYS is the one key list every look fills. The sizes keys keep a style
 -- swap from writing old heights back over a look. Flagon alone adds the extras.
 local FRAME_KEYS = {}
@@ -601,8 +621,12 @@ local function scopeFocusOn()
     return select(1, readSetting("Palettes", "scopeFocus")) == true
 end
 
+local function scopeGroupOn()
+    return select(1, readSetting("Palettes", "scopeGroup")) == true
+end
+
 -- The live value of every key Palettes may write: the look keys, both sizes
--- sets, the Flagon extras, and Focus/ToT keys when opted in. Nothing else is read.
+-- sets, the Flagon extras, and Focus/ToT/Party/Raid keys when opted in.
 local function readFrameValues()
     local d = DaylightUI
     if type(d) ~= "table" or type(d.Get) ~= "function" then return nil end
@@ -610,6 +634,7 @@ local function readFrameValues()
     readValues(SIZE_KEYS, values)
     readValues(EXTRA_KEYS, values)
     if scopeFocusOn() then readValues(FOCUS_KEYS, values) end
+    if scopeGroupOn() then readValues(GROUP_KEYS, values) end
     if next(values) == nil then return nil end
     return values
 end
@@ -641,6 +666,12 @@ local function lookPairs(id)
             for i = 1, #fp do list[#list + 1] = fp[i] end
         end
     end
+    if scopeGroupOn() and LOOK_SPECS[id] then
+        for u = 1, #GROUP_UNITS do
+            local gp = groupStylePairs(GROUP_UNITS[u], LOOK_SPECS[id])
+            for i = 1, #gp do list[#list + 1] = gp[i] end
+        end
+    end
     return list
 end
 
@@ -666,7 +697,7 @@ end
 local function writeFrameValues(values)
     if type(values) ~= "table" then return true end
     local list = {}
-    local sets = { SIZE_KEYS, FRAME_KEYS, EXTRA_KEYS, FOCUS_KEYS }
+    local sets = { SIZE_KEYS, FRAME_KEYS, EXTRA_KEYS, FOCUS_KEYS, GROUP_KEYS }
     for s = 1, #sets do
         for i = 1, #sets[s] do
             local key = sets[s][i]
@@ -872,6 +903,10 @@ local function previewPairs(id, targets)
     if scopeFocusOn() then
         want["focus."] = true
         want["targettarget."] = true
+    end
+    if scopeGroupOn() then
+        want["party."] = true
+        want["raid."] = true
     end
     local all = lookPairs(id)
     if id == "flagon" then
@@ -2524,6 +2559,13 @@ function ns.looksPage()
                         key = "scopeFocus",
                         label = "Also style Focus & Target of Target",
                         desc = "Applies the picked look's frame style, border, tab, and portrait to Focus and Target of Target without changing their widths.",
+                        hidden = hiddenStyles,
+                    },
+                    {
+                        type = "toggle",
+                        key = "scopeGroup",
+                        label = "Also style Party & Raid frames",
+                        desc = "Applies the picked look's border, corners, shadow, and bar finish to Party and Raid frames without changing their layout or sizes.",
                         hidden = hiddenStyles,
                     },
                 },

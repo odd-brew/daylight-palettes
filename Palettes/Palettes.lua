@@ -1549,8 +1549,9 @@ function onSettingRun(scope, path)
         end
         return
     end
-    if scope == "Palettes" and path == "scopeFocus" then
+    if scope == "Palettes" and (path == "scopeFocus" or path == "scopeGroup") then
         if type(ns.RevertPreview) == "function" then pcall(ns.RevertPreview) end
+        if type(ns.RevertAllExtrasPreview) == "function" then pcall(ns.RevertAllExtrasPreview) end
         if type(ns.notePreview) == "function" then pcall(ns.notePreview) end
         return
     end
@@ -2288,9 +2289,11 @@ local function makePlayerSample(parent)
     local targetS = createSub("UnitFrames.target", container)
     local focusS = createSub("UnitFrames.focus", container)
     local totS = createSub("UnitFrames.targettarget", container)
+    local partyS = createSub("UnitFrames.party", container)
+    local raidS = createSub("UnitFrames.raid", container)
     local castsS = createSub("UnitFrames.castbars", container)
 
-    local allSubs = { playerS, targetS, focusS, totS, castsS }
+    local allSubs = { playerS, targetS, focusS, totS, partyS, raidS, castsS }
     local activeView = "frames"
 
     local function showDeckOnTab()
@@ -2346,6 +2349,15 @@ local function makePlayerSample(parent)
         return h
     end
 
+    local function layoutSingle(s, w, room)
+        if s.frame.Show then s.frame:Show() end
+        local h = s.Refresh(w, room) or 0
+        container:SetSize(w, h)
+        s.frame:ClearAllPoints()
+        s.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+        return h
+    end
+
     return {
         frame = container,
         hint = "Live preview of your frames. Switch views at top right, pick a preset or look below, then click Apply.",
@@ -2355,6 +2367,12 @@ local function makePlayerSample(parent)
             if focusS then
                 list[#list + 1] = { key = "focus", label = totS and "Focus & ToT" or "Focus", on = activeView == "focus" }
             end
+            if partyS then
+                list[#list + 1] = { key = "party", label = "Party", on = activeView == "party" }
+            end
+            if raidS then
+                list[#list + 1] = { key = "raid", label = "Raid", on = activeView == "raid" }
+            end
             if castsS then
                 list[#list + 1] = { key = "casts", label = "Cast Bars", on = activeView == "casts" }
             end
@@ -2363,6 +2381,10 @@ local function makePlayerSample(parent)
         SetView = function(key)
             if key == "focus" and focusS then
                 activeView = "focus"
+            elseif key == "party" and partyS then
+                activeView = "party"
+            elseif key == "raid" and raidS then
+                activeView = "raid"
             elseif key == "casts" and castsS then
                 activeView = "casts"
             else
@@ -2382,13 +2404,12 @@ local function makePlayerSample(parent)
             if not showDeckOnTab() then return 0 end
             if activeView == "focus" and focusS then
                 return layoutPair(focusS, totS, w, room)
+            elseif activeView == "party" and partyS then
+                return layoutSingle(partyS, w, room)
+            elseif activeView == "raid" and raidS then
+                return layoutSingle(raidS, w, room)
             elseif activeView == "casts" and castsS then
-                if castsS.frame.Show then castsS.frame:Show() end
-                local h = castsS.Refresh(w, room) or 0
-                container:SetSize(w, h)
-                castsS.frame:ClearAllPoints()
-                castsS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
-                return h
+                return layoutSingle(castsS, w, room)
             end
             return layoutPair(playerS, targetS, w, room)
         end,
@@ -2918,7 +2939,7 @@ local function boot()
         defaults = {
             palette = "off", classAccent = false, only = false, carried = false,
             theme = false, themeChanged = false, frame = false, looks = false,
-            scopeFocus = false,
+            scopeFocus = false, scopeGroup = false,
         },
         OnEnable = onEnable,
         options = { pages = {
