@@ -1,28 +1,129 @@
--- Curated Bar Finishes, Action Bar Button Looks, and User-Saved Presets.
--- Everything previews via DaylightUI's temporary Override handles and snapshots
--- the player's prior values before writing so Reset Looks / Restore Daylight
--- always puts their own settings back untouched.
+-- Curated Looks for Focus, Target of Target, Party, Raid, Cast Bars, and Action Bars,
+-- plus Full-UI Preset recipes and User-Saved Presets.
+-- Everything previews via DaylightUI's temporary Override handles and snapshots the
+-- player's prior values before writing so Reset Looks / Restore Daylight restores cleanly.
 local _, ns = ...
 
-local BAR_FINISHES = {
+local FOCUS_LOOKS = {
+    {
+        id = "match", name = "Match Player & Target",
+        desc = "Mirrors your active Player & Target frame look onto Focus without changing its width.",
+        matchPT = true,
+    },
+    {
+        id = "compact_beam", name = "Compact Beam",
+        desc = "Sturdy dark name tab, crisp 2px border, and angled 2.0 portrait for a clear focus monitor.",
+        style = "daylight", slant = true, border = 2, corner = 6, shadow = 8,
+        tabWidth = "full", tabSlant = true, tabCorner = 4, tabShadow = 4,
+        portrait = "2d", portraitLook = "2.0", portraitShape = "square", ring = "class", ringWidth = 2,
+        nameOnBar = false, namePos = "outer", bigNumber = false,
+    },
+    {
+        id = "slim_ribbon", name = "Slim Ribbon",
+        desc = "Low-profile Ribbon bar with a floating name row, thin power underline, and rounded portrait.",
+        style = "ribbon", slant = true, border = 1, corner = 4, shadow = 4,
+        tabWidth = "fit", tabSlant = false, tabCorner = 4, tabShadow = 0,
+        portrait = "2d", portraitLook = "2.0", portraitShape = "round", ring = "class", ringWidth = 2,
+        nameOnBar = false, namePos = "outer", bigNumber = false,
+    },
+    {
+        id = "minimal_slate", name = "Minimal Slate",
+        desc = "Portrait-free sharp square Ribbon bar focused purely on health and cast readability.",
+        style = "ribbon", slant = false, border = 1, corner = 0, shadow = 0,
+        tabWidth = "fit", tabSlant = false, tabCorner = 0, tabShadow = 0,
+        portrait = "none", portraitLook = "2.0", portraitShape = "square", ring = "none", ringWidth = 0,
+        nameOnBar = true, namePos = "outer", bigNumber = false,
+    },
+}
+
+local TOT_LOOKS = {
+    {
+        id = "match", name = "Match Player & Target",
+        desc = "Shares border, corners, and bar style with your active Player & Target look.",
+        matchPT = true,
+    },
+    {
+        id = "compact_pill", name = "Compact Pill",
+        desc = "Soft rounded miniature frame with centered target name and subtle shadow.",
+        style = "daylight", slant = false, border = 2, corner = 8, shadow = 6,
+    },
+    {
+        id = "slim_bar", name = "Slim Bar",
+        desc = "Ultra-thin Ribbon bar with crisp 1px border and zero clutter.",
+        style = "ribbon", slant = false, border = 1, corner = 2, shadow = 0,
+    },
+    {
+        id = "crisp_square", name = "Crisp Square",
+        desc = "Sharp-cornered utility tile built for tanks and healers watching target swaps.",
+        style = "daylight", slant = false, border = 2, corner = 0, shadow = 2,
+    },
+}
+
+local PARTY_LOOKS = {
+    {
+        id = "standard", name = "Daylight Standard",
+        desc = "Warm rounded borders with subtle shadow and balanced spacing.",
+        border = 2, corner = 6, shadow = 8, texture = "daylight",
+    },
+    {
+        id = "compact", name = "Clean Compact",
+        desc = "Tight 1px crisp edges for streamlined 5-man dungeon readability.",
+        border = 1, corner = 2, shadow = 0, texture = "silk",
+    },
+    {
+        id = "healer", name = "Healer Grid",
+        desc = "High-contrast dark matte tiles with bold borders so debuffs pop immediately.",
+        border = 2, corner = 4, shadow = 4, texture = "daylight",
+    },
+    {
+        id = "framed", name = "Framed Classic",
+        desc = "Heavier 3px sculpted rim with deep shadow for a classic RPG party feel.",
+        border = 3, corner = 6, shadow = 12, texture = "brushed",
+    },
+}
+
+local RAID_LOOKS = {
+    {
+        id = "tiles", name = "Daylight Tiles",
+        desc = "Soft rounded raid tiles with clean 2px borders.",
+        border = 2, corner = 5, shadow = 6, texture = "daylight",
+    },
+    {
+        id = "tight", name = "Tight Raid Grid",
+        desc = "Razor 1px square edges built for 20- and 40-man raid clarity.",
+        border = 1, corner = 0, shadow = 0, texture = "daylight",
+    },
+    {
+        id = "matte", name = "Bordered Matte",
+        desc = "Smooth matte fill with crisp dark outlines for instant health scanning.",
+        border = 2, corner = 2, shadow = 2, texture = "silk",
+    },
+    {
+        id = "framed", name = "Sculpted Rim",
+        desc = "Warm 3px rim and subtle shadow matching classic RPG presets.",
+        border = 3, corner = 4, shadow = 8, texture = "brushed",
+    },
+}
+
+local CAST_LOOKS = {
     {
         id = "matte", name = "Clean Matte",
-        desc = "Smooth Daylight bars with zero fill animation.",
+        desc = "Smooth Daylight bar texture with zero fill animation across all cast bars.",
         texture = "daylight", fx = "none",
     },
     {
         id = "silk", name = "Silk Sheen",
-        desc = "Soft woven silk texture for a refined, calm bar.",
+        desc = "Soft woven silk texture for a calm, refined cast bar.",
         texture = "silk", fx = "none",
     },
     {
         id = "brushed", name = "Brushed Metal",
-        desc = "Fine horizontal brushed grain with subtle depth.",
+        desc = "Fine horizontal brushed grain with subtle metallic depth.",
         texture = "brushed", fx = "none",
     },
     {
         id = "flow", name = "Living Flow",
-        desc = "Gentle liquid motion across health and cast bars.",
+        desc = "Gentle liquid light flowing steadily across health and cast bars.",
         texture = "daylight", fx = "flow",
     },
     {
@@ -40,7 +141,7 @@ local BAR_FINISHES = {
 local BUTTON_LOOKS = {
     {
         id = "classic", name = "Daylight Classic",
-        desc = "Warm Daylight rim with soft rounded corners and shadow.",
+        desc = "Warm 2px Daylight rim with soft rounded corners and shadow.",
         shape = "square", borderStyle = "daylight", border = 2, corners = "round", shadow = true, zoom = 0.06,
     },
     {
@@ -55,7 +156,7 @@ local BUTTON_LOOKS = {
     },
     {
         id = "heavy", name = "Heavy Rim",
-        desc = "Bold 4px framed square buttons with strong presence.",
+        desc = "Bold 4px framed square buttons with strong RPG presence.",
         shape = "square", borderStyle = "daylight", border = 4, corners = "square", shadow = true, zoom = 0.04,
     },
     {
@@ -70,27 +171,72 @@ local BUTTON_LOOKS = {
     },
 }
 
-local BAR_BY_ID, BUTTON_BY_ID = {}, {}
-for i = 1, #BAR_FINISHES do BAR_BY_ID[BAR_FINISHES[i].id] = BAR_FINISHES[i] end
-for i = 1, #BUTTON_LOOKS do BUTTON_BY_ID[BUTTON_LOOKS[i].id] = BUTTON_LOOKS[i] end
+local function indexById(list)
+    local t = {}
+    for i = 1, #list do t[list[i].id] = list[i] end
+    return t
+end
 
-ns.BAR_FINISHES = BAR_FINISHES
-ns.BAR_BY_ID = BAR_BY_ID
-ns.BUTTON_LOOKS = BUTTON_LOOKS
-ns.BUTTON_BY_ID = BUTTON_BY_ID
+ns.FOCUS_LOOKS, ns.FOCUS_BY_ID = FOCUS_LOOKS, indexById(FOCUS_LOOKS)
+ns.TOT_LOOKS, ns.TOT_BY_ID = TOT_LOOKS, indexById(TOT_LOOKS)
+ns.PARTY_LOOKS, ns.PARTY_BY_ID = PARTY_LOOKS, indexById(PARTY_LOOKS)
+ns.RAID_LOOKS, ns.RAID_BY_ID = RAID_LOOKS, indexById(RAID_LOOKS)
+ns.CAST_LOOKS, ns.CAST_BY_ID = CAST_LOOKS, indexById(CAST_LOOKS)
+ns.BAR_FINISHES, ns.BAR_BY_ID = CAST_LOOKS, ns.CAST_BY_ID
+ns.BUTTON_LOOKS, ns.BUTTON_BY_ID = BUTTON_LOOKS, indexById(BUTTON_LOOKS)
 
--- Preset pairings: gives each curated Preset a matching Bar Finish + Button Look.
+-- Complete 8-layer recipes & design rationales for all 10 curated Presets.
 ns.PRESET_EXTRAS = {
-    hearthnight = { bar = "molten",  button = "classic" },
-    harvestide  = { bar = "silk",    button = "classic" },
-    tidemark    = { bar = "tide",    button = "flat" },
-    oldroad     = { bar = "brushed", button = "heavy" },
-    vigil       = { bar = "silk",    button = "circle" },
-    snug        = { bar = "flow",    button = "circle" },
-    bellows     = { bar = "brushed", button = "heavy" },
-    drawwell    = { bar = "matte",   button = "flat" },
-    settle      = { bar = "matte",   button = "shield" },
-    afterhours  = { bar = "tide",    button = "borderless" },
+    hearthnight = {
+        focus = "compact_beam", tot = "compact_pill", party = "framed", raid = "framed",
+        castbars = "molten", actionbars = "classic",
+        why = "Tavern hearth warmth: Ember gold pairs with Beam's dark name tab, Molten Ember cast bars, and soft rounded Daylight Classic buttons.",
+    },
+    harvestide = {
+        focus = "slim_ribbon", tot = "compact_pill", party = "standard", raid = "tiles",
+        castbars = "silk", actionbars = "classic",
+        why = "Warm oak and pewter without heaviness: Stream's slim ribbon bars, Silk Sheen cast bars, and rounded Daylight buttons keep the UI airy.",
+    },
+    tidemark = {
+        focus = "minimal_slate", tot = "slim_bar", party = "compact", raid = "tight",
+        castbars = "tide", actionbars = "flat",
+        why = "Precision minimal UI: portrait-free Slate bars paired with 1px Crisp Flat buttons, Tight Raid Grid, and cool Tidal Glass shimmer.",
+    },
+    oldroad = {
+        focus = "compact_beam", tot = "crisp_square", party = "framed", raid = "framed",
+        castbars = "brushed", actionbars = "heavy",
+        why = "Weathered bronze and heavy iron for Forever nostalgia: Beam's solid bars meet Brushed Metal cast bars and bold 4px Heavy Rim buttons.",
+    },
+    vigil = {
+        focus = "slim_ribbon", tot = "compact_pill", party = "healer", raid = "matte",
+        castbars = "silk", actionbars = "circle",
+        why = "Built for healers and paladins: Stream's rounded portrait echoes circular Medallion buttons, with Healer Grid + Bordered Matte raid tiles.",
+    },
+    snug = {
+        focus = "match", tot = "compact_pill", party = "standard", raid = "tiles",
+        castbars = "flow", actionbars = "circle",
+        why = "Rich gilded curves throughout: Flagon's rounded portrait and Living Flow motion tie directly into circular Rounded Medallion buttons.",
+    },
+    bellows = {
+        focus = "compact_beam", tot = "crisp_square", party = "framed", raid = "matte",
+        castbars = "brushed", actionbars = "heavy",
+        why = "Industrial forge aesthetic: Trestle's named work-board frame, Brushed Metal cast bars, and Heavy Rim buttons give Forgeglow tactile punch.",
+    },
+    drawwell = {
+        focus = "minimal_slate", tot = "crisp_square", party = "compact", raid = "tight",
+        castbars = "matte", actionbars = "flat",
+        why = "Zero-distraction dungeon & raid workhorse: portrait-free Ledger bars, Clean Matte casts, Crisp Flat buttons, and Tight Raid Grid.",
+    },
+    settle = {
+        focus = "compact_beam", tot = "compact_pill", party = "framed", raid = "framed",
+        castbars = "matte", actionbars = "shield",
+        why = "Classic Azeroth RPG storytelling: aged brass and walnut paired with Beam frames, calm Matte cast bars, and Shield Crest buttons.",
+    },
+    afterhours = {
+        focus = "slim_ribbon", tot = "slim_bar", party = "compact", raid = "tight",
+        castbars = "tide", actionbars = "borderless",
+        why = "Sleek late-night minimalism: deep carmine chrome paired with Borderless Zoom icons so spell art floats cleanly over dark glass.",
+    },
 }
 
 local function dui()
@@ -156,200 +302,252 @@ local function extrasStore()
     return acc.extras
 end
 
--- Bar Finish pairs (UnitFrames scope).
-local function barPairs(id)
-    local spec = BAR_BY_ID[id]
-    if not spec then return {} end
-    local units = { "player", "target" }
-    if select(1, readSetting("Palettes", "scopeFocus")) == true then
-        units[#units + 1] = "focus"
-        units[#units + 1] = "targettarget"
+local function resolvePTSpec()
+    local ptId = type(ns.wornFrameId) == "function" and ns.wornFrameId() or nil
+    if type(ns.staged) == "table" then
+        if ns.staged.kind == "frame" then ptId = ns.staged.id
+        elseif ns.staged.kind == "theme" and type(ns.themeFrameId) == "function" then ptId = ns.themeFrameId(ns.staged.id)
+        elseif ns.staged.kind == "user_preset" and ns.staged.frame then ptId = ns.staged.frame end
     end
-    local includeGroup = select(1, readSetting("Palettes", "scopeGroup")) == true
-    if includeGroup then
-        units[#units + 1] = "party"
-        units[#units + 1] = "raid"
-    end
-    local list = {}
-    for i = 1, #units do
-        local u = units[i]
-        list[#list + 1] = { u .. ".media.health", spec.texture }
-        list[#list + 1] = { u .. ".media.healthBack", spec.texture }
-        list[#list + 1] = { u .. ".media.power", spec.texture }
-        list[#list + 1] = { u .. ".media.powerBack", spec.texture }
-        list[#list + 1] = { u .. ".barFx.health.style", spec.fx }
-        if spec.fx ~= "none" then
-            list[#list + 1] = { u .. ".barFx.health.speed", 1 }
-            list[#list + 1] = { u .. ".barFx.health.strength", 1 }
-            list[#list + 1] = { u .. ".barFx.health.colors", "bar" }
-        end
-    end
-    -- Cast bars follow the same BarFx motion.
-    local castUnits = { "playerCastbar", "targetCastbar" }
-    if includeGroup then castUnits[#castUnits + 1] = "partyCastbar" end
-    for i = 1, #castUnits do
-        local cu = castUnits[i]
-        list[#list + 1] = { cu .. ".barFx.cast.style", spec.fx }
-    end
-    return list
+    return (ptId and type(ns.LOOK_SPECS) == "table" and ns.LOOK_SPECS[ptId]) or (type(ns.LOOK_SPECS) == "table" and ns.LOOK_SPECS.beam) or FOCUS_LOOKS[2]
 end
 
--- Button Look pairs (ActionBars scope).
-local function buttonPairs(id)
-    local spec = BUTTON_BY_ID[id]
-    if not spec then return {} end
-    return {
-        { "look.shape", spec.shape },
-        { "look.borderStyle", spec.borderStyle },
-        { "look.border", spec.border },
-        { "look.corners", spec.corners },
-        { "look.shadow", spec.shadow },
-        { "look.zoom", spec.zoom },
-    }
-end
+local CATEGORY_CFG = {
+    focus = {
+        scope = "UnitFrames", byId = ns.FOCUS_BY_ID, storeKey = "focus", snapKey = "focusSnap",
+        pairs = function(id)
+            local spec = ns.FOCUS_BY_ID[id]
+            if not spec then return {} end
+            if spec.matchPT then spec = resolvePTSpec() end
+            return {
+                { "focus.style", spec.style or "daylight" },
+                { "focus.slant", spec.slant == true },
+                { "focus.shell.own", true },
+                { "focus.shell.borderPx", spec.border or 2 },
+                { "focus.shell.cornerPx", spec.corner or 4 },
+                { "focus.shell.shadowPx", spec.shadow or 6 },
+                { "focus.tab.own", true },
+                { "focus.tab.width", spec.tabWidth or "full" },
+                { "focus.tab.at", "outer" },
+                { "focus.tab.slant", spec.tabSlant == true },
+                { "focus.tab.align", "center" },
+                { "focus.tab.color", "dark" },
+                { "focus.tab.borderPx", 4 },
+                { "focus.tab.cornerPx", spec.tabCorner or 4 },
+                { "focus.tab.shadowPx", spec.tabShadow or 4 },
+                { "focus.portrait", spec.portrait or "2d" },
+                { "focus.portraitLook", spec.portraitLook or "2.0" },
+                { "focus.portraitShape", spec.portraitShape or "square" },
+                { "focus.portraitRing", spec.ring or "class" },
+                { "focus.portraitRingWidth", spec.ringWidth or 2 },
+                { "focus.portraitRingLine", true },
+                { "focus.nameOnBar", spec.nameOnBar == true },
+                { "focus.namePos", spec.namePos or "outer" },
+                { "focus.bigNumber", spec.bigNumber == true },
+            }
+        end,
+    },
+    tot = {
+        scope = "UnitFrames", byId = ns.TOT_BY_ID, storeKey = "tot", snapKey = "totSnap",
+        pairs = function(id)
+            local spec = ns.TOT_BY_ID[id]
+            if not spec then return {} end
+            if spec.matchPT then spec = resolvePTSpec() end
+            return {
+                { "targettarget.style", spec.style or "daylight" },
+                { "targettarget.slant", spec.slant == true },
+                { "targettarget.shell.own", true },
+                { "targettarget.shell.borderPx", spec.border or 2 },
+                { "targettarget.shell.cornerPx", spec.corner or 4 },
+                { "targettarget.shell.shadowPx", spec.shadow or 4 },
+            }
+        end,
+    },
+    party = {
+        scope = "UnitFrames", byId = ns.PARTY_BY_ID, storeKey = "party", snapKey = "partySnap",
+        pairs = function(id)
+            local spec = ns.PARTY_BY_ID[id]
+            if not spec then return {} end
+            return {
+                { "party.shell.own", true },
+                { "party.shell.borderPx", spec.border },
+                { "party.shell.cornerPx", spec.corner },
+                { "party.shell.shadowPx", spec.shadow },
+                { "party.media.health", spec.texture },
+                { "party.media.healthBack", spec.texture },
+                { "party.media.power", spec.texture },
+                { "party.media.powerBack", spec.texture },
+            }
+        end,
+    },
+    raid = {
+        scope = "UnitFrames", byId = ns.RAID_BY_ID, storeKey = "raid", snapKey = "raidSnap",
+        pairs = function(id)
+            local spec = ns.RAID_BY_ID[id]
+            if not spec then return {} end
+            return {
+                { "raid.shell.own", true },
+                { "raid.shell.borderPx", spec.border },
+                { "raid.shell.cornerPx", spec.corner },
+                { "raid.shell.shadowPx", spec.shadow },
+                { "raid.media.health", spec.texture },
+                { "raid.media.healthBack", spec.texture },
+                { "raid.media.power", spec.texture },
+                { "raid.media.powerBack", spec.texture },
+            }
+        end,
+    },
+    castbars = {
+        scope = "UnitFrames", byId = ns.CAST_BY_ID, storeKey = "castbars", snapKey = "castSnap",
+        pairs = function(id)
+            local spec = ns.CAST_BY_ID[id]
+            if not spec then return {} end
+            local list = {}
+            local units = { "player", "target" }
+            for i = 1, #units do
+                local u = units[i]
+                list[#list + 1] = { u .. ".media.health", spec.texture }
+                list[#list + 1] = { u .. ".media.healthBack", spec.texture }
+                list[#list + 1] = { u .. ".media.power", spec.texture }
+                list[#list + 1] = { u .. ".media.powerBack", spec.texture }
+                list[#list + 1] = { u .. ".barFx.health.style", spec.fx }
+                if spec.fx ~= "none" then
+                    list[#list + 1] = { u .. ".barFx.health.speed", 1 }
+                    list[#list + 1] = { u .. ".barFx.health.strength", 1 }
+                    list[#list + 1] = { u .. ".barFx.health.colors", "bar" }
+                end
+            end
+            local casts = { "playerCastbar", "targetCastbar", "focusCastbar", "partyCastbar" }
+            for i = 1, #casts do
+                list[#list + 1] = { casts[i] .. ".barFx.cast.style", spec.fx }
+            end
+            return list
+        end,
+    },
+    actionbars = {
+        scope = "ActionBars", byId = ns.BUTTON_BY_ID, storeKey = "actionbars", snapKey = "buttonSnap",
+        pairs = function(id)
+            local spec = ns.BUTTON_BY_ID[id]
+            if not spec then return {} end
+            return {
+                { "look.shape", spec.shape },
+                { "look.borderStyle", spec.borderStyle },
+                { "look.border", spec.border },
+                { "look.corners", spec.corners },
+                { "look.shadow", spec.shadow },
+                { "look.zoom", spec.zoom },
+            }
+        end,
+    },
+}
 
--- Live Preview handles (never saved until Apply).
-local barPreviewHandles, barPreviewId = nil, nil
-local btnPreviewHandles, btnPreviewId = nil, nil
+local EXTRA_ORDER = { "focus", "tot", "party", "raid", "castbars", "actionbars" }
+ns.EXTRA_ORDER = EXTRA_ORDER
 
-function ns.RevertBarPreview()
-    if barPreviewHandles then
-        releaseHandles(barPreviewHandles)
-        barPreviewHandles = nil
+-- Generic Live Preview / Apply / Restore for all 6 extra categories.
+local previewHandles = {}
+local previewIds = {}
+
+function ns.RevertExtraPreview(cat)
+    if previewHandles[cat] then
+        releaseHandles(previewHandles[cat])
+        previewHandles[cat] = nil
     end
-    barPreviewId = nil
+    previewIds[cat] = nil
 end
 
-function ns.BeginBarPreview(id)
-    if inCombat() or not BAR_BY_ID[id] then return end
-    if barPreviewId == id and barPreviewHandles then return end
-    ns.RevertBarPreview()
+function ns.BeginExtraPreview(cat, id)
+    local cfg = CATEGORY_CFG[cat]
+    if inCombat() or not cfg or not cfg.byId[id] then return end
+    if previewIds[cat] == id and previewHandles[cat] then return end
+    ns.RevertExtraPreview(cat)
     local host = overrideHost()
     if not host then return end
-    local list = barPairs(id)
+    local list = cfg.pairs(id)
     local handles = {}
     batch(function()
         for i = 1, #list do
-            local ok, h = pcall(host.Override, "UnitFrames", list[i][1], list[i][2])
+            local ok, h = pcall(host.Override, cfg.scope, list[i][1], list[i][2])
             if ok and type(h) == "table" then handles[#handles + 1] = h end
         end
     end)
     if #handles > 0 then
-        barPreviewHandles = handles
-        barPreviewId = id
-    end
-end
-
-function ns.RevertButtonPreview()
-    if btnPreviewHandles then
-        releaseHandles(btnPreviewHandles)
-        btnPreviewHandles = nil
-    end
-    btnPreviewId = nil
-end
-
-function ns.BeginButtonPreview(id)
-    if inCombat() or not BUTTON_BY_ID[id] then return end
-    if btnPreviewId == id and btnPreviewHandles then return end
-    ns.RevertButtonPreview()
-    local host = overrideHost()
-    if not host then return end
-    local list = buttonPairs(id)
-    local handles = {}
-    batch(function()
-        for i = 1, #list do
-            local ok, h = pcall(host.Override, "ActionBars", list[i][1], list[i][2])
-            if ok and type(h) == "table" then handles[#handles + 1] = h end
-        end
-    end)
-    if #handles > 0 then
-        btnPreviewHandles = handles
-        btnPreviewId = id
+        previewHandles[cat] = handles
+        previewIds[cat] = id
     end
 end
 
 function ns.RevertAllExtrasPreview()
-    ns.RevertBarPreview()
-    ns.RevertButtonPreview()
+    for i = 1, #EXTRA_ORDER do ns.RevertExtraPreview(EXTRA_ORDER[i]) end
 end
 
--- Snapshot + Apply + Restore for Bar Finishes.
-function ns.activeBarFinish()
+function ns.activeExtra(cat)
+    local cfg = CATEGORY_CFG[cat]
+    if not cfg then return nil end
     local st = extrasStore()
-    return type(st.bar) == "string" and BAR_BY_ID[st.bar] and st.bar or nil
+    local val = st[cfg.storeKey]
+    return type(val) == "string" and cfg.byId[val] and val or nil
 end
 
-function ns.applyBarFinish(id)
-    if inCombat() or not BAR_BY_ID[id] then return false end
-    ns.RevertBarPreview()
+function ns.hasAnyActiveExtra()
+    for i = 1, #EXTRA_ORDER do
+        if ns.activeExtra(EXTRA_ORDER[i]) ~= nil then return true end
+    end
+    return false
+end
+
+function ns.applyExtra(cat, id)
+    local cfg = CATEGORY_CFG[cat]
+    if inCombat() or not cfg or not cfg.byId[id] then return false end
+    ns.RevertExtraPreview(cat)
     local st = extrasStore()
-    local list = barPairs(id)
-    if type(st.barSnap) ~= "table" then
+    local list = cfg.pairs(id)
+    if type(st[cfg.snapKey]) ~= "table" then
         local snap = {}
         for i = 1, #list do
-            local v, ok = readSetting("UnitFrames", list[i][1])
+            local v, ok = readSetting(cfg.scope, list[i][1])
             if ok and v ~= nil then snap[list[i][1]] = v end
         end
-        st.barSnap = snap
+        st[cfg.snapKey] = snap
     end
-    if writeSettingList("UnitFrames", list) then
-        st.bar = id
+    if writeSettingList(cfg.scope, list) then
+        st[cfg.storeKey] = id
         return true
     end
     return false
 end
 
-function ns.restoreBarFinish()
-    ns.RevertBarPreview()
+function ns.restoreExtra(cat)
+    local cfg = CATEGORY_CFG[cat]
+    if not cfg then return end
+    ns.RevertExtraPreview(cat)
     local st = extrasStore()
-    if type(st.barSnap) == "table" then
+    if type(st[cfg.snapKey]) == "table" then
         local list = {}
-        for k, v in pairs(st.barSnap) do list[#list + 1] = { k, v } end
-        if #list > 0 then writeSettingList("UnitFrames", list) end
+        for k, v in pairs(st[cfg.snapKey]) do list[#list + 1] = { k, v } end
+        if #list > 0 then writeSettingList(cfg.scope, list) end
     end
-    st.barSnap = nil
-    st.bar = nil
+    st[cfg.snapKey] = nil
+    st[cfg.storeKey] = nil
 end
 
--- Snapshot + Apply + Restore for Button Looks.
-function ns.activeButtonLook()
-    local st = extrasStore()
-    return type(st.button) == "string" and BUTTON_BY_ID[st.button] and st.button or nil
+function ns.restoreAllExtras()
+    for i = 1, #EXTRA_ORDER do ns.restoreExtra(EXTRA_ORDER[i]) end
 end
 
-function ns.applyButtonLook(id)
-    if inCombat() or not BUTTON_BY_ID[id] then return false end
-    ns.RevertButtonPreview()
-    local st = extrasStore()
-    local list = buttonPairs(id)
-    if type(st.buttonSnap) ~= "table" then
-        local snap = {}
-        for i = 1, #list do
-            local v, ok = readSetting("ActionBars", list[i][1])
-            if ok and v ~= nil then snap[list[i][1]] = v end
-        end
-        st.buttonSnap = snap
-    end
-    if writeSettingList("ActionBars", list) then
-        st.button = id
-        return true
-    end
-    return false
-end
+-- Backwards-friendly aliases for castbars & actionbars.
+ns.BeginBarPreview = function(id) ns.BeginExtraPreview("castbars", id) end
+ns.RevertBarPreview = function() ns.RevertExtraPreview("castbars") end
+ns.BeginButtonPreview = function(id) ns.BeginExtraPreview("actionbars", id) end
+ns.RevertButtonPreview = function() ns.RevertExtraPreview("actionbars") end
+ns.activeBarFinish = function() return ns.activeExtra("castbars") end
+ns.applyBarFinish = function(id) return ns.applyExtra("castbars", id) end
+ns.restoreBarFinish = function() ns.restoreExtra("castbars") end
+ns.activeButtonLook = function() return ns.activeExtra("actionbars") end
+ns.applyButtonLook = function(id) return ns.applyExtra("actionbars", id) end
+ns.restoreButtonLook = function() ns.restoreExtra("actionbars") end
 
-function ns.restoreButtonLook()
-    ns.RevertButtonPreview()
-    local st = extrasStore()
-    if type(st.buttonSnap) == "table" then
-        local list = {}
-        for k, v in pairs(st.buttonSnap) do list[#list + 1] = { k, v } end
-        if #list > 0 then writeSettingList("ActionBars", list) end
-    end
-    st.buttonSnap = nil
-    st.button = nil
-end
-
--- User-Saved Presets (up to 4 custom slots saved in PalettesAccount).
+-- User-Saved Presets (up to 4 custom slots storing all 8 UI layers in PalettesAccount).
 ns.MAX_USER_PRESETS = 4
 
 function ns.getUserPresets()
@@ -370,8 +568,12 @@ function ns.saveUserPreset(combo)
         name = name,
         palette = combo.palette,
         frame = combo.frame,
-        bar = combo.bar,
-        button = combo.button,
+        focus = combo.focus,
+        tot = combo.tot,
+        party = combo.party,
+        raid = combo.raid,
+        castbars = combo.castbars,
+        actionbars = combo.actionbars,
     }
     list[idx] = item
     return item

@@ -2270,6 +2270,86 @@ end
 
 ns.blendColor = blendColor
 
+local function makeActionBarPreview(parent)
+    local holder = CreateFrame("Frame", nil, parent)
+    holder:SetHeight(76)
+    local slots = {}
+    local labels = {
+        { k = "1", icon = "Interface\\Icons\\Spell_Holy_FlashHeal" },
+        { k = "2", icon = "Interface\\Icons\\Spell_Holy_HolyBolt" },
+        { k = "3", icon = "Interface\\Icons\\Spell_Holy_SealOfMight" },
+        { k = "4", icon = "Interface\\Icons\\Spell_Holy_Renew" },
+        { k = "5", icon = "Interface\\Icons\\Spell_Holy_CrusaderStrike" },
+        { k = "Q", icon = "Interface\\Icons\\Spell_Holy_DivineIntervention" },
+    }
+    for i = 1, #labels do
+        local f = CreateFrame("Frame", nil, holder)
+        f:SetSize(40, 40)
+        local bg = f:CreateTexture(nil, "BACKGROUND")
+        if bg.SetAllPoints then bg:SetAllPoints() end
+        local art = f:CreateTexture(nil, "ARTWORK")
+        if type(art.SetTexture) == "function" then art:SetTexture(labels[i].icon) end
+        local keyTxt = blankText(f)
+        keyTxt:SetPoint("TOPRIGHT", f, "TOPRIGHT", -3, -3)
+        keyTxt:SetText(labels[i].k)
+        slots[i] = { frame = f, bg = bg, art = art, keyTxt = keyTxt }
+    end
+    local caption = blankText(holder)
+    caption:SetPoint("TOP", holder, "TOP", 0, -4)
+    caption:SetJustifyH("CENTER")
+
+    return {
+        frame = holder,
+        Refresh = function(w)
+            local abId = (type(ns.activeExtra) == "function" and ns.activeExtra("actionbars")) or "classic"
+            if type(ns.staged) == "table" then
+                if ns.staged.kind == "actionbars" then abId = ns.staged.id
+                elseif ns.staged.kind == "theme" and type(ns.PRESET_EXTRAS) == "table" and ns.PRESET_EXTRAS[ns.staged.id] then
+                    abId = ns.PRESET_EXTRAS[ns.staged.id].actionbars or abId
+                elseif ns.staged.kind == "user_preset" and ns.staged.actionbars then
+                    abId = ns.staged.actionbars
+                end
+            end
+            local spec = (type(ns.BUTTON_BY_ID) == "table" and ns.BUTTON_BY_ID[abId]) or { name = "Daylight Classic", border = 2, borderStyle = "daylight", zoom = 0.06 }
+            local p = ns.byId[currentId()]
+            local accent = (p and accentBlock(p)) or { 0.91, 0.63, 0.29 }
+            local labelCol = (p and p.label) or { 0.72, 0.76, 0.80 }
+            local textCol = (p and p.text) or { 0.92, 0.94, 0.96 }
+            uiFont(caption, nil, 11, labelCol)
+            caption:SetText("Action Bars — " .. (spec.name or "Daylight Classic") .. "  (also previews live on your bars)")
+
+            local count = #slots
+            local btnSize, gap = 42, 8
+            local totalW = count * btnSize + (count - 1) * gap
+            local startX = math.max(8, math.floor((w - totalW) / 2))
+            local pad = spec.borderStyle == "none" and 0 or math.max(1, math.min(5, spec.border or 2))
+            local z = tonumber(spec.zoom) or 0.06
+            for i = 1, count do
+                local s = slots[i]
+                s.frame:SetSize(btnSize, btnSize)
+                s.frame:ClearAllPoints()
+                s.frame:SetPoint("TOPLEFT", holder, "TOPLEFT", startX + (i - 1) * (btnSize + gap), -24)
+                if type(s.bg.SetColorTexture) == "function" then
+                    if pad == 0 then
+                        s.bg:SetColorTexture(0.05, 0.06, 0.07, 0.9)
+                    else
+                        s.bg:SetColorTexture(accent[1], accent[2], accent[3], 0.92)
+                    end
+                end
+                s.art:ClearAllPoints()
+                s.art:SetPoint("TOPLEFT", s.frame, "TOPLEFT", pad, -pad)
+                s.art:SetPoint("BOTTOMRIGHT", s.frame, "BOTTOMRIGHT", -pad, pad)
+                if type(s.art.SetTexCoord) == "function" then
+                    s.art:SetTexCoord(z, 1 - z, z, 1 - z)
+                end
+                uiFont(s.keyTxt, nil, 10, textCol)
+            end
+            holder:SetSize(w, 76)
+            return 76
+        end,
+    }
+end
+
 local function makePlayerSample(parent)
     local d = dui()
     local opts = type(d) == "table" and d.Options
@@ -2292,9 +2372,74 @@ local function makePlayerSample(parent)
     local partyS = createSub("UnitFrames.party", container)
     local raidS = createSub("UnitFrames.raid", container)
     local castsS = createSub("UnitFrames.castbars", container)
+    local actionS = makeActionBarPreview(container)
 
-    local allSubs = { playerS, targetS, focusS, totS, partyS, raidS, castsS }
-    local activeView = "frames"
+    local allSubs = { playerS, targetS, focusS, totS, partyS, raidS, castsS, actionS }
+    local activeView = "player_target"
+
+    local VIEW_ORDER = {}
+    local VIEW_LABELS = {}
+    local function addView(key, label, ok)
+        if not ok then return end
+        VIEW_ORDER[#VIEW_ORDER + 1] = key
+        VIEW_LABELS[key] = label
+    end
+    addView("player_target", "Player & Target", true)
+    addView("focus", "Focus", focusS ~= nil)
+    addView("tot", "Target of Target", totS ~= nil)
+    addView("party", "Party", partyS ~= nil)
+    addView("raid", "Raid", raidS ~= nil)
+    addView("castbars", "Cast Bars", castsS ~= nil)
+    addView("actionbars", "Action Bars", actionS ~= nil)
+
+    -- Native DaylightUI dropdown button in the top-right corner of the Preview Deck.
+    local W = type(d) == "table" and type(d.Widgets) == "table" and d.Widgets or nil
+    local viewBtn
+    if W and type(W.MenuButton) == "function" then
+        viewBtn = W.MenuButton(container, VIEW_LABELS[activeView], 22)
+    else
+        viewBtn = CreateFrame("Button", nil, container)
+        viewBtn:SetSize(148, 22)
+    end
+    viewBtn:SetPoint("TOPRIGHT", container, "TOPRIGHT", -2, 0)
+
+    local function updateViewBtn()
+        local lbl = VIEW_LABELS[activeView] or "Player & Target"
+        if type(viewBtn.SetLabel) == "function" then
+            viewBtn.SetLabel(lbl, 140)
+        elseif type(viewBtn.SetText) == "function" then
+            viewBtn:SetText(lbl)
+        end
+    end
+
+    local function setActiveView(key, skipRefresh)
+        if not VIEW_LABELS[key] then key = "player_target" end
+        if activeView == key then
+            updateViewBtn()
+            return
+        end
+        activeView = key
+        updateViewBtn()
+        if not skipRefresh then
+            local panel = type(d) == "table" and d.OptionsPanel
+            if type(panel) == "table" and type(panel.Refresh) == "function" then
+                pcall(panel.Refresh)
+            end
+        end
+    end
+
+    ns.setPreviewView = function(key) setActiveView(key, false) end
+
+    if type(viewBtn.SetScript) == "function" then
+        viewBtn:SetScript("OnClick", function()
+            if W and type(W.OpenMenu) == "function" then
+                W.OpenMenu(viewBtn, VIEW_ORDER, VIEW_LABELS, activeView, function(picked)
+                    setActiveView(picked, false)
+                end, 160)
+            end
+        end)
+    end
+    updateViewBtn()
 
     local function showDeckOnTab()
         local panel = type(d) == "table" and d.OptionsPanel
@@ -2321,76 +2466,50 @@ local function makePlayerSample(parent)
         return boxH / 2
     end
 
+    local TOP_BAR_H = 26
+
     local function layoutPair(leftS, rightS, w, room)
+        local subRoom = math.max(60, (room or 180) - TOP_BAR_H)
         if leftS and leftS.frame.Show then leftS.frame:Show() end
         if rightS then
             if rightS.frame.Show then rightS.frame:Show() end
             local gap = 16
             local half = math.max(120, math.floor((w - gap) / 2))
-            local hl = leftS.Refresh(half, room) or 0
-            local hr = rightS.Refresh(half, room) or 0
+            local hl = leftS.Refresh(half, subRoom) or 0
+            local hr = rightS.Refresh(half, subRoom) or 0
             local lc = centerOffsetFromTop(leftS, hl)
             local rc = centerOffsetFromTop(rightS, hr)
             local alignY = math.max(lc, rc)
             local lTop = math.floor(alignY - lc + 0.5)
             local rTop = math.floor(alignY - rc + 0.5)
-            local h = math.max(lTop + hl, rTop + hr)
+            local h = TOP_BAR_H + math.max(lTop + hl, rTop + hr)
             container:SetSize(w, h)
             leftS.frame:ClearAllPoints()
-            leftS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -lTop)
+            leftS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -(TOP_BAR_H + lTop))
             rightS.frame:ClearAllPoints()
-            rightS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", half + gap, -rTop)
+            rightS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", half + gap, -(TOP_BAR_H + rTop))
             return h
         end
-        local h = leftS.Refresh(w, room) or 0
+        local h = TOP_BAR_H + (leftS.Refresh(w, subRoom) or 0)
         container:SetSize(w, h)
         leftS.frame:ClearAllPoints()
-        leftS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+        leftS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -TOP_BAR_H)
         return h
     end
 
     local function layoutSingle(s, w, room)
+        local subRoom = math.max(60, (room or 180) - TOP_BAR_H)
         if s.frame.Show then s.frame:Show() end
-        local h = s.Refresh(w, room) or 0
+        local h = TOP_BAR_H + (s.Refresh(w, subRoom) or 0)
         container:SetSize(w, h)
         s.frame:ClearAllPoints()
-        s.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+        s.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -TOP_BAR_H)
         return h
     end
 
     return {
         frame = container,
-        hint = "Live preview of your frames. Switch views at top right, pick a preset or look below, then click Apply.",
-        viewsExclusive = true,
-        Views = function()
-            local list = { { key = "frames", label = "Player & Target", on = activeView == "frames" } }
-            if focusS then
-                list[#list + 1] = { key = "focus", label = totS and "Focus & ToT" or "Focus", on = activeView == "focus" }
-            end
-            if partyS then
-                list[#list + 1] = { key = "party", label = "Party", on = activeView == "party" }
-            end
-            if raidS then
-                list[#list + 1] = { key = "raid", label = "Raid", on = activeView == "raid" }
-            end
-            if castsS then
-                list[#list + 1] = { key = "casts", label = "Cast Bars", on = activeView == "casts" }
-            end
-            return list
-        end,
-        SetView = function(key)
-            if key == "focus" and focusS then
-                activeView = "focus"
-            elseif key == "party" and partyS then
-                activeView = "party"
-            elseif key == "raid" and raidS then
-                activeView = "raid"
-            elseif key == "casts" and castsS then
-                activeView = "casts"
-            else
-                activeView = "frames"
-            end
-        end,
+        hint = "Live preview. Pick a view from the top-right dropdown, select a preset or look below, then click Apply.",
         zoomRange = playerS.zoomRange,
         Zoom = playerS.Zoom,
         SetZoom = function(v)
@@ -2401,15 +2520,27 @@ local function makePlayerSample(parent)
         end,
         Refresh = function(w, room)
             hideAll()
-            if not showDeckOnTab() then return 0 end
+            if not showDeckOnTab() then
+                if viewBtn.Hide then viewBtn:Hide() end
+                return 0
+            end
+            if viewBtn.Show then viewBtn:Show() end
+            if type(viewBtn.SetFrameLevel) == "function" and type(container.GetFrameLevel) == "function" then
+                viewBtn:SetFrameLevel(container:GetFrameLevel() + 65)
+            end
+            updateViewBtn()
             if activeView == "focus" and focusS then
-                return layoutPair(focusS, totS, w, room)
+                return layoutSingle(focusS, w, room)
+            elseif activeView == "tot" and totS then
+                return layoutSingle(totS, w, room)
             elseif activeView == "party" and partyS then
                 return layoutSingle(partyS, w, room)
             elseif activeView == "raid" and raidS then
                 return layoutSingle(raidS, w, room)
-            elseif activeView == "casts" and castsS then
+            elseif activeView == "castbars" and castsS then
                 return layoutSingle(castsS, w, room)
+            elseif activeView == "actionbars" and actionS then
+                return layoutSingle(actionS, w, room)
             end
             return layoutPair(playerS, targetS, w, room)
         end,
@@ -3115,8 +3246,9 @@ function ns.commitStaged()
     local staged = ns.staged
     if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
     ns.staged = nil
-    -- Frame looks, bar finishes, and button looks repaint live. Only colours need a reload.
-    local looksOnly = staged.kind == "frame" or staged.kind == "bar" or staged.kind == "button"
+    -- All 7 Looks categories repaint live. Only colour changes need a reload.
+    local k = staged.kind
+    local looksOnly = k == "frame" or k == "focus" or k == "tot" or k == "party" or k == "raid" or k == "castbars" or k == "actionbars" or k == "bar" or k == "button"
     ns.withReloadAction(function()
         if type(ns.RevertAllExtrasPreview) == "function" then pcall(ns.RevertAllExtrasPreview) end
         if (staged.kind == "frame" or staged.kind == "theme" or staged.kind == "user_preset") and type(ns.CommitPreview) == "function" then
