@@ -59,11 +59,13 @@ jobs:
             -e '/^## X-Curse-Project-ID:/d' \
             PalettesTest/PalettesTest.toc
 
-          # Point SavedVariables references in Palettes.lua to the isolated test globals.
+          # Point SavedVariables and DaylightUI plugin/module scope to isolated PalettesTest names
+          # so changing settings in Palettes (Test) never overwrites live Palettes settings.
           sed -i \
             -e 's/\bPalettesAccount\b/PalettesTestAccount/g' \
             -e 's/\bPalettesChar\b/PalettesTestChar/g' \
-            PalettesTest/Palettes.lua
+            -e 's/"Palettes"/"PalettesTest"/g' \
+            PalettesTest/Palettes.lua PalettesTest/PalettesLooks.lua
 
           # Verify the transformed Lua still compiles cleanly.
           luac5.1 -p PalettesTest/PalettesColors.lua PalettesTest/PalettesCustom.lua PalettesTest/PalettesLooks.lua PalettesTest/Palettes.lua
