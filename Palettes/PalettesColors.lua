@@ -352,7 +352,7 @@ sheet({
     title = C("#F9F7F6"), text = C("#EEE7E3"), label = C("#A78062"), off = C("#A38166"),
 })
 sheet({
-    id = "keepstone", name = "Keepstone", group = "realm",
+    id = "keepstone", name = "Azeroth", group = "realm",
     mood = "Walnut and grey stone, aged brass.",
     window = C("#16120C"), background = C("#1E1912"), border = C("#090704"),
     band = C("#322C22"), bandLit = C("#4C4436"),
@@ -360,7 +360,7 @@ sheet({
     title = C("#F8F8F7"), text = C("#EBE9E5"), label = C("#9B937A"), off = C("#9B937E"),
 })
 sheet({
-    id = "ironbanner", name = "Ironbanner", group = "realm",
+    id = "ironbanner", name = "Horde", group = "realm",
     mood = "Blackened iron, rust-red trim.",
     window = C("#110E0C"), background = C("#17120F"), border = C("#060403"),
     band = C("#2A201A"), bandLit = C("#45332A"),
@@ -368,7 +368,7 @@ sheet({
     title = C("#F9F6F6"), text = C("#EDE5E3"), label = C("#AB7E72"), off = C("#A88075"),
 })
 sheet({
-    id = "sapphire-crown", name = "Sapphire Crown", group = "realm",
+    id = "sapphire-crown", name = "Alliance", group = "realm",
     mood = "Royal navy, pale crown gold.",
     window = C("#0A0D1A"), background = C("#0D1222"), border = C("#04050B"),
     band = C("#18214A"), bandLit = C("#283770"),
@@ -376,7 +376,7 @@ sheet({
     title = C("#F9F8F6"), text = C("#EEEBE3"), label = C("#9B8A57"), off = C("#998A5C"),
 })
 sheet({
-    id = "crownwall", name = "Crownwall", group = "realm",
+    id = "crownwall", name = "Stormwind", group = "realm",
     mood = "Pale castle stone, banner blue.",
     window = C("#1A1810"), background = C("#2A281C"), border = C("#06070A"),
     band = C("#444230"), bandLit = C("#4A4732"),
@@ -384,7 +384,7 @@ sheet({
     title = C("#F6F7F9"), text = C("#E3E7ED"), label = C("#B8B4A0"), off = C("#7E93AF"),
 })
 sheet({
-    id = "deepforge", name = "Deepforge", group = "realm",
+    id = "deepforge", name = "Ironforge", group = "realm",
     mood = "Granite and hot copper.",
     window = C("#111213"), background = C("#17181A"), border = C("#060607"),
     band = C("#28292C"), bandLit = C("#404247"),
@@ -392,7 +392,7 @@ sheet({
     title = C("#F9F7F6"), text = C("#EDE6E3"), label = C("#AF8776"), off = C("#AD8879"),
 })
 sheet({
-    id = "starshade", name = "Starshade", group = "realm",
+    id = "starshade", name = "Darnassus", group = "realm",
     mood = "Night-violet sky, pale moon blue.",
     window = C("#0C0C18"), background = C("#101020"), border = C("#05050C"),
     band = C("#1C1C3A"), bandLit = C("#2D2D58"),
@@ -400,7 +400,7 @@ sheet({
     title = C("#F6F6F9"), text = C("#E5E3EE"), label = C("#8B7EB6"), off = C("#8B7FB3"),
 })
 sheet({
-    id = "cogspark", name = "Cogspark", group = "realm",
+    id = "cogspark", name = "Gnomeregan", group = "realm",
     mood = "Gunmetal and a bright spark pink.",
     window = C("#0F1112"), background = C("#141618"), border = C("#050606"),
     band = C("#23272A"), bandLit = C("#383E43"),
@@ -408,7 +408,7 @@ sheet({
     title = C("#F9F6F8"), text = C("#EEE3EB"), label = C("#B57BA6"), off = C("#B17CA3"),
 })
 sheet({
-    id = "rustbrand", name = "Rustbrand", group = "realm",
+    id = "rustbrand", name = "Orgrimmar", group = "realm",
     mood = "Olive war-hide and burnt orange.",
     window = C("#111109"), background = C("#17170E"), border = C("#060603"),
     band = C("#28281A"), bandLit = C("#424129"),
@@ -416,7 +416,7 @@ sheet({
     title = C("#F9F7F6"), text = C("#EEE6E3"), label = C("#AF8471"), off = C("#AC8574"),
 })
 sheet({
-    id = "gravelight", name = "Gravelight", group = "realm",
+    id = "gravelight", name = "Undercity", group = "realm",
     mood = "Cold crypt stone, pale sickly green.",
     window = C("#0E100F"), background = C("#131614"), border = C("#050605"),
     band = C("#212622"), bandLit = C("#363E38"),
@@ -424,7 +424,7 @@ sheet({
     title = C("#F7F8F7"), text = C("#E8EBE5"), label = C("#80926D"), off = C("#829171"),
 })
 sheet({
-    id = "plainsong", name = "Plainsong", group = "realm",
+    id = "plainsong", name = "Thunder Bluff", group = "realm",
     mood = "Warm hide-bronze, open-sky turquoise.",
     window = C("#14110D"), background = C("#1B1712"), border = C("#070605"),
     band = C("#2C251C"), bandLit = C("#463B2D"),
@@ -432,7 +432,7 @@ sheet({
     title = C("#F6F8F9"), text = C("#E3EAEE"), label = C("#6493A8"), off = C("#6993A5"),
 })
 sheet({
-    id = "junglefire", name = "Junglefire", group = "realm",
+    id = "junglefire", name = "Darkspear", group = "realm",
     mood = "Deep jungle teal, tangerine trim.",
     window = C("#0A1311"), background = C("#0E1916"), border = C("#040806"),
     band = C("#172B26"), bandLit = C("#26443C"),

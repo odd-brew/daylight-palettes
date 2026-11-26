@@ -9,7 +9,7 @@ Made for World of Warcraft: Forever.
 - **35 dark palettes** in three groups:
   - **Dark (15):** Ember, Tide, Dusk, Ash, Pine, Forgeglow, Nightglass, Vesper, Carmine Night, Gilded, Phosphor, Ink, Sightline, Vanilla, Forever
   - **Class themes (9):** Warrior, Mage, Paladin, Priest, Hunter, Rogue, Shaman, Warlock, Druid
-  - **Realm themes (11):** Keepstone, Ironbanner, Sapphire Crown, Crownwall, Deepforge, Starshade, Cogspark, Rustbrand, Gravelight, Plainsong, Junglefire
+  - **Realm themes (11):** Azeroth, Horde, Alliance, Stormwind, Ironforge, Darnassus, Gnomeregan, Orgrimmar, Undercity, Thunder Bluff, Darkspear
 - **10 Presets:** each one sets a palette and a frame look together. Change either part and it shows as changed.
 - **7 frame looks:** Flagon, Trestle, Beam, Stream, Ledger, Crest and Slate set up your Player and Target frames (size, border, name, portrait and text). A frame look changes only Player and Target; Focus, Party, Raid, Arena and the rest are never touched, and neither is DaylightUI's own frame style menu.
 - **Custom:** mix your own colors, or paste a share code. The dark base is kept dark enough that text stays readable, and the accent is yours to choose.

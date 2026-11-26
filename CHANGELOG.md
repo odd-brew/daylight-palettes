@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0] - 2026-11-26
+
+### Added
+- **Live Player + Target Preview Deck:** Presets and Looks now show DaylightUI's live Player and Target unit frames side by side (horizontally aligned regardless of auras or cast bars) with a synced Zoom slider. The Preview Deck automatically hides on the Colours tab.
+- **Live colour preview:** Clicking any palette on **Colours** or any preset on **Presets** now previews those colours across DaylightUI immediately without writing saved settings. Pressing Escape, switching to another DaylightUI page, or unselecting cleanly reverts to your saved settings—and base DaylightUI Appearance edits are always preserved.
+- **DaylightUI-native rounded cards & category filters:** Presets and Looks now use 2-column rounded DaylightUI cards (`W.Round`), and Colours uses category filter pills (**Dark (15)**, **Class themes (9)**, **Realm themes (11)**, and **Custom Palette**) with a 3-column swatch grid and full hover description strip so every tab fits cleanly without scrolling.
+
+### Changed
+- **Realm theme names:** Renamed Realm theme display names to iconic WoW names (**Azeroth**, **Horde**, **Alliance**, **Stormwind**, **Ironforge**, **Darnassus**, **Gnomeregan**, **Orgrimmar**, **Undercity**, **Thunder Bluff**, **Darkspear**). Internal palette IDs are unchanged so existing profiles and presets continue working seamlessly.
+
+### Removed
+- **Share code UI:** Removed the Share code rows from the Colours tab and Custom Palette editor, as DaylightUI's built-in profile sharing covers Palettes settings.
+
 ## [0.5.4] - 2026-11-26
 
 ### Removed
