@@ -62,22 +62,34 @@ local TOT_LOOKS = {
 local PARTY_LOOKS = {
     {
         id = "standard", name = "Daylight Standard",
-        desc = "Warm rounded borders with subtle shadow and balanced spacing.",
+        desc = "Angled 34px bars with round class portraits, top name tabs, and bold health.",
+        slant = true, height = 34, showPower = true, powerHeight = 7,
+        portrait = "class", portraitShape = "round", portraitLook = "socket",
+        nameOnBar = false, bigNumber = true, showPercent = true, healthText = "percent",
         border = 2, corner = 6, shadow = 8, texture = "daylight",
     },
     {
         id = "compact", name = "Clean Compact",
-        desc = "Tight 1px crisp edges for streamlined 5-man dungeon readability.",
+        desc = "Slim 24px portrait-free silk bars with crisp 1px edges and inline names.",
+        slant = false, height = 24, showPower = true, powerHeight = 4,
+        portrait = "none", portraitShape = "square", portraitLook = "2.0",
+        nameOnBar = true, bigNumber = false, showPercent = true, healthText = "percent",
         border = 1, corner = 2, shadow = 0, texture = "silk",
     },
     {
         id = "healer", name = "Healer Grid",
-        desc = "High-contrast dark matte tiles with bold borders so debuffs pop immediately.",
+        desc = "Tall 42px portrait-free matte tiles built for instant health & debuff scanning.",
+        slant = false, height = 42, showPower = true, powerHeight = 6,
+        portrait = "none", portraitShape = "square", portraitLook = "2.0",
+        nameOnBar = true, bigNumber = false, showPercent = true, healthText = "deficit",
         border = 2, corner = 4, shadow = 4, texture = "daylight",
     },
     {
         id = "framed", name = "Framed Classic",
-        desc = "Heavier 3px sculpted rim with deep shadow for a classic RPG party feel.",
+        desc = "Sculpted 38px RPG plates with 2D character portraits, 3px brushed rim, and shadow.",
+        slant = true, height = 38, showPower = true, powerHeight = 8,
+        portrait = "2d", portraitShape = "square", portraitLook = "2.0",
+        nameOnBar = false, bigNumber = true, showPercent = true, healthText = "percent",
         border = 3, corner = 6, shadow = 12, texture = "brushed",
     },
 }
@@ -85,22 +97,30 @@ local PARTY_LOOKS = {
 local RAID_LOOKS = {
     {
         id = "tiles", name = "Daylight Tiles",
-        desc = "Soft rounded raid tiles with clean 2px borders.",
+        desc = "Balanced 76x32 rounded raid tiles with slim power strips and clean spacing.",
+        width = 76, height = 32, spacing = 3, slant = false,
+        showPower = true, powerHeight = 4, fillVertical = false, showPercent = false,
         border = 2, corner = 5, shadow = 6, texture = "daylight",
     },
     {
         id = "tight", name = "Tight Raid Grid",
-        desc = "Razor 1px square edges built for 20- and 40-man raid clarity.",
+        desc = "Dense 64x24 sharp-corner grid without power bars for 20- and 40-man clarity.",
+        width = 64, height = 24, spacing = 1, slant = false,
+        showPower = false, powerHeight = 2, fillVertical = false, showPercent = false,
         border = 1, corner = 0, shadow = 0, texture = "daylight",
     },
     {
-        id = "matte", name = "Bordered Matte",
-        desc = "Smooth matte fill with crisp dark outlines for instant health scanning.",
+        id = "matte", name = "Vertical Healer",
+        desc = "Tall 72x42 upward-filling silk tiles with live health percentages.",
+        width = 72, height = 42, spacing = 2, slant = false,
+        showPower = true, powerHeight = 4, fillVertical = true, showPercent = true,
         border = 2, corner = 2, shadow = 2, texture = "silk",
     },
     {
-        id = "framed", name = "Sculpted Rim",
-        desc = "Warm 3px rim and subtle shadow matching classic RPG presets.",
+        id = "framed", name = "Sculpted Plates",
+        desc = "Wide 86x34 angled brushed plates with 3px rim, power bar, and health text.",
+        width = 86, height = 34, spacing = 4, slant = true,
+        showPower = true, powerHeight = 5, fillVertical = false, showPercent = true,
         border = 3, corner = 4, shadow = 8, texture = "brushed",
     },
 }
@@ -108,33 +128,33 @@ local RAID_LOOKS = {
 local CAST_LOOKS = {
     {
         id = "matte", name = "Clean Matte",
-        desc = "Smooth Daylight bar texture with zero fill animation across all cast bars.",
-        texture = "daylight", fx = "none",
+        desc = "Crisp 18px flat bar with 1px edges and zero fill animation.",
+        texture = "daylight", fx = "none", height = 18, border = 1, corner = 2, shadow = 0,
     },
     {
         id = "silk", name = "Silk Sheen",
-        desc = "Soft woven silk texture for a calm, refined cast bar.",
-        texture = "silk", fx = "none",
+        desc = "Sleek 16px woven silk bar with soft rounded corners and light shadow.",
+        texture = "silk", fx = "none", height = 16, border = 2, corner = 6, shadow = 6,
     },
     {
         id = "brushed", name = "Brushed Metal",
-        desc = "Fine horizontal brushed grain with subtle metallic depth.",
-        texture = "brushed", fx = "none",
+        desc = "Sturdy 22px brushed steel bar with a bold 3px framed rim.",
+        texture = "brushed", fx = "none", height = 22, border = 3, corner = 2, shadow = 10,
     },
     {
         id = "flow", name = "Living Flow",
-        desc = "Gentle liquid light flowing steadily across health and cast bars.",
-        texture = "daylight", fx = "flow",
+        desc = "Rounded 20px bar with gentle liquid light flowing steadily across casts.",
+        texture = "daylight", fx = "flow", height = 20, border = 2, corner = 6, shadow = 8,
     },
     {
         id = "tide", name = "Tidal Glass",
-        desc = "Polished glass bar with a slow rising tide shimmer.",
-        texture = "glass", fx = "tide",
+        desc = "Slim 16px polished glass bar with a slow rising tide shimmer.",
+        texture = "glass", fx = "tide", height = 16, border = 2, corner = 4, shadow = 6,
     },
     {
         id = "molten", name = "Molten Ember",
-        desc = "Textured grain lit by a warm glowing ember pulse.",
-        texture = "grain", fx = "molten",
+        desc = "Bold 24px heavy-rimmed bar lit by a warm glowing ember pulse.",
+        texture = "grain", fx = "molten", height = 24, border = 3, corner = 4, shadow = 12,
     },
 }
 
@@ -248,6 +268,9 @@ local function inCombat()
 end
 
 local function batch(fn)
+    if type(ns.withBulkWrite) == "function" then
+        return pcall(ns.withBulkWrite, fn)
+    end
     local d = dui()
     if type(d) == "table" and type(d.Batch) == "function" then
         return pcall(d.Batch, fn)
@@ -369,6 +392,17 @@ local CATEGORY_CFG = {
             local spec = ns.PARTY_BY_ID[id]
             if not spec then return {} end
             return {
+                { "party.slant", spec.slant == true },
+                { "party.height", spec.height or 34 },
+                { "party.showPower", spec.showPower ~= false },
+                { "party.powerHeight", spec.powerHeight or 7 },
+                { "party.portrait", spec.portrait or "class" },
+                { "party.portraitShape", spec.portraitShape or "round" },
+                { "party.portraitLook", spec.portraitLook or "socket" },
+                { "party.nameOnBar", spec.nameOnBar == true },
+                { "party.bigNumber", spec.bigNumber == true },
+                { "party.showPercent", spec.showPercent ~= false },
+                { "party.healthText", spec.healthText or "percent" },
                 { "party.shell.own", true },
                 { "party.shell.borderPx", spec.border },
                 { "party.shell.cornerPx", spec.corner },
@@ -386,6 +420,14 @@ local CATEGORY_CFG = {
             local spec = ns.RAID_BY_ID[id]
             if not spec then return {} end
             return {
+                { "raid.width", spec.width or 72 },
+                { "raid.height", spec.height or 28 },
+                { "raid.spacing", spec.spacing or 2 },
+                { "raid.slant", spec.slant == true },
+                { "raid.showPower", spec.showPower == true },
+                { "raid.powerHeight", spec.powerHeight or 3 },
+                { "raid.fillVertical", spec.fillVertical == true },
+                { "raid.showPercent", spec.showPercent == true },
                 { "raid.shell.own", true },
                 { "raid.shell.borderPx", spec.border },
                 { "raid.shell.cornerPx", spec.corner },
@@ -403,23 +445,24 @@ local CATEGORY_CFG = {
             local spec = ns.CAST_BY_ID[id]
             if not spec then return {} end
             local list = {}
-            local units = { "player", "target" }
-            for i = 1, #units do
-                local u = units[i]
-                list[#list + 1] = { u .. ".media.health", spec.texture }
-                list[#list + 1] = { u .. ".media.healthBack", spec.texture }
-                list[#list + 1] = { u .. ".media.power", spec.texture }
-                list[#list + 1] = { u .. ".media.powerBack", spec.texture }
-                list[#list + 1] = { u .. ".barFx.health.style", spec.fx }
-                if spec.fx ~= "none" then
-                    list[#list + 1] = { u .. ".barFx.health.speed", 1 }
-                    list[#list + 1] = { u .. ".barFx.health.strength", 1 }
-                    list[#list + 1] = { u .. ".barFx.health.colors", "bar" }
-                end
-            end
             local casts = { "playerCastbar", "targetCastbar", "focusCastbar", "partyCastbar" }
             for i = 1, #casts do
-                list[#list + 1] = { casts[i] .. ".barFx.cast.style", spec.fx }
+                local cu = casts[i]
+                if cu ~= "partyCastbar" then
+                    list[#list + 1] = { cu .. ".height", spec.height or 18 }
+                end
+                list[#list + 1] = { cu .. ".shell.own", true }
+                list[#list + 1] = { cu .. ".shell.borderPx", spec.border or 2 }
+                list[#list + 1] = { cu .. ".shell.cornerPx", spec.corner or 4 }
+                list[#list + 1] = { cu .. ".shell.shadowPx", spec.shadow or 6 }
+                list[#list + 1] = { cu .. ".media.bar", spec.texture }
+                list[#list + 1] = { cu .. ".media.barBack", spec.texture }
+                list[#list + 1] = { cu .. ".barFx.cast.style", spec.fx }
+                if spec.fx ~= "none" then
+                    list[#list + 1] = { cu .. ".barFx.cast.speed", 1 }
+                    list[#list + 1] = { cu .. ".barFx.cast.strength", 1 }
+                    list[#list + 1] = { cu .. ".barFx.cast.colors", "bar" }
+                end
             end
             return list
         end,
@@ -448,6 +491,61 @@ ns.EXTRA_ORDER = EXTRA_ORDER
 local previewHandles = {}
 local previewIds = {}
 
+local function releaseNoBatch(handles)
+    if type(handles) ~= "table" or #handles == 0 then return end
+    local d = dui()
+    local api = type(d) == "table" and d.API
+    if type(api) ~= "table" or type(api.Off) ~= "function" then return end
+    for i = #handles, 1, -1 do pcall(api.Off, handles[i]) end
+end
+
+local function applyCatNoBatch(host, cat, id)
+    local cfg = CATEGORY_CFG[cat]
+    if not cfg or not cfg.byId[id] then return end
+    local list = cfg.pairs(id)
+    local handles = {}
+    for i = 1, #list do
+        local ok, h = pcall(host.Override, cfg.scope, list[i][1], list[i][2])
+        if ok and type(h) == "table" then handles[#handles + 1] = h end
+    end
+    if #handles > 0 then
+        previewHandles[cat] = handles
+        previewIds[cat] = id
+    end
+end
+
+-- Syncs all 6 extra preview categories inside ONE single DaylightUI.Batch call.
+function ns.SyncExtrasPreview(wantMap)
+    if inCombat() then return end
+    wantMap = type(wantMap) == "table" and wantMap or {}
+    local needsWork = false
+    for i = 1, #EXTRA_ORDER do
+        local cat = EXTRA_ORDER[i]
+        if previewIds[cat] ~= wantMap[cat] then
+            needsWork = true
+            break
+        end
+    end
+    if not needsWork then return end
+    local host = overrideHost()
+    batch(function()
+        for i = 1, #EXTRA_ORDER do
+            local cat = EXTRA_ORDER[i]
+            local want = wantMap[cat]
+            if previewIds[cat] ~= want then
+                if previewHandles[cat] then
+                    releaseNoBatch(previewHandles[cat])
+                    previewHandles[cat] = nil
+                end
+                previewIds[cat] = nil
+                if want and host then
+                    applyCatNoBatch(host, cat, want)
+                end
+            end
+        end
+    end)
+end
+
 function ns.RevertExtraPreview(cat)
     if previewHandles[cat] then
         releaseHandles(previewHandles[cat])
@@ -460,25 +558,20 @@ function ns.BeginExtraPreview(cat, id)
     local cfg = CATEGORY_CFG[cat]
     if inCombat() or not cfg or not cfg.byId[id] then return end
     if previewIds[cat] == id and previewHandles[cat] then return end
-    ns.RevertExtraPreview(cat)
     local host = overrideHost()
     if not host then return end
-    local list = cfg.pairs(id)
-    local handles = {}
     batch(function()
-        for i = 1, #list do
-            local ok, h = pcall(host.Override, cfg.scope, list[i][1], list[i][2])
-            if ok and type(h) == "table" then handles[#handles + 1] = h end
+        if previewHandles[cat] then
+            releaseNoBatch(previewHandles[cat])
+            previewHandles[cat] = nil
         end
+        previewIds[cat] = nil
+        applyCatNoBatch(host, cat, id)
     end)
-    if #handles > 0 then
-        previewHandles[cat] = handles
-        previewIds[cat] = id
-    end
 end
 
 function ns.RevertAllExtrasPreview()
-    for i = 1, #EXTRA_ORDER do ns.RevertExtraPreview(EXTRA_ORDER[i]) end
+    ns.SyncExtrasPreview({})
 end
 
 function ns.activeExtra(cat)

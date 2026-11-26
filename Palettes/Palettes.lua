@@ -1041,9 +1041,11 @@ local function apply(id, fromQueue, quietLine)
     if not quietLine and not ns.quietPalette then
         say("Palettes: " .. p.name .. " is on. Your layout is unchanged.")
     end
-    if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
-    if refreshList then refreshList() end
-    if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
+    if not ns.inPreviewSync then
+        if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
+        if refreshList then refreshList() end
+        if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
+    end
 end
 
 -- PalettesAccount is the palette every character uses until they opt out.
@@ -2355,6 +2357,11 @@ local function makePlayerSample(parent)
     local opts = type(d) == "table" and d.Options
     if type(opts) ~= "table" or type(opts.GetPage) ~= "function" then return nil end
 
+    local function hasPageSample(pageId)
+        local okP, pg = pcall(opts.GetPage, pageId)
+        return okP and type(pg) == "table" and type(pg.sample) == "function"
+    end
+
     local function createSub(pageId, host)
         local okP, pg = pcall(opts.GetPage, pageId)
         if not okP or type(pg) ~= "table" or type(pg.sample) ~= "function" then return nil end
@@ -2367,14 +2374,35 @@ local function makePlayerSample(parent)
     local playerS = createSub("UnitFrames.player", container)
     if not playerS then return nil end
     local targetS = createSub("UnitFrames.target", container)
-    local focusS = createSub("UnitFrames.focus", container)
-    local totS = createSub("UnitFrames.targettarget", container)
-    local partyS = createSub("UnitFrames.party", container)
-    local raidS = createSub("UnitFrames.raid", container)
-    local castsS = createSub("UnitFrames.castbars", container)
     local actionS = makeActionBarPreview(container)
 
-    local allSubs = { playerS, targetS, focusS, totS, partyS, raidS, castsS, actionS }
+    local LAZY_PAGE = {
+        focus = "UnitFrames.focus",
+        tot = "UnitFrames.targettarget",
+        party = "UnitFrames.party",
+        raid = "UnitFrames.raid",
+        castbars = "UnitFrames.castbars",
+    }
+    local lazySubs = {}
+    local allSubs = { playerS }
+    if targetS then allSubs[#allSubs + 1] = targetS end
+    if actionS then allSubs[#allSubs + 1] = actionS end
+    local lastZoom = nil
+
+    local function getLazySub(key)
+        if lazySubs[key] ~= nil then return lazySubs[key] or nil end
+        local pageId = LAZY_PAGE[key]
+        local s = pageId and createSub(pageId, container) or nil
+        lazySubs[key] = s or false
+        if s then
+            allSubs[#allSubs + 1] = s
+            if lastZoom ~= nil and type(s.SetZoom) == "function" then
+                pcall(s.SetZoom, lastZoom)
+            end
+        end
+        return s
+    end
+
     local activeView = "player_target"
 
     local VIEW_ORDER = {}
@@ -2385,11 +2413,11 @@ local function makePlayerSample(parent)
         VIEW_LABELS[key] = label
     end
     addView("player_target", "Player & Target", true)
-    addView("focus", "Focus", focusS ~= nil)
-    addView("tot", "Target of Target", totS ~= nil)
-    addView("party", "Party", partyS ~= nil)
-    addView("raid", "Raid", raidS ~= nil)
-    addView("castbars", "Cast Bars", castsS ~= nil)
+    addView("focus", "Focus", hasPageSample("UnitFrames.focus"))
+    addView("tot", "Target of Target", hasPageSample("UnitFrames.targettarget"))
+    addView("party", "Party", hasPageSample("UnitFrames.party"))
+    addView("raid", "Raid", hasPageSample("UnitFrames.raid"))
+    addView("castbars", "Cast Bars", hasPageSample("UnitFrames.castbars"))
     addView("actionbars", "Action Bars", actionS ~= nil)
 
     -- Native DaylightUI dropdown button in the top-right corner of the Preview Deck.
@@ -2513,6 +2541,7 @@ local function makePlayerSample(parent)
         zoomRange = playerS.zoomRange,
         Zoom = playerS.Zoom,
         SetZoom = function(v)
+            lastZoom = v
             for i = 1, #allSubs do
                 local s = allSubs[i]
                 if s and type(s.SetZoom) == "function" then pcall(s.SetZoom, v) end
@@ -2529,18 +2558,11 @@ local function makePlayerSample(parent)
                 viewBtn:SetFrameLevel(container:GetFrameLevel() + 65)
             end
             updateViewBtn()
-            if activeView == "focus" and focusS then
-                return layoutSingle(focusS, w, room)
-            elseif activeView == "tot" and totS then
-                return layoutSingle(totS, w, room)
-            elseif activeView == "party" and partyS then
-                return layoutSingle(partyS, w, room)
-            elseif activeView == "raid" and raidS then
-                return layoutSingle(raidS, w, room)
-            elseif activeView == "castbars" and castsS then
-                return layoutSingle(castsS, w, room)
-            elseif activeView == "actionbars" and actionS then
+            if activeView == "actionbars" and actionS then
                 return layoutSingle(actionS, w, room)
+            elseif LAZY_PAGE[activeView] then
+                local sub = getLazySub(activeView)
+                if sub then return layoutSingle(sub, w, room) end
             end
             return layoutPair(playerS, targetS, w, room)
         end,
@@ -3250,12 +3272,15 @@ function ns.commitStaged()
     local k = staged.kind
     local looksOnly = k == "frame" or k == "focus" or k == "tot" or k == "party" or k == "raid" or k == "castbars" or k == "actionbars" or k == "bar" or k == "button"
     ns.withReloadAction(function()
-        if type(ns.RevertAllExtrasPreview) == "function" then pcall(ns.RevertAllExtrasPreview) end
-        if (staged.kind == "frame" or staged.kind == "theme" or staged.kind == "user_preset") and type(ns.CommitPreview) == "function" then
-            ns.CommitPreview(staged.commit)
-        else
-            staged.commit()
-        end
+        ns.withBulkWrite(function()
+            if type(ns.RevertAllExtrasPreview) == "function" then pcall(ns.RevertAllExtrasPreview) end
+            if (staged.kind == "frame" or staged.kind == "theme" or staged.kind == "user_preset") and type(ns.CommitPreview) == "function" then
+                ns.CommitPreview(staged.commit)
+            else
+                staged.commit()
+            end
+            refreshDeferred = true
+        end)
         if not looksOnly then ns.requestReload() end
     end)
     if type(ns.notePreview) == "function" then ns.notePreview() end
@@ -3285,19 +3310,22 @@ end
 local function runTabReset(tab)
     ns.withReloadAction(function()
         ns.staged = nil
-        if type(ns.RevertPreview) == "function" then ns.RevertPreview() end
         local beforeLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
         local beforeCur, beforePend = history.current, history.pending
-        local rows = ns.tabReset
-        if type(rows) == "table" then
-            for i = 1, #rows do
-                if rows[i].tab == tab and type(rows[i].run) == "function" then
-                    rows[i].run()
+        ns.withBulkWrite(function()
+            if type(ns.RevertPreview) == "function" then ns.RevertPreview() end
+            local rows = ns.tabReset
+            if type(rows) == "table" then
+                for i = 1, #rows do
+                    if rows[i].tab == tab and type(rows[i].run) == "function" then
+                        rows[i].run()
+                    end
                 end
+            elseif tab == "Colours" and type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
+                DaylightUI:Set("Palettes", "palette", "off")
             end
-        elseif tab == "Colours" and type(DaylightUI) == "table" and type(DaylightUI.Set) == "function" then
-            DaylightUI:Set("Palettes", "palette", "off")
-        end
+            refreshDeferred = true
+        end)
         local afterLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
         -- Reset Looks only moves frames, which repaint live.
         local looksMoved = tab ~= "Looks" and beforeLook ~= afterLook
@@ -3469,6 +3497,9 @@ local function placeUndo(panel)
     end
 end
 
+local refreshDeferred = false
+local bulkDepth = 0
+
 syncUndo = function()
     local panel = type(DaylightUI) == "table" and DaylightUI.OptionsPanel
     if type(panel) ~= "table" then return end
@@ -3483,6 +3514,10 @@ syncUndo = function()
         local refresh = panel.Refresh
         if type(refresh) == "function" then
             panel.Refresh = function(...)
+                if ns.inPreviewSync then
+                    refreshDeferred = true
+                    return
+                end
                 local a, b, c, d = refresh(...)
                 syncUndo()
                 return a, b, c, d
@@ -3612,18 +3647,42 @@ local function syncColorPreview()
     ns.applyingTheme = prevApplying
 end
 
-ns.notePreview = function()
-    if syncUndo then syncUndo() end
-    pcall(syncColorPreview)
-    if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
-    if previewRefreshing then return end
-    local d = dui()
-    local panel = type(d) == "table" and d.OptionsPanel
-    if type(panel) == "table" and type(panel.Refresh) == "function" then
-        previewRefreshing = true
-        pcall(panel.Refresh)
-        previewRefreshing = false
+function ns.withBulkWrite(fn)
+    if type(fn) ~= "function" then return end
+    if bulkDepth > 0 then
+        return fn()
     end
+    bulkDepth = 1
+    ns.inPreviewSync = true
+    refreshDeferred = false
+    local d = dui()
+    local ok, err
+    if type(d) == "table" and type(d.Batch) == "function" then
+        ok, err = pcall(d.Batch, fn)
+    else
+        ok, err = pcall(fn)
+    end
+    bulkDepth = 0
+    ns.inPreviewSync = false
+    if refreshDeferred then
+        refreshDeferred = false
+        local panel = type(d) == "table" and d.OptionsPanel
+        if type(panel) == "table" and type(panel.Refresh) == "function" and not previewRefreshing then
+            previewRefreshing = true
+            pcall(panel.Refresh)
+            previewRefreshing = false
+        end
+    end
+    if not ok then error(err, 0) end
+end
+
+ns.notePreview = function()
+    ns.withBulkWrite(function()
+        pcall(syncColorPreview)
+        if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
+        refreshDeferred = true
+    end)
+    if bulkDepth == 0 and syncUndo then syncUndo() end
 end
 
 refreshList = function()

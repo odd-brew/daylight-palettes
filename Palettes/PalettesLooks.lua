@@ -599,6 +599,9 @@ end
 
 -- Every frame write goes through DaylightUI.Batch, so the frames repaint once.
 local function batch(fn)
+    if type(ns.withBulkWrite) == "function" then
+        return pcall(ns.withBulkWrite, fn)
+    end
     local d = DaylightUI
     if type(d) == "table" and type(d.Batch) == "function" then
         return pcall(d.Batch, fn)
@@ -617,24 +620,14 @@ local function readValues(keys, into)
     return into
 end
 
-local function scopeFocusOn()
-    return select(1, readSetting("Palettes", "scopeFocus")) == true
-end
-
-local function scopeGroupOn()
-    return select(1, readSetting("Palettes", "scopeGroup")) == true
-end
-
--- The live value of every key Palettes may write: the look keys, both sizes
--- sets, the Flagon extras, and Focus/ToT/Party/Raid keys when opted in.
+-- The live value of every key PalettesLooks may write: Player & Target look keys,
+-- both sizes sets, and the Flagon extras. Focus/ToT/Party/Raid live in PalettesExtras.
 local function readFrameValues()
     local d = DaylightUI
     if type(d) ~= "table" or type(d.Get) ~= "function" then return nil end
     local values = readValues(FRAME_KEYS, {})
     readValues(SIZE_KEYS, values)
     readValues(EXTRA_KEYS, values)
-    if scopeFocusOn() then readValues(FOCUS_KEYS, values) end
-    if scopeGroupOn() then readValues(GROUP_KEYS, values) end
     if next(values) == nil then return nil end
     return values
 end
@@ -660,18 +653,6 @@ local function lookPairs(id)
     local sizes = SIZE_BY_LOOK[id]
     for i = 1, #sizes do list[#list + 1] = { sizes[i], values[sizes[i]] } end
     for i = 1, #FRAME_KEYS do list[#list + 1] = { FRAME_KEYS[i], values[FRAME_KEYS[i]] } end
-    if scopeFocusOn() and LOOK_SPECS[id] then
-        for u = 1, #FOCUS_UNITS do
-            local fp = focusStylePairs(FOCUS_UNITS[u], LOOK_SPECS[id])
-            for i = 1, #fp do list[#list + 1] = fp[i] end
-        end
-    end
-    if scopeGroupOn() and LOOK_SPECS[id] then
-        for u = 1, #GROUP_UNITS do
-            local gp = groupStylePairs(GROUP_UNITS[u], LOOK_SPECS[id])
-            for i = 1, #gp do list[#list + 1] = gp[i] end
-        end
-    end
     return list
 end
 
@@ -900,14 +881,6 @@ local function previewPairs(id, targets)
             want[targets[i] .. "Text."] = true
         end
     end
-    if scopeFocusOn() then
-        want["focus."] = true
-        want["targettarget."] = true
-    end
-    if scopeGroupOn() then
-        want["party."] = true
-        want["raid."] = true
-    end
     local all = lookPairs(id)
     if id == "flagon" then
         local extras = extraPairs(id)
@@ -949,20 +922,25 @@ local previewBackendDefault = {
 local function previewSync()
     if inCombat() then return end
     local want = previewWant
-    if previewShown and previewShown.id ~= want then
-        pcall(previewShown.backend.revert, previewShown.token)
-        previewShown = nil
+    if not ((previewShown and previewShown.id ~= want) or (want and not previewShown)) then
+        return
     end
-    if want and not previewShown then
-        local backend = previewBackend or previewBackendDefault
-        local ok, token = pcall(backend.apply, want, previewTargets)
-        if ok and token then
-            previewShown = { id = want, token = token, backend = backend }
-        elseif not previewWarned then
-            previewWarned = true
-            say("Looks: can't preview on the unit frames right now. Apply still works.")
+    batch(function()
+        if previewShown and previewShown.id ~= want then
+            pcall(previewShown.backend.revert, previewShown.token)
+            previewShown = nil
         end
-    end
+        if want and not previewShown then
+            local backend = previewBackend or previewBackendDefault
+            local ok, token = pcall(backend.apply, want, previewTargets)
+            if ok and token then
+                previewShown = { id = want, token = token, backend = backend }
+            elseif not previewWarned then
+                previewWarned = true
+                say("Looks: can't preview on the unit frames right now. Apply still works.")
+            end
+        end
+    end)
 end
 
 function ns.BeginPreview(id)
@@ -1019,19 +997,13 @@ function ns.syncFramePreview()
     local staged = ns.staged
     if looksOpen and type(staged) == "table" then
         if staged.kind == "frame" and frameById(staged.id) then
-            if type(ns.RevertAllExtrasPreview) == "function" then ns.RevertAllExtrasPreview() end
+            if type(ns.SyncExtrasPreview) == "function" then ns.SyncExtrasPreview({}) end
             ns.BeginPreview(staged.id)
             return
         elseif EXTRA_KINDS[staged.kind] then
             ns.RevertPreview()
-            local order = type(ns.EXTRA_ORDER) == "table" and ns.EXTRA_ORDER or {}
-            for i = 1, #order do
-                local k = order[i]
-                if k == staged.kind then
-                    if type(ns.BeginExtraPreview) == "function" then ns.BeginExtraPreview(k, staged.id) end
-                elseif type(ns.RevertExtraPreview) == "function" then
-                    ns.RevertExtraPreview(k)
-                end
+            if type(ns.SyncExtrasPreview) == "function" then
+                ns.SyncExtrasPreview({ [staged.kind] = staged.id })
             end
             return
         elseif staged.kind == "theme" then
@@ -1041,15 +1013,9 @@ function ns.syncFramePreview()
             else
                 ns.RevertPreview()
             end
-            local ex = type(ns.PRESET_EXTRAS) == "table" and ns.PRESET_EXTRAS[staged.id] or nil
-            local order = type(ns.EXTRA_ORDER) == "table" and ns.EXTRA_ORDER or {}
-            for i = 1, #order do
-                local k = order[i]
-                if ex and ex[k] and type(ns.BeginExtraPreview) == "function" then
-                    ns.BeginExtraPreview(k, ex[k])
-                elseif type(ns.RevertExtraPreview) == "function" then
-                    ns.RevertExtraPreview(k)
-                end
+            local ex = type(ns.PRESET_EXTRAS) == "table" and ns.PRESET_EXTRAS[staged.id] or {}
+            if type(ns.SyncExtrasPreview) == "function" then
+                ns.SyncExtrasPreview(ex)
             end
             return
         elseif staged.kind == "user_preset" then
@@ -1058,20 +1024,14 @@ function ns.syncFramePreview()
             else
                 ns.RevertPreview()
             end
-            local order = type(ns.EXTRA_ORDER) == "table" and ns.EXTRA_ORDER or {}
-            for i = 1, #order do
-                local k = order[i]
-                if staged[k] and type(ns.BeginExtraPreview) == "function" then
-                    ns.BeginExtraPreview(k, staged[k])
-                elseif type(ns.RevertExtraPreview) == "function" then
-                    ns.RevertExtraPreview(k)
-                end
+            if type(ns.SyncExtrasPreview) == "function" then
+                ns.SyncExtrasPreview(staged)
             end
             return
         end
     end
     ns.RevertPreview()
-    if type(ns.RevertAllExtrasPreview) == "function" then ns.RevertAllExtrasPreview() end
+    if type(ns.SyncExtrasPreview) == "function" then ns.SyncExtrasPreview({}) end
 end
 
 -- Drops an unapplied look/preset pick and its preview.
@@ -2395,7 +2355,6 @@ function ns.themesPage()
             key = "Looks:" .. theme.id, icon = ICONS[theme.frame],
             select = function()
                 inspectedPresetId = theme.id
-                ns.RevertPreview()
                 local id, changed, pending = ns.shownTheme()
                 local live = id == theme.id and not changed and not pending
                 ns.setLooksOpen(true)
@@ -2652,15 +2611,17 @@ function ns.looksPage()
             kind = "frame", id = frame.id, name = frame.name, desc = frame.desc,
             key = frame.id, icon = ICONS[frame.id],
             select = function()
-                ns.RevertPreview()
-                local live = wornFrame() == frame.id
-                ns.setLooksOpen(true)
-                if type(ns.setPreviewView) == "function" then pcall(ns.setPreviewView, "player_target") end
-                if type(ns.stagePick) == "function" then
-                    ns.stagePick("frame", frame.id, function() applyFrame(frame.id) end, live)
-                else
-                    applyFrame(frame.id)
-                end
+                batch(function()
+                    ns.RevertPreview()
+                    local live = wornFrame() == frame.id
+                    ns.setLooksOpen(true)
+                    if type(ns.setPreviewView) == "function" then pcall(ns.setPreviewView, "player_target") end
+                    if type(ns.stagePick) == "function" then
+                        ns.stagePick("frame", frame.id, function() applyFrame(frame.id) end, live)
+                    else
+                        applyFrame(frame.id)
+                    end
+                end)
                 refreshLooks()
             end,
         }
@@ -2756,7 +2717,7 @@ function ns.bootLooks()
         return
     end
     ns.looksGuard = nil
-    view = type(api.For) == "function" and api.For("Looks") or nil
+    view = type(api.For) == "function" and api.For("Palettes") or nil
     if looksAddonLoaded() then
         ns.looksReady = true
         ns.noteLooksAddon()
