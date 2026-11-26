@@ -2886,10 +2886,26 @@ do
     check(type(ns.staged) == "table" and ns.staged.looksOnly, true, "#43 Reset Looks is live-apply")
     ns.cancelStaged()
 
-    -- #44: Colours tab ~60px mini-strip preview present in Palettes.lua
-    if not main:find("palettesMiniStrip", 1, true) then
-        fail("#44 Colours tab mini-strip preview missing")
+    -- Real Preview Deck shown on Presets, Colours, and Looks tabs
+    if not main:find('tab == "Presets" or tab == "Colours" or tab == "Looks"', 1, true) then
+        fail("real Preview Deck must show on Presets, Colours, and Looks tabs")
     end
+
+    -- Multi-tab accumulated staging: Preset -> Colour tweak -> Looks tweak -> single Apply commits all
+    local ran = {}
+    ns.stagePick("theme", "oldroad", function() ran[#ran + 1] = "theme:oldroad" end, false, "Old Road")
+    ns.stagePick("palette", "tide", function() ran[#ran + 1] = "palette:tide" end, false, "Tide")
+    ns.stagePick("frame", "beam", function() ran[#ran + 1] = "frame:beam" end, false, "Beam")
+    ns.stagePick("look", "healer", function() ran[#ran + 1] = "party:healer" end, false, "Healer Grid", nil, "party")
+    check(type(ns.staged) == "table" and ns.staged.count, 4, "multi-tab staging accumulates Preset + Colour + 2 Looks")
+    check(ns.staged.baseId, "oldroad", "staged draft retains base preset")
+    check(ns.staged.palette, "tide", "staged draft retains colour tweak")
+    check(ns.staged.frame, "beam", "staged draft retains frame tweak")
+    check(ns.staged.looks and ns.staged.looks.party, "healer", "staged draft retains extra look tweak")
+    check(ns.staged.looksOnly, false, "multi-tab draft with preset/colour requires reload")
+    check(ns.commitStaged(), true, "commitStaged applies all accumulated selections")
+    check(#ran, 4, "all 4 staged commits executed on Apply")
+    check(ns.staged, nil, "ns.staged cleared after commit")
 end
 
 if failures > 0 then

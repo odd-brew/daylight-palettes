@@ -338,7 +338,7 @@ local EXTRA_LOOKS = {
           desc = "Rounded capsule with soft shadow and % HP to spot aggro swaps at a glance.",
           bestFor = "Dungeons, Tanking",
           settings = {
-              width = 118, height = 22, slant = false, showPower = false, powerHeight = 0,
+              width = 118, height = 22, slant = false, showPower = false, powerHeight = 4,
               portrait = "none", namePos = "bar", showPercent = true,
               ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 8, ["shell.shadowPx"] = 4,
           } },
@@ -346,7 +346,7 @@ local EXTRA_LOOKS = {
           desc = "Low-profile 16px strip with 1px border and no shadow to stay out of the way.",
           bestFor = "Raiding, DPS",
           settings = {
-              width = 112, height = 16, slant = false, showPower = false, powerHeight = 0,
+              width = 112, height = 16, slant = false, showPower = false, powerHeight = 4,
               portrait = "none", namePos = "bar", showPercent = false,
               ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 2, ["shell.shadowPx"] = 0,
           } },
@@ -354,7 +354,7 @@ local EXTRA_LOOKS = {
           desc = "Sharp 90° frame with class icon and 2px border for fast tank target-swap reads.",
           bestFor = "Tanking, PvP",
           settings = {
-              width = 124, height = 22, slant = false, showPower = false, powerHeight = 0,
+              width = 124, height = 22, slant = false, showPower = false, powerHeight = 4,
               portrait = "class", namePos = "bar", showPercent = true,
               ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 2,
           } },
@@ -1142,7 +1142,7 @@ local function matchTotSettings(ptId)
         height = 20,
         slant = spec.slant,
         showPower = false,
-        powerHeight = 0,
+        powerHeight = 4,
         portrait = "none",
         namePos = "bar",
         showPercent = true,
@@ -1458,47 +1458,41 @@ function ns.themePaletteId(id)
     return theme and theme.palette or nil
 end
 
--- The staged frame, category look, or preset pick is what shows while Presets or Looks is open.
--- Only overrides the currently visible Preview Deck mode to avoid freezing the client.
+-- The staged frame, category look, or preset pick is what shows while Palettes is open.
+-- Resolves multi-layer staged drafts (Preset + Colour/Look overrides) for the active Preview Deck mode.
 function ns.syncFramePreview()
     local staged = ns.staged
     if looksOpen and type(staged) == "table" then
         local deckMode = type(ns.getPreviewDeckMode) == "function" and ns.getPreviewDeckMode() or "player_target"
-        if staged.kind == "frame" and frameById(staged.id) then
+        local baseTheme = (staged.baseKind == "theme" or staged.kind == "theme") and themeById(staged.baseId or staged.id) or nil
+        local baseRec = (staged.baseKind == "mypreset" or staged.kind == "mypreset") and type(staged.recipe) == "table" and staged.recipe or nil
+
+        local effFrame = staged.frame
+            or (staged.kind == "frame" and staged.id)
+            or (baseTheme and baseTheme.frame)
+            or (baseRec and baseRec.frame)
+
+        if deckMode == "player_target" then
             revertExtraPreview()
-            ns.BeginPreview(staged.id)
-            return
-        elseif staged.kind == "look" and type(staged.catKey) == "string" then
-            previewWant = nil
-            previewSync()
-            local pKey = "look:" .. staged.catKey .. ":" .. tostring(staged.id)
-            beginExtraPairs(pKey, previewPairsForCategory(staged.catKey, staged.id))
-            return
-        elseif staged.kind == "theme" then
-            local theme = themeById(staged.id)
-            if theme then
-                if deckMode == "player_target" then
-                    revertExtraPreview()
-                    if frameById(theme.frame) then ns.BeginPreview(theme.frame) end
-                elseif type(theme[deckMode]) == "string" then
-                    previewWant = nil
-                    previewSync()
-                    local pKey = "theme:" .. theme.id .. ":" .. deckMode .. ":" .. theme[deckMode]
-                    beginExtraPairs(pKey, previewPairsForCategory(deckMode, theme[deckMode], theme.frame))
-                end
+            if effFrame and frameById(effFrame) then
+                ns.BeginPreview(effFrame)
                 return
             end
-        elseif staged.kind == "mypreset" and type(staged.recipe) == "table" then
-            local rec = staged.recipe
-            if deckMode == "player_target" then
-                revertExtraPreview()
-                if frameById(rec.frame) then ns.BeginPreview(rec.frame) end
-            elseif type(rec[deckMode]) == "string" then
-                previewWant = nil
-                previewSync()
-                local pKey = "mypreset:" .. tostring(staged.id) .. ":" .. deckMode .. ":" .. rec[deckMode]
-                beginExtraPairs(pKey, previewPairsForCategory(deckMode, rec[deckMode], rec.frame))
-            end
+            previewWant = nil
+            previewSync()
+            return
+        end
+
+        local effExtra = (type(staged.looks) == "table" and staged.looks[deckMode])
+            or (staged.kind == "look" and staged.catKey == deckMode and staged.id)
+            or (baseTheme and baseTheme[deckMode])
+            or (baseRec and baseRec[deckMode])
+
+        if type(effExtra) == "string" then
+            previewWant = nil
+            previewSync()
+            local pKey = deckMode .. ":" .. effExtra .. ":" .. tostring(effFrame or wornFrame() or "")
+            beginExtraPairs(pKey, previewPairsForCategory(deckMode, effExtra, effFrame))
             return
         end
     end
@@ -1509,7 +1503,7 @@ end
 -- from somewhere else calls this first, so it reads the saved style.
 function ns.dropFramePreview()
     local staged = ns.staged
-    if type(staged) == "table" and (staged.kind == "frame" or staged.kind == "theme" or staged.kind == "look" or staged.kind == "mypreset") then
+    if type(staged) == "table" and (staged.kind == "frame" or staged.kind == "theme" or staged.kind == "look" or staged.kind == "mypreset" or staged.kind == "multi") then
         ns.staged = nil
         refreshLooks()
     end
@@ -3252,7 +3246,8 @@ local function buildPresetsPage(row)
 
         local shownId, changed, pendingTheme = ns.shownTheme()
         local staged = ns.staged
-        local stagedThemeId = (type(staged) == "table" and staged.kind == "theme") and staged.id or nil
+        local stagedThemeId = (type(staged) == "table" and (staged.baseKind == "theme" or staged.kind == "theme"))
+            and (staged.baseId or staged.id) or nil
 
         for i = 1, #cards do
             local line = cards[i]
@@ -3267,7 +3262,8 @@ local function buildPresetsPage(row)
         local focusTheme = (stagedThemeId and themeById(stagedThemeId))
             or (shownId and themeById(shownId))
             or THEMES[1]
-        local isModified = (shownId ~= nil and changed == true and stagedThemeId == nil)
+        local hasStagedTweaks = type(staged) == "table" and (staged.palette ~= nil or staged.frame ~= nil or (type(staged.looks) == "table" and next(staged.looks) ~= nil))
+        local isModified = (shownId ~= nil and changed == true and stagedThemeId == nil) or (stagedThemeId ~= nil and hasStagedTweaks)
         if isModified then
             recipeTitle:SetText("Custom (based on " .. (focusTheme and focusTheme.name or "Preset") .. ")")
             recipeDesc:SetText("Modified from " .. (focusTheme and focusTheme.name or "Preset") .. ". Click any layer below to tweak or save to My Presets.")
@@ -3282,7 +3278,17 @@ local function buildPresetsPage(row)
         tintText(recipeTitle, txt)
         tintText(recipeDesc, lbl)
 
-        local rec = (stagedThemeId and focusTheme) or (isModified and ns.currentRecipe()) or focusTheme or ns.currentRecipe()
+        local baseRec = (stagedThemeId and focusTheme) or (isModified and ns.currentRecipe()) or focusTheme or ns.currentRecipe()
+        local rec = {
+            palette = (type(staged) == "table" and staged.palette) or baseRec.palette,
+            frame = (type(staged) == "table" and staged.frame) or baseRec.frame,
+            focus = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.focus) or baseRec.focus,
+            tot = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.tot) or baseRec.tot,
+            party = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.party) or baseRec.party,
+            raid = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.raid) or baseRec.raid,
+            castbars = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.castbars) or baseRec.castbars,
+            actionbars = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.actionbars) or baseRec.actionbars,
+        }
         for i = 1, #layerButtons do
             local lb = layerButtons[i]
             if lb.card then lb.card.paint(blend(win, bnd, 0.45), 0.90, brd, 0.65) end
@@ -3662,21 +3668,31 @@ local function buildLooksTabPage(row)
         end
 
         local staged = ns.staged
-        local activePT = (type(staged) == "table" and staged.kind == "frame" and staged.id) or wornFrame() or "beam"
+        local stagedTheme = (type(staged) == "table" and (staged.baseKind == "theme" or staged.kind == "theme"))
+            and themeById(staged.baseId or staged.id) or nil
+        local stagedRec = (type(staged) == "table" and (staged.baseKind == "mypreset" or staged.kind == "mypreset") and type(staged.recipe) == "table")
+            and staged.recipe or nil
+        local stagedPT = (type(staged) == "table" and staged.frame)
+            or (type(staged) == "table" and staged.kind == "frame" and staged.id)
+            or (stagedTheme and stagedTheme.frame)
+            or (stagedRec and stagedRec.frame)
+        local activePT = stagedPT or wornFrame() or "beam"
         local activePTName = partLabel("frame", activePT)
 
         for ck, list in pairs(catCards) do
             local activeId = (ck == "player_target") and wornFrame() or ns.readLookPick(ck)
+            local stagedForCat = nil
+            if ck == "player_target" then
+                stagedForCat = stagedPT
+            elseif type(staged) == "table" then
+                stagedForCat = (type(staged.looks) == "table" and staged.looks[ck])
+                    or (staged.kind == "look" and staged.catKey == ck and staged.id)
+                    or (stagedTheme and stagedTheme[ck])
+                    or (stagedRec and stagedRec[ck])
+            end
             for i = 1, #list do
                 local line = list[i]
-                local isStaged = false
-                if type(staged) == "table" then
-                    if ck == "player_target" and staged.kind == "frame" and staged.id == line.id then
-                        isStaged = true
-                    elseif staged.kind == "look" and staged.catKey == ck and staged.id == line.id then
-                        isStaged = true
-                    end
-                end
+                local isStaged = (stagedForCat ~= nil and stagedForCat == line.id)
                 if line.isMatch then
                     line.matchFs:SetText("Currently: " .. activePTName)
                     setShownSafe(line.matchFs, true)

@@ -2362,19 +2362,37 @@ local function makePlayerSample(parent)
     local statusText = blankText(statusPill)
     statusText:SetPoint("CENTER", statusPill, "CENTER", 0, 0)
 
-    -- Lightweight Action Bars preview strip when Action Bars mode is selected
+    -- Live Action Bars preview strip reflecting the active/staged ActionBars look settings
     local abPreview = CreateFrame("Frame", nil, container)
-    abPreview:SetHeight(44)
+    abPreview:SetHeight(56)
     local abSlots = {}
     local abKeys = { "1", "2", "3", "4", "5", "Q", "E", "R" }
+    local abIcons = {
+        "Interface\\Icons\\Spell_Holy_FlashHeal",
+        "Interface\\Icons\\Spell_Fire_FireBolt",
+        "Interface\\Icons\\Ability_Warrior_ShieldWall",
+        "Interface\\Icons\\Spell_Frost_FrostBolt02",
+        "Interface\\Icons\\Ability_Rogue_Sprint",
+        "Interface\\Icons\\Spell_Nature_Lightning",
+        "Interface\\Icons\\Ability_Hunter_AimedShot",
+        "Interface\\Icons\\Spell_Shadow_ShadowBolt",
+    }
     for i = 1, #abKeys do
         local slot = CreateFrame("Frame", nil, abPreview)
-        slot:SetSize(30, 30)
-        local sc = ns.makeRoundCard(slot)
+        slot:SetSize(38, 38)
+        local shadow = slot:CreateTexture(nil, "BACKGROUND", nil, -6)
+        local outer = slot:CreateTexture(nil, "BORDER", nil, 0)
+        local roundCard = ns.makeRoundCard(slot)
+        local icon = slot:CreateTexture(nil, "ARTWORK", nil, 0)
+        if type(icon.SetTexture) == "function" then icon:SetTexture(abIcons[i]) end
+        local mask = type(slot.CreateMaskTexture) == "function" and slot:CreateMaskTexture() or nil
         local kf = blankText(slot)
-        kf:SetPoint("CENTER", slot, "CENTER", 0, 0)
+        kf:SetPoint("TOPRIGHT", slot, "TOPRIGHT", -3, -3)
         kf:SetText(abKeys[i])
-        abSlots[i] = { frame = slot, card = sc, text = kf }
+        abSlots[i] = {
+            frame = slot, shadow = shadow, outer = outer, roundCard = roundCard,
+            icon = icon, mask = mask, masked = false, text = kf,
+        }
     end
     if abPreview.Hide then abPreview:Hide() end
 
@@ -2390,7 +2408,7 @@ local function makePlayerSample(parent)
         if type(panel) ~= "table" or type(panel.PageFrame) ~= "function" then return true end
         local pf = panel.PageFrame("Palettes.main")
         local tab = type(pf) == "table" and type(pf.tab) == "string" and pf.tab or "Presets"
-        return tab == "Presets" or tab == "Looks"
+        return tab == "Presets" or tab == "Colours" or tab == "Looks"
     end
 
     local function hideAllSamples()
@@ -2402,9 +2420,21 @@ local function makePlayerSample(parent)
         end
     end
 
+    local function readActionBarLook()
+        local shape = (type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.shape"))) or "square"
+        local borderStyle = (type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.borderStyle"))) or "daylight"
+        local border = tonumber(type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.border"))) or 2
+        local corners = (type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.corners"))) or "round"
+        local shadowOn = (type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.shadow"))) ~= false
+        local zoom = tonumber(type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.zoom"))) or 0.06
+        return shape, borderStyle, border, corners, shadowOn, zoom
+    end
+
     local function paintHeader()
-        local pid = (type(ns.staged) == "table" and ns.staged.kind == "palette" and ns.staged.id)
-            or (type(ns.staged) == "table" and ns.staged.kind == "theme" and type(ns.themePaletteId) == "function" and ns.themePaletteId(ns.staged.id))
+        local staged = ns.staged
+        local pid = (type(staged) == "table" and type(staged.palette) == "string" and staged.palette)
+            or (type(staged) == "table" and staged.kind == "palette" and staged.id)
+            or (type(staged) == "table" and staged.kind == "theme" and type(ns.themePaletteId) == "function" and ns.themePaletteId(staged.id))
             or currentId()
         local p = ns.byId[pid]
         local win = (p and p.window) or { 0.08, 0.10, 0.08 }
@@ -2417,7 +2447,6 @@ local function makePlayerSample(parent)
         modeText:SetText("Preview: " .. modeLabel(previewDeckMode) .. " v")
         if type(modeText.SetTextColor) == "function" then modeText:SetTextColor(txt[1], txt[2], txt[3], 1) end
 
-        local staged = ns.staged
         if type(staged) == "table" then
             local name = staged.label or staged.id or "Change"
             statusText:SetText("PREVIEWING: " .. tostring(name) .. " — Unsaved")
@@ -2436,10 +2465,91 @@ local function makePlayerSample(parent)
             if type(statusText.SetTextColor) == "function" then statusText:SetTextColor(acc[1], acc[2], acc[3], 1) end
         end
 
+        -- Paint Action Bars preview slots using live look.shape / borderStyle / border / corners / shadow / zoom
+        local shape, borderStyle, borderPx, corners, shadowOn, zoom = readActionBarLook()
+        local isShaped = (shape ~= "square")
+        local inset = (borderStyle == "none") and 0 or math.max(1, math.min(6, borderPx))
+        local media = type(d.MEDIA) == "string" and d.MEDIA or "Interface\\AddOns\\DaylightUI\\Media\\"
+        local shapeTex = isShaped and (media .. "shape-" .. shape .. ".png") or nil
+        local shadowTex = isShaped and (media .. "shape-" .. shape .. "-shadow.png") or nil
+        local z = math.max(0, math.min(0.4, zoom)) / 2
+
         for i = 1, #abSlots do
-            abSlots[i].card.paint(bnd, 0.95, i == 2 and acc or brd, 0.9)
-            if type(abSlots[i].text.SetTextColor) == "function" then
-                abSlots[i].text:SetTextColor(txt[1], txt[2], txt[3], 1)
+            local sl = abSlots[i]
+            local rimCol = (i == 2) and acc or ((borderStyle == "daylight") and bnd or brd)
+            -- Shadow
+            if sl.shadow.ClearAllPoints then sl.shadow:ClearAllPoints() end
+            sl.shadow:SetPoint("TOPLEFT", sl.frame, "TOPLEFT", -3, 3)
+            sl.shadow:SetPoint("BOTTOMRIGHT", sl.frame, "BOTTOMRIGHT", 3, -3)
+            if shadowOn then
+                if shadowTex and type(sl.shadow.SetTexture) == "function" then
+                    sl.shadow:SetTexture(shadowTex)
+                    if type(sl.shadow.SetVertexColor) == "function" then sl.shadow:SetVertexColor(0, 0, 0, 0.65) end
+                elseif type(sl.shadow.SetColorTexture) == "function" then
+                    sl.shadow:SetColorTexture(0, 0, 0, 0.55)
+                end
+                if sl.shadow.Show then sl.shadow:Show() end
+            else
+                if sl.shadow.Hide then sl.shadow:Hide() end
+            end
+
+            -- Shape mask vs rounded/square border
+            if isShaped and sl.mask and shapeTex then
+                if sl.roundCard.fill.Hide then sl.roundCard.fill:Hide() end
+                if sl.roundCard.line.Hide then sl.roundCard.line:Hide() end
+                if type(sl.outer.SetTexture) == "function" then
+                    sl.outer:SetTexture(shapeTex)
+                    if type(sl.outer.SetVertexColor) == "function" then sl.outer:SetVertexColor(rimCol[1], rimCol[2], rimCol[3], 1) end
+                end
+                sl.outer:ClearAllPoints()
+                sl.outer:SetAllPoints(sl.frame)
+                if borderStyle == "none" then
+                    if sl.outer.Hide then sl.outer:Hide() end
+                elseif sl.outer.Show then
+                    sl.outer:Show()
+                end
+                if type(sl.mask.SetTexture) == "function" then
+                    pcall(sl.mask.SetTexture, sl.mask, shapeTex, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+                end
+                sl.mask:ClearAllPoints()
+                sl.mask:SetAllPoints(sl.icon)
+                if not sl.masked and type(sl.icon.AddMaskTexture) == "function" then
+                    if pcall(sl.icon.AddMaskTexture, sl.icon, sl.mask) then sl.masked = true end
+                end
+            else
+                if sl.masked and sl.mask and type(sl.icon.RemoveMaskTexture) == "function" then
+                    pcall(sl.icon.RemoveMaskTexture, sl.icon, sl.mask)
+                    sl.masked = false
+                end
+                if corners == "round" and borderStyle ~= "none" then
+                    if sl.outer.Hide then sl.outer:Hide() end
+                    if sl.roundCard.fill.Show then sl.roundCard.fill:Show() end
+                    if sl.roundCard.line.Show then sl.roundCard.line:Show() end
+                    sl.roundCard.paint(rimCol, 0.96, (i == 2) and acc or brd, 0.95)
+                else
+                    if sl.roundCard.fill.Hide then sl.roundCard.fill:Hide() end
+                    if sl.roundCard.line.Hide then sl.roundCard.line:Hide() end
+                    sl.outer:ClearAllPoints()
+                    sl.outer:SetAllPoints(sl.frame)
+                    if borderStyle == "none" then
+                        if sl.outer.Hide then sl.outer:Hide() end
+                    else
+                        if type(sl.outer.SetColorTexture) == "function" then
+                            sl.outer:SetColorTexture(rimCol[1], rimCol[2], rimCol[3], 1)
+                        end
+                        if sl.outer.Show then sl.outer:Show() end
+                    end
+                end
+            end
+
+            sl.icon:ClearAllPoints()
+            sl.icon:SetPoint("TOPLEFT", sl.frame, "TOPLEFT", inset, -inset)
+            sl.icon:SetPoint("BOTTOMRIGHT", sl.frame, "BOTTOMRIGHT", -inset, inset)
+            if type(sl.icon.SetTexCoord) == "function" then
+                sl.icon:SetTexCoord(z, 1 - z, z, 1 - z)
+            end
+            if type(sl.text.SetTextColor) == "function" then
+                sl.text:SetTextColor(txt[1], txt[2], txt[3], 1)
             end
         end
     end
@@ -2454,6 +2564,9 @@ local function makePlayerSample(parent)
         SetZoom = function(v)
             if type(playerS.SetZoom) == "function" then pcall(playerS.SetZoom, v) end
             if targetS and type(targetS.SetZoom) == "function" then pcall(targetS.SetZoom, v) end
+            for _, s in pairs(extraSamples) do
+                if type(s) == "table" and type(s.SetZoom) == "function" then pcall(s.SetZoom, v) end
+            end
         end,
         Refresh = function(w, room)
             if not showDeckOnTab() then
@@ -2475,13 +2588,13 @@ local function makePlayerSample(parent)
                 abPreview:ClearAllPoints()
                 abPreview:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -topOffset)
                 abPreview:SetWidth(w)
-                local totalW = #abSlots * 30 + (#abSlots - 1) * 6
+                local totalW = #abSlots * 38 + (#abSlots - 1) * 8
                 local startX = math.max(8, math.floor((w - totalW) / 2))
                 for i = 1, #abSlots do
                     abSlots[i].frame:ClearAllPoints()
-                    abSlots[i].frame:SetPoint("TOPLEFT", abPreview, "TOPLEFT", startX + (i - 1) * 36, -7)
+                    abSlots[i].frame:SetPoint("TOPLEFT", abPreview, "TOPLEFT", startX + (i - 1) * 46, -9)
                 end
-                local h = topOffset + 44
+                local h = topOffset + 56
                 container:SetSize(w, h)
                 return h
             end
@@ -2494,7 +2607,9 @@ local function makePlayerSample(parent)
                 local sampleObj = getExtraSample(previewDeckMode, pageId)
                 if sampleObj then
                     if sampleObj.frame.Show then sampleObj.frame:Show() end
-                    local sh = sampleObj.Refresh(w, subRoom) or 60
+                    if type(sampleObj.f) == "table" and sampleObj.f.Show then sampleObj.f:Show() end
+                    local okR, sh = pcall(sampleObj.Refresh, w, subRoom)
+                    sh = (okR and type(sh) == "number" and sh > 0) and sh or 60
                     sampleObj.frame:ClearAllPoints()
                     sampleObj.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -topOffset)
                     local h = topOffset + sh
@@ -2626,51 +2741,8 @@ local function buildList(row)
     local CARD_H = 44
     local CARD_GAP_X = 8
     local CARD_GAP_Y = 6
-    local MINI_H = 58
-    local CAT_TOP = -(MINI_H + 10)
-    local GRID_TOP = -(MINI_H + 42)
-
-    -- Issue #44: Compact ~60px live mini-strip unit frame preview (Player bar + Cast bar).
-    local miniStrip = CreateFrame("Frame", nil, row)
-    miniStrip:SetHeight(MINI_H)
-    local miniCard = ns.makeRoundCard(miniStrip)
-    local miniPortrait = CreateFrame("Frame", nil, miniStrip)
-    miniPortrait:SetSize(30, 30)
-    local miniPortraitCard = ns.makeRoundCard(miniPortrait)
-    local miniPortraitFs = blankText(miniPortrait)
-    miniPortraitFs:SetPoint("CENTER", miniPortrait, "CENTER", 0, 0)
-    miniPortraitFs:SetText("P")
-
-    local miniPlayerName = blankText(miniStrip)
-    miniPlayerName:SetJustifyH("LEFT")
-    miniPlayerName:SetWordWrap(false)
-    local miniPlayerPct = blankText(miniStrip)
-    miniPlayerPct:SetJustifyH("RIGHT")
-    miniPlayerPct:SetText("88%")
-
-    local miniHpBg = miniStrip:CreateTexture(nil, "ARTWORK")
-    local miniHpFill = miniStrip:CreateTexture(nil, "OVERLAY")
-    local miniPwFill = miniStrip:CreateTexture(nil, "OVERLAY")
-
-    local miniDivider = miniStrip:CreateTexture(nil, "ARTWORK")
-    miniDivider:SetSize(1, 36)
-
-    local miniCastIcon = CreateFrame("Frame", nil, miniStrip)
-    miniCastIcon:SetSize(24, 24)
-    local miniCastIconCard = ns.makeRoundCard(miniCastIcon)
-    local miniCastIconFs = blankText(miniCastIcon)
-    miniCastIconFs:SetPoint("CENTER", miniCastIcon, "CENTER", 0, 0)
-    miniCastIconFs:SetText("*")
-
-    local miniCastBg = miniStrip:CreateTexture(nil, "ARTWORK")
-    local miniCastFill = miniStrip:CreateTexture(nil, "OVERLAY")
-    local miniCastSpell = blankText(miniStrip)
-    miniCastSpell:SetJustifyH("LEFT")
-    miniCastSpell:SetText("Flash Heal")
-    local miniCastTime = blankText(miniStrip)
-    miniCastTime:SetJustifyH("RIGHT")
-    miniCastTime:SetText("1.2s")
-    row.palettesMiniStrip = miniStrip
+    local CAT_TOP = -4
+    local GRID_TOP = -36
 
     for g = 1, #ns.groups do
         local group = ns.groups[g]
@@ -2767,45 +2839,6 @@ local function buildList(row)
         local cols = w >= 600 and 3 or 2
         local cardW = math.floor((w - (cols - 1) * CARD_GAP_X) / cols)
 
-        miniStrip:ClearAllPoints()
-        miniStrip:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -4)
-        miniStrip:SetWidth(w)
-        local halfW = math.floor((w - 28) / 2)
-        miniPortrait:ClearAllPoints()
-        miniPortrait:SetPoint("LEFT", miniStrip, "LEFT", 10, 0)
-        miniPlayerName:ClearAllPoints()
-        miniPlayerName:SetPoint("TOPLEFT", miniPortrait, "TOPRIGHT", 8, 2)
-        miniPlayerName:SetWidth(math.max(60, halfW - 96))
-        miniPlayerPct:ClearAllPoints()
-        miniPlayerPct:SetPoint("TOPRIGHT", miniStrip, "TOPLEFT", halfW, -10)
-        local pBarW = math.max(80, halfW - 50)
-        miniHpBg:ClearAllPoints()
-        miniHpBg:SetPoint("TOPLEFT", miniPortrait, "TOPRIGHT", 8, -14)
-        miniHpBg:SetSize(pBarW, 14)
-        miniHpFill:ClearAllPoints()
-        miniHpFill:SetPoint("TOPLEFT", miniHpBg, "TOPLEFT", 1, -1)
-        miniHpFill:SetSize(math.max(10, math.floor((pBarW - 2) * 0.88)), 8)
-        miniPwFill:ClearAllPoints()
-        miniPwFill:SetPoint("BOTTOMLEFT", miniHpBg, "BOTTOMLEFT", 1, 1)
-        miniPwFill:SetSize(math.max(10, math.floor((pBarW - 2) * 0.70)), 4)
-
-        miniDivider:ClearAllPoints()
-        miniDivider:SetPoint("LEFT", miniStrip, "LEFT", halfW + 12, 0)
-
-        miniCastIcon:ClearAllPoints()
-        miniCastIcon:SetPoint("LEFT", miniDivider, "RIGHT", 12, 0)
-        local cBarW = math.max(80, halfW - 44)
-        miniCastBg:ClearAllPoints()
-        miniCastBg:SetPoint("LEFT", miniCastIcon, "RIGHT", 8, 0)
-        miniCastBg:SetSize(cBarW, 20)
-        miniCastFill:ClearAllPoints()
-        miniCastFill:SetPoint("TOPLEFT", miniCastBg, "TOPLEFT", 1, -1)
-        miniCastFill:SetSize(math.max(10, math.floor((cBarW - 2) * 0.64)), 18)
-        miniCastSpell:ClearAllPoints()
-        miniCastSpell:SetPoint("LEFT", miniCastBg, "LEFT", 6, 0)
-        miniCastTime:ClearAllPoints()
-        miniCastTime:SetPoint("RIGHT", miniCastBg, "RIGHT", -6, 0)
-
         local cx = 4
         local cy = CAT_TOP
         for i = 1, #catButtons do
@@ -2860,12 +2893,17 @@ local function buildList(row)
     function row.palettesRefresh()
         local id = currentId()
         local staged = ns.staged
-        local previewId = id
-        if type(staged) == "table" and staged.kind == "palette" and type(staged.id) == "string" then
-            previewId = staged.id
-        elseif type(staged) == "table" and staged.kind == "reset" and (staged.id == "Colours" or staged.id == "Presets") then
-            previewId = "off"
+        local stagedPalId = nil
+        if type(staged) == "table" then
+            if type(staged.palette) == "string" then
+                stagedPalId = staged.palette
+            elseif staged.kind == "palette" and type(staged.id) == "string" then
+                stagedPalId = staged.id
+            elseif staged.kind == "reset" and (staged.id == "Colours" or staged.id == "Presets") then
+                stagedPalId = "off"
+            end
         end
+        local previewId = stagedPalId or id
         local p = ns.byId[previewId] or ns.byId[id]
         if editorOn == true and type(customDraft) == "table" and type(ns.deriveCustom) == "function" then
             local okD, derived = pcall(ns.deriveCustom, customDraft)
@@ -2875,7 +2913,6 @@ local function buildList(row)
         local labelColor = p and p.label or textColor
         local accent = p and p.c2 or offColor("c2") or textColor
         local window = p and p.window or offColor("window") or { 0.08, 0.10, 0.08 }
-        local bgCol = p and p.background or window
         local border = p and p.border or { 0.22, 0.28, 0.22 }
         local band = p and p.band or { 0.14, 0.18, 0.14 }
         local choiceColor = nil
@@ -2884,25 +2921,6 @@ local function buildList(row)
         local pending = history.pending
         local waitingPick = pending ~= nil and pending ~= id
         local editorOpen = editorOn == true and type(row.palettesEditor) == "table"
-
-        -- Paint compact ~60px live mini-strip preview
-        if miniStrip.SetShown then miniStrip:SetShown(not editorOpen) end
-        miniCard.paint(bgCol, 0.96, border, 0.85)
-        miniPortraitCard.paint(band, 0.95, accent, 0.95)
-        uiFont(miniPortraitFs, ink, 11, textColor)
-        uiFont(miniPlayerName, ink, 11, textColor)
-        uiFont(miniPlayerPct, ink, 10, labelColor)
-        miniPlayerName:SetText((p and p.name) or "Daylight (Default)")
-        paintSwatch(miniHpBg, border)
-        paintSwatch(miniHpFill, { 0.19, 0.62, 0.40 })
-        paintSwatch(miniPwFill, { 0.23, 0.51, 0.96 })
-        paintSwatch(miniDivider, band)
-        miniCastIconCard.paint(band, 0.95, accent, 0.95)
-        uiFont(miniCastIconFs, ink, 11, accent)
-        paintSwatch(miniCastBg, window)
-        paintSwatch(miniCastFill, accent)
-        uiFont(miniCastSpell, ink, 10, textColor)
-        uiFont(miniCastTime, ink, 10, textColor)
 
         local cardSurface = blendColor(window, band, 0.26)
         local cardHover = blendColor(window, band, 0.55)
@@ -2930,7 +2948,7 @@ local function buildList(row)
         for i = 1, #entries do
             local entry = entries[i]
             local isApplied = entry.id == id
-            local isStaged = type(staged) == "table" and staged.kind == "palette" and staged.id == entry.id
+            local isStaged = (stagedPalId ~= nil and stagedPalId == entry.id)
             local waiting = waitingPick and entry.id == pending
             local hot = entry.hot and not isApplied and not isStaged and not waiting
             local rowPalette = ns.byId[entry.id]
@@ -3250,18 +3268,125 @@ local function undoClick()
     end
 end
 
--- A row click previews. Apply is what writes the pick.
-function ns.stagePick(kind, id, commit, live, label, recipe, catKey)
-    if live or (type(ns.staged) == "table" and ns.staged.kind == kind and ns.staged.id == id and ns.staged.catKey == catKey) then
-        ns.staged = nil
-    else
-        local looksOnly = (kind == "frame" or kind == "look" or (kind == "reset" and id == "Looks"))
-        ns.staged = {
-            kind = kind, id = id, commit = commit,
-            label = label or id, recipe = recipe, catKey = catKey,
-            looksOnly = looksOnly,
-        }
+local function rebuildStagedSummary(draft)
+    local count = 0
+    local singleKind, singleId, singleLabel, singleCat = nil, nil, nil, nil
+    if draft.baseKind then
+        count = count + 1
+        singleKind, singleId, singleLabel = draft.baseKind, draft.baseId, draft.baseLabel
     end
+    if draft.palette ~= nil then
+        count = count + 1
+        singleKind, singleId, singleLabel = "palette", draft.palette, draft.paletteLabel or draft.palette
+    end
+    if draft.frame ~= nil then
+        count = count + 1
+        singleKind, singleId, singleLabel = "frame", draft.frame, draft.frameLabel or draft.frame
+    end
+    if type(draft.looks) == "table" then
+        for ck, optId in pairs(draft.looks) do
+            count = count + 1
+            singleKind, singleId, singleCat = "look", optId, ck
+            singleLabel = (type(draft.lookLabels) == "table" and draft.lookLabels[ck]) or optId
+        end
+    end
+    if count == 0 then return nil end
+    draft.count = count
+    if count == 1 then
+        draft.kind = singleKind
+        draft.id = singleId
+        draft.catKey = singleCat
+        draft.label = singleLabel or singleId
+    else
+        draft.kind = draft.baseKind or "multi"
+        draft.id = draft.baseId or "multi"
+        draft.catKey = nil
+        if draft.baseKind and draft.baseLabel then
+            draft.label = draft.baseLabel .. " + " .. tostring(count - 1) .. " tweak" .. ((count - 1) == 1 and "" or "s")
+        else
+            draft.label = tostring(count) .. " changes"
+        end
+    end
+    local needsReload = (draft.palette ~= nil)
+        or (draft.baseKind == "theme")
+        or (draft.baseKind == "mypreset")
+        or (draft.baseKind == "reset" and draft.baseId ~= "Looks")
+    draft.looksOnly = not needsReload
+    draft.commit = function()
+        if type(draft.baseCommit) == "function" then draft.baseCommit() end
+        if type(draft.paletteCommit) == "function" then draft.paletteCommit() end
+        if type(draft.frameCommit) == "function" then draft.frameCommit() end
+        if type(draft.lookCommits) == "table" then
+            for _, fn in pairs(draft.lookCommits) do
+                if type(fn) == "function" then fn() end
+            end
+        end
+    end
+    return draft
+end
+
+-- A row click previews and accumulates into ns.staged across tabs & sub-menus.
+-- Apply commits every staged selection at once.
+function ns.stagePick(kind, id, commit, live, label, recipe, catKey)
+    local draft = type(ns.staged) == "table" and ns.staged or nil
+
+    -- Presets, My Presets, and Resets replace the staged draft base.
+    if kind == "theme" or kind == "mypreset" or kind == "reset" then
+        if live or (draft and draft.baseKind == kind and draft.baseId == id and draft.count == 1) then
+            ns.staged = nil
+        else
+            ns.staged = rebuildStagedSummary({
+                baseKind = kind, baseId = id, baseLabel = label or id,
+                baseCommit = commit, recipe = recipe,
+                looks = {}, lookLabels = {}, lookCommits = {},
+            })
+        end
+        if type(ns.notePreview) == "function" then ns.notePreview() end
+        return
+    end
+
+    -- Individual Colour or Look picks layer onto the existing draft (unless base was a Reset).
+    if not draft or draft.baseKind == "reset" then
+        draft = { looks = {}, lookLabels = {}, lookCommits = {} }
+    else
+        draft.looks = draft.looks or {}
+        draft.lookLabels = draft.lookLabels or {}
+        draft.lookCommits = draft.lookCommits or {}
+    end
+
+    if kind == "palette" then
+        if live or draft.palette == id then
+            draft.palette = nil
+            draft.paletteLabel = nil
+            draft.paletteCommit = nil
+        else
+            draft.palette = id
+            draft.paletteLabel = label or id
+            draft.paletteCommit = commit
+        end
+    elseif kind == "frame" then
+        if live or draft.frame == id then
+            draft.frame = nil
+            draft.frameLabel = nil
+            draft.frameCommit = nil
+        else
+            draft.frame = id
+            draft.frameLabel = label or id
+            draft.frameCommit = commit
+        end
+    elseif kind == "look" and type(catKey) == "string" then
+        if live or draft.looks[catKey] == id then
+            draft.looks[catKey] = nil
+            draft.lookLabels[catKey] = nil
+            draft.lookCommits[catKey] = nil
+        else
+            draft.looks[catKey] = id
+            draft.lookLabels[catKey] = label or id
+            draft.lookCommits[catKey] = commit
+        end
+    end
+
+    ns.staged = rebuildStagedSummary(draft)
     if type(ns.notePreview) == "function" then ns.notePreview() end
 end
 
@@ -3372,11 +3497,15 @@ function ns.commitStaged()
     if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
     ns.staged = nil
     -- Frame and extra looks repaint live. Only colours/presets/full-reset need a reload.
-    local looksOnly = staged.looksOnly == true or staged.kind == "frame" or staged.kind == "look"
-    local isReset = staged.kind == "reset"
+    local looksOnly = staged.looksOnly == true
+    local isReset = staged.kind == "reset" or staged.baseKind == "reset"
+    local hasLookPreview = (staged.frame ~= nil)
+        or (type(staged.looks) == "table" and next(staged.looks) ~= nil)
+        or staged.kind == "frame" or staged.kind == "look"
+        or staged.baseKind == "theme" or staged.baseKind == "mypreset"
+        or staged.kind == "theme" or staged.kind == "mypreset"
     ns.withReloadAction(function()
-        if (staged.kind == "frame" or staged.kind == "look" or staged.kind == "theme" or staged.kind == "mypreset")
-            and type(ns.CommitPreview) == "function" then
+        if hasLookPreview and type(ns.CommitPreview) == "function" then
             ns.CommitPreview(staged.commit)
         else
             staged.commit()
@@ -3541,7 +3670,7 @@ local function placeChrome(panel)
         ns.staged = nil
         if type(ns.notePreview) == "function" then pcall(ns.notePreview) end
     end
-    if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, onPage and (tab == "Looks" or tab == "Presets")) end
+    if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, onPage) end
     local editor = ns.coloursResetHidden()
     if type(resetButtons) == "table" then
         for i = 1, #TAB_ORDER do
@@ -3772,13 +3901,16 @@ local function syncColorPreview()
     local staged = ns.staged
     local wantId = nil
     if type(staged) == "table" then
-        if staged.kind == "palette" then
+        if type(staged.palette) == "string" then
+            wantId = staged.palette
+        elseif staged.kind == "palette" then
             wantId = staged.id
-        elseif staged.kind == "theme" and type(ns.themePaletteId) == "function" then
-            wantId = ns.themePaletteId(staged.id)
-        elseif staged.kind == "mypreset" and type(staged.recipe) == "table" then
+        elseif (staged.baseKind == "theme" or staged.kind == "theme") and type(ns.themePaletteId) == "function" then
+            wantId = ns.themePaletteId(staged.baseId or staged.id)
+        elseif (staged.baseKind == "mypreset" or staged.kind == "mypreset") and type(staged.recipe) == "table" then
             wantId = staged.recipe.palette
-        elseif staged.kind == "reset" and (staged.id == "Colours" or staged.id == "Presets") then
+        elseif (staged.baseKind == "reset" or staged.kind == "reset")
+            and ((staged.baseId or staged.id) == "Colours" or (staged.baseId or staged.id) == "Presets") then
             wantId = "off"
         end
     end
