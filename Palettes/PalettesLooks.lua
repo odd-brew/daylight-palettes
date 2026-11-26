@@ -166,6 +166,48 @@ local function unitPairs(unit, spec)
     return list
 end
 
+-- Extra frames styled only when the user opts into "Also style Focus & Target of Target".
+-- Widths are intentionally never touched so custom Focus/ToT layouts stay intact.
+local FOCUS_UNITS = { "focus", "targettarget" }
+local FOCUS_KEYS = {}
+
+local function focusStylePairs(unit, spec)
+    local list = {}
+    local function put(key, value) list[#list + 1] = { unit .. "." .. key, value } end
+    put("style", spec.style)
+    put("slant", spec.slant)
+    put("shell.own", true)
+    put("shell.borderPx", spec.border)
+    put("shell.cornerPx", spec.corner)
+    put("shell.shadowPx", spec.shadow)
+    put("tab.own", true)
+    put("tab.width", spec.tabWidth)
+    put("tab.at", "outer")
+    put("tab.slant", spec.tabSlant)
+    put("tab.align", "center")
+    put("tab.color", "dark")
+    put("tab.borderPx", 4)
+    put("tab.cornerPx", spec.tabCorner)
+    put("tab.shadowPx", spec.tabShadow)
+    if unit == "focus" then
+        put("portrait", spec.portrait)
+        put("portraitLook", spec.portraitLook)
+        put("portraitShape", spec.portraitShape)
+        put("portraitRing", spec.ring)
+        put("portraitRingWidth", spec.ringWidth)
+        put("portraitRingLine", true)
+    end
+    put("nameOnBar", spec.nameOnBar)
+    put("namePos", spec.namePos)
+    put("bigNumber", spec.bigNumber)
+    return list
+end
+
+for fu = 1, #FOCUS_UNITS do
+    local pairsForUnit = focusStylePairs(FOCUS_UNITS[fu], LOOK_SPECS.flagon)
+    for fi = 1, #pairsForUnit do FOCUS_KEYS[#FOCUS_KEYS + 1] = pairsForUnit[fi][1] end
+end
+
 -- FRAME_KEYS is the one key list every look fills. The sizes keys keep a style
 -- swap from writing old heights back over a look. Flagon alone adds the extras.
 local FRAME_KEYS = {}
@@ -555,14 +597,19 @@ local function readValues(keys, into)
     return into
 end
 
+local function scopeFocusOn()
+    return select(1, readSetting("Palettes", "scopeFocus")) == true
+end
+
 -- The live value of every key Palettes may write: the look keys, both sizes
--- sets and the Flagon extras. Nothing else is read.
+-- sets, the Flagon extras, and Focus/ToT keys when opted in. Nothing else is read.
 local function readFrameValues()
     local d = DaylightUI
     if type(d) ~= "table" or type(d.Get) ~= "function" then return nil end
     local values = readValues(FRAME_KEYS, {})
     readValues(SIZE_KEYS, values)
     readValues(EXTRA_KEYS, values)
+    if scopeFocusOn() then readValues(FOCUS_KEYS, values) end
     if next(values) == nil then return nil end
     return values
 end
@@ -588,6 +635,12 @@ local function lookPairs(id)
     local sizes = SIZE_BY_LOOK[id]
     for i = 1, #sizes do list[#list + 1] = { sizes[i], values[sizes[i]] } end
     for i = 1, #FRAME_KEYS do list[#list + 1] = { FRAME_KEYS[i], values[FRAME_KEYS[i]] } end
+    if scopeFocusOn() and LOOK_SPECS[id] then
+        for u = 1, #FOCUS_UNITS do
+            local fp = focusStylePairs(FOCUS_UNITS[u], LOOK_SPECS[id])
+            for i = 1, #fp do list[#list + 1] = fp[i] end
+        end
+    end
     return list
 end
 
@@ -613,7 +666,7 @@ end
 local function writeFrameValues(values)
     if type(values) ~= "table" then return true end
     local list = {}
-    local sets = { SIZE_KEYS, FRAME_KEYS, EXTRA_KEYS }
+    local sets = { SIZE_KEYS, FRAME_KEYS, EXTRA_KEYS, FOCUS_KEYS }
     for s = 1, #sets do
         for i = 1, #sets[s] do
             local key = sets[s][i]
@@ -815,6 +868,10 @@ local function previewPairs(id, targets)
             want[targets[i] .. "."] = true
             want[targets[i] .. "Text."] = true
         end
+    end
+    if scopeFocusOn() then
+        want["focus."] = true
+        want["targettarget."] = true
     end
     local all = lookPairs(id)
     if id == "flagon" then
@@ -2069,6 +2126,13 @@ function ns.looksPage()
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
                         height = function() return listHeight(spec.sections, false, spec.introH) end,
+                    },
+                    {
+                        type = "toggle",
+                        key = "scopeFocus",
+                        label = "Also style Focus & Target of Target",
+                        desc = "Applies the picked look's frame style, border, tab, and portrait to Focus and Target of Target without changing their widths.",
+                        hidden = hiddenStyles,
                     },
                 },
             },
