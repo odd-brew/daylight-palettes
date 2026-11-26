@@ -59,11 +59,14 @@ jobs:
             -e '/^## X-Curse-Project-ID:/d' \
             PalettesTest/PalettesTest.toc
 
-          # Point SavedVariables and DaylightUI plugin/module scope to isolated PalettesTest names
-          # so changing settings in Palettes (Test) never overwrites live Palettes settings.
+          # Point SavedVariables and DaylightUI plugin/module/page IDs to isolated PalettesTest names
+          # so changing settings in Palettes (Test) never overwrites live Palettes settings,
+          # Apply/Reset/Undo chrome binds to PalettesTest.main, and the sidebar label fits cleanly.
           sed -i \
+            -e 's/short = "Palettes"/short = "Pal Test"/' \
             -e 's/\bPalettesAccount\b/PalettesTestAccount/g' \
             -e 's/\bPalettesChar\b/PalettesTestChar/g' \
+            -e 's/"Palettes\.main"/"PalettesTest.main"/g' \
             -e 's/"Palettes"/"PalettesTest"/g' \
             PalettesTest/Palettes.lua PalettesTest/PalettesLooks.lua
 
