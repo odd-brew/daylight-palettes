@@ -3,13 +3,15 @@ name: Release
 # Runs when a Palettes version tag is pushed.
 # Example: palettes-v0.1.0.
 # A branch push does not run this workflow.
-# change-gate runs first. It passes only when Jira has an
-# Approved OPS Change whose summary or description contains the tag.
+# change-gate runs first. It passes only when this repository has an open
+# GitHub issue labeled both "release" and "approved" whose title or body
+# contains the exact tag.
 # The release job then builds Palettes-v<version>.zip from the Palettes
-# folder and publishes a GitHub release. It uploads that same zip to the
-# Palettes CurseForge project. The project id is ## X-Curse-Project-ID in
-# Palettes.toc. The token is the CF_API_KEY repository secret. A missing
-# token or a placeholder project id fails the upload. There is no Wago upload.
+# folder, publishes a GitHub release, uploads that same zip to the Palettes
+# CurseForge project, and closes the release issue. The project id is
+# ## X-Curse-Project-ID in Palettes.toc. The token is the CF_API_KEY
+# repository secret. A missing token or a placeholder project id fails the
+# upload. There is no Wago upload.
 
 on:
   push:
@@ -21,137 +23,51 @@ permissions:
 
 jobs:
   change-gate:
-    name: Approved OPS Change
+    name: Approved Release Issue
     runs-on: ubuntu-latest
+    permissions:
+      issues: read
     outputs:
-      issue_key: ${{ steps.require.outputs.issue_key }}
+      issue_number: ${{ steps.require.outputs.issue_number }}
     steps:
-      - name: Require an approved OPS Change for this tag
+      - name: Require an approved release issue for this tag
         id: require
         env:
-          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         shell: bash
         run: |
-          # Fail closed. A missing secret, a Jira error, or no exact tag
-          # match exits non-zero, and this workflow fails.
+          # Fail closed. An API error or no open issue labeled both "release"
+          # and "approved" with the exact tag exits non-zero and blocks release.
           set -euo pipefail
 
-          if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
-            echo "curl and jq are required to check the OPS Change. Upload blocked."
-            exit 1
-          fi
-
-          if [ -z "${JIRA_EMAIL:-}" ] || [ -z "${JIRA_API_TOKEN:-}" ]; then
-            echo "Repository secrets JIRA_EMAIL and JIRA_API_TOKEN are required. Upload blocked."
-            exit 1
-          fi
-
           if [ -z "${TAG:-}" ]; then
-            echo "No approved OPS Change found for tag. Upload blocked."
+            echo "No release tag found. Upload blocked."
             exit 1
           fi
 
-          # Jira ~ is fuzzy. The query finds candidates. The jq check below
-          # keeps a candidate only when the tag string itself is present.
-          jql_tag=$(printf '%s' "$TAG" | sed 's/\\/\\\\/g; s/"/\\"/g')
-          jql="project = OPS AND issuetype = Change AND status = Approved AND (summary ~ \"${jql_tag}\" OR description ~ \"${jql_tag}\")"
+          issues=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues?state=open&labels=release,approved&per_page=100")
 
-          workdir=$(mktemp -d)
-          trap 'rm -rf "$workdir"' EXIT
-          body="${workdir}/jira.json"
-          token=""
-          page=0
-          matched=0
+          issue_number=$(printf '%s' "$issues" | jq -rs --arg tag "$TAG" '
+            add
+            | map(
+                select(.pull_request == null)
+                | select(
+                    ((.title // "") | contains($tag))
+                    or
+                    ((.body // "") | contains($tag))
+                  )
+              )
+            | .[0].number // empty
+          ')
 
-          while [ "$page" -lt 20 ]; do
-            page=$((page + 1))
-            if [ -n "$token" ]; then
-              payload=$(jq -n \
-                --arg jql "$jql" \
-                --arg token "$token" \
-                '{jql: $jql, maxResults: 50, fields: ["summary", "description"], fieldsByKeys: true, nextPageToken: $token}')
-            else
-              payload=$(jq -n \
-                --arg jql "$jql" \
-                '{jql: $jql, maxResults: 50, fields: ["summary", "description"], fieldsByKeys: true}')
-            fi
-
-            http_code=$(curl -sS --connect-timeout 10 --max-time 30 \
-              -o "$body" -w "%{http_code}" \
-              -X POST \
-              -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
-              -H "Accept: application/json" \
-              -H "Content-Type: application/json" \
-              --data "$payload" \
-              "https://oddbrew.atlassian.net/rest/api/3/search/jql") || {
-              echo "Jira search failed for tag ${TAG}. Upload blocked."
-              exit 1
-            }
-
-            case "$http_code" in
-              2*) ;;
-              *)
-                detail=$(jq -r '[.errorMessages[]?] | join("; ")' "$body" 2>/dev/null || true)
-                if [ -n "$detail" ]; then
-                  echo "Jira search failed for tag ${TAG} (HTTP ${http_code}): ${detail}. Upload blocked."
-                else
-                  echo "Jira search failed for tag ${TAG} (HTTP ${http_code}). Upload blocked."
-                fi
-                exit 1
-                ;;
-            esac
-
-            if ! jq -e 'type == "object" and (.issues | type == "array")' "$body" >/dev/null; then
-              echo "Jira search returned an unexpected response for tag ${TAG}. Upload blocked."
-              exit 1
-            fi
-
-            if ! keys=$(jq -r --arg tag "$TAG" '
-              def flat:
-                [ .. | strings ] | join("\n");
-              .issues[]
-              | select(
-                  ((((.fields // {}).summary // "") | flat) | contains($tag))
-                  or
-                  ((((.fields // {}).description // "") | flat) | contains($tag))
-                )
-              | .key // empty
-              | select(type == "string" and length > 0)
-            ' "$body"); then
-              echo "Jira search returned an unexpected response for tag ${TAG}. Upload blocked."
-              exit 1
-            fi
-
-            if [ -n "$keys" ]; then
-              while IFS= read -r key; do
-                [ -n "$key" ] || continue
-                echo "Approved OPS Change ${key} matches tag ${TAG}."
-                # The first key is the issue the release comment uses.
-                # Saving it must not change whether this gate passes.
-                if [ -z "${issue_key_out:-}" ] && [[ $key =~ ^[A-Z][A-Z0-9]+-[0-9]+$ ]]; then
-                  issue_key_out=$key
-                  if [ -n "${GITHUB_OUTPUT:-}" ]; then
-                    echo "issue_key=${key}" >> "$GITHUB_OUTPUT" || true
-                  fi
-                fi
-                matched=1
-              done <<< "$keys"
-              break
-            fi
-
-            is_last=$(jq -r 'if .isLast == true then "true" else "false" end' "$body")
-            token=$(jq -r '.nextPageToken // empty' "$body")
-            if [ "$is_last" = "true" ] || [ -z "$token" ]; then
-              break
-            fi
-          done
-
-          if [ "$matched" -ne 1 ]; then
-            echo "No approved OPS Change found for tag ${TAG}. Upload blocked."
+          if ! [[ "$issue_number" =~ ^[1-9][0-9]*$ ]]; then
+            echo "No open GitHub issue labeled \"release\" and \"approved\" mentions tag ${TAG}. Upload blocked."
             exit 1
           fi
+
+          echo "Approved release issue #${issue_number} matches tag ${TAG}."
+          echo "issue_number=${issue_number}" >> "$GITHUB_OUTPUT"
 
   release:
     name: GitHub release
@@ -159,6 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -268,3 +185,16 @@ jobs:
             exit 1
           fi
           echo "CurseForge upload succeeded for project ${project}, Forever ${game_name}."
+
+      - name: Close approved release issue
+        if: needs.change-gate.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ needs.change-gate.outputs.issue_number }}
+          TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh issue close "$ISSUE_NUMBER" \
+            --reason completed \
+            --comment "Released **${TAG}** on GitHub (https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}) and uploaded to CurseForge."

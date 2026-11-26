@@ -108,7 +108,7 @@ On **Plugins > Palettes**:
 
 ## Release
 
-Pushing a `palettes-v*` tag runs `.github/workflows/release.yml`. The Approved OPS Change check runs first. The release job builds `Palettes-v<version>.zip`, with the `Palettes` folder at the top of the zip, and publishes the GitHub release from `RELEASE-NOTES.md`.
+Pushing a `palettes-v*` tag runs `.github/workflows/release.yml`. The Approved Release Issue check runs first and requires an open GitHub issue in this repository labeled both `release` and `approved` whose title or body contains the exact tag (for example `palettes-v0.5.5`). The release job builds `Palettes-v<version>.zip`, with the `Palettes` folder at the top of the zip, publishes the GitHub release from `RELEASE-NOTES.md`, uploads it to CurseForge, and closes the release issue.
 
 That same zip is uploaded to the Palettes project on CurseForge. The project id is `## X-Curse-Project-ID` in `Palettes/Palettes.toc` (`1820278`). The upload refuses a missing or non-numeric id. The token is the `CF_API_KEY` repository secret. There is no Wago upload.
 
