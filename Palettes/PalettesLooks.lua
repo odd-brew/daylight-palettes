@@ -850,13 +850,24 @@ local function readSetting(scope, path)
     return value, true
 end
 
--- Every frame write goes through DaylightUI.Batch, so the frames repaint once.
+-- Every frame write goes through DaylightUI.Batch, so the frames repaint once,
+-- and suppresses per-key OptionsPanel.Refresh storms fired by SettingChanged.
 local function batch(fn)
-    local d = DaylightUI
-    if type(d) == "table" and type(d.Batch) == "function" then
-        return pcall(d.Batch, fn)
+    local function run()
+        local d = DaylightUI
+        if type(d) == "table" and type(d.Batch) == "function" then
+            return pcall(d.Batch, fn)
+        end
+        return pcall(fn)
     end
-    return pcall(fn)
+    if type(ns.withSuppressedPanelRefresh) == "function" then
+        local ok, res
+        ns.withSuppressedPanelRefresh(function()
+            ok, res = run()
+        end)
+        return ok, res
+    end
+    return run()
 end
 
 local function readValues(keys, into)
@@ -1363,8 +1374,10 @@ function ns.BeginPreview(id)
 end
 
 local extraPreviewHandles = nil
+local extraPreviewKey = nil
 
 local function revertExtraPreview()
+    extraPreviewKey = nil
     if type(extraPreviewHandles) ~= "table" then return end
     local api = apiOf()
     if api and type(api.Off) == "function" then
@@ -1377,7 +1390,8 @@ local function revertExtraPreview()
     extraPreviewHandles = nil
 end
 
-local function beginExtraPairs(pairsList)
+local function beginExtraPairs(key, pairsList)
+    if key ~= nil and extraPreviewKey == key then return end
     revertExtraPreview()
     if inCombat() or type(pairsList) ~= "table" or #pairsList == 0 then return end
     local host = overrideHost()
@@ -1385,11 +1399,31 @@ local function beginExtraPairs(pairsList)
     local handles = {}
     batch(function()
         for i = 1, #pairsList do
-            local ok, handle = pcall(host.Override, pairsList[i][1], pairsList[i][2], pairsList[i][3])
-            if ok and type(handle) == "table" then handles[#handles + 1] = handle end
+            local scope, path, val = pairsList[i][1], pairsList[i][2], pairsList[i][3]
+            local cur, okCur = readSetting(scope, path)
+            if not okCur or cur ~= val then
+                local ok, handle = pcall(host.Override, scope, path, val)
+                if ok and type(handle) == "table" then handles[#handles + 1] = handle end
+            end
         end
     end)
+    extraPreviewKey = key
     if #handles > 0 then extraPreviewHandles = handles end
+end
+
+local function previewPairsForCategory(catKey, optId, activePT)
+    if catKey == "castbars" then
+        -- Preview playerCastbar only so switching cast bar looks stays instant.
+        local opt = extraLookById("castbars", optId)
+        local list = {}
+        if opt and type(opt.settings) == "table" then
+            for k, v in pairs(opt.settings) do
+                list[#list + 1] = { "UnitFrames", "playerCastbar." .. k, v }
+            end
+        end
+        return list
+    end
+    return categoryPairs(catKey, optId, activePT)
 end
 
 function ns.RevertPreview()
@@ -1425,9 +1459,11 @@ function ns.themePaletteId(id)
 end
 
 -- The staged frame, category look, or preset pick is what shows while Presets or Looks is open.
+-- Only overrides the currently visible Preview Deck mode to avoid freezing the client.
 function ns.syncFramePreview()
     local staged = ns.staged
     if looksOpen and type(staged) == "table" then
+        local deckMode = type(ns.getPreviewDeckMode) == "function" and ns.getPreviewDeckMode() or "player_target"
         if staged.kind == "frame" and frameById(staged.id) then
             revertExtraPreview()
             ns.BeginPreview(staged.id)
@@ -1435,37 +1471,34 @@ function ns.syncFramePreview()
         elseif staged.kind == "look" and type(staged.catKey) == "string" then
             previewWant = nil
             previewSync()
-            beginExtraPairs(categoryPairs(staged.catKey, staged.id))
+            local pKey = "look:" .. staged.catKey .. ":" .. tostring(staged.id)
+            beginExtraPairs(pKey, previewPairsForCategory(staged.catKey, staged.id))
             return
         elseif staged.kind == "theme" then
             local theme = themeById(staged.id)
             if theme then
-                if frameById(theme.frame) then ns.BeginPreview(theme.frame) end
-                local extra = {}
-                local extraCats = { "focus", "tot", "party", "raid", "castbars", "actionbars" }
-                for c = 1, #extraCats do
-                    local ck = extraCats[c]
-                    if theme[ck] then
-                        local list = categoryPairs(ck, theme[ck], theme.frame)
-                        for j = 1, #list do extra[#extra + 1] = list[j] end
-                    end
+                if deckMode == "player_target" then
+                    revertExtraPreview()
+                    if frameById(theme.frame) then ns.BeginPreview(theme.frame) end
+                elseif type(theme[deckMode]) == "string" then
+                    previewWant = nil
+                    previewSync()
+                    local pKey = "theme:" .. theme.id .. ":" .. deckMode .. ":" .. theme[deckMode]
+                    beginExtraPairs(pKey, previewPairsForCategory(deckMode, theme[deckMode], theme.frame))
                 end
-                beginExtraPairs(extra)
                 return
             end
         elseif staged.kind == "mypreset" and type(staged.recipe) == "table" then
             local rec = staged.recipe
-            if frameById(rec.frame) then ns.BeginPreview(rec.frame) end
-            local extra = {}
-            local extraCats = { "focus", "tot", "party", "raid", "castbars", "actionbars" }
-            for c = 1, #extraCats do
-                local ck = extraCats[c]
-                if rec[ck] then
-                    local list = categoryPairs(ck, rec[ck], rec.frame)
-                    for j = 1, #list do extra[#extra + 1] = list[j] end
-                end
+            if deckMode == "player_target" then
+                revertExtraPreview()
+                if frameById(rec.frame) then ns.BeginPreview(rec.frame) end
+            elseif type(rec[deckMode]) == "string" then
+                previewWant = nil
+                previewSync()
+                local pKey = "mypreset:" .. tostring(staged.id) .. ":" .. deckMode .. ":" .. rec[deckMode]
+                beginExtraPairs(pKey, previewPairsForCategory(deckMode, rec[deckMode], rec.frame))
             end
-            beginExtraPairs(extra)
             return
         end
     end
@@ -1802,15 +1835,17 @@ function ns.applyMyPreset(entry)
     if type(d) == "table" and type(d.Set) == "function" and type(rec.palette) == "string" then
         d:Set("Palettes", "palette", rec.palette)
     end
-    if type(rec.frame) == "string" and resolveFrame(rec.frame) then
-        applyFrame(rec.frame, true)
-    end
-    for i = 1, #EXTRA_CAT_KEYS do
-        local ck = EXTRA_CAT_KEYS[i]
-        if type(rec[ck]) == "string" then
-            ns.applyCategoryLook(ck, rec[ck], true)
+    batch(function()
+        if type(rec.frame) == "string" and resolveFrame(rec.frame) then
+            applyFrame(rec.frame, true)
         end
-    end
+        for i = 1, #EXTRA_CAT_KEYS do
+            local ck = EXTRA_CAT_KEYS[i]
+            if type(rec[ck]) == "string" then
+                pcall(ns.applyCategoryLook, ck, rec[ck], true)
+            end
+        end
+    end)
     writeThemeSlot(nil, false)
     ns.applyingTheme = false
     ns.quietPalette = false
@@ -1966,13 +2001,16 @@ local function applyTheme(theme)
     if type(d) == "table" and type(d.Set) == "function" then
         d:Set("Palettes", "palette", theme.palette)
     end
-    local frameOk = applyFrame(theme.frame, true)
-    for i = 1, #EXTRA_CAT_KEYS do
-        local ck = EXTRA_CAT_KEYS[i]
-        if type(theme[ck]) == "string" then
-            pcall(ns.applyCategoryLook, ck, theme[ck], true)
+    local frameOk = true
+    batch(function()
+        frameOk = applyFrame(theme.frame, true)
+        for i = 1, #EXTRA_CAT_KEYS do
+            local ck = EXTRA_CAT_KEYS[i]
+            if type(theme[ck]) == "string" then
+                pcall(ns.applyCategoryLook, ck, theme[ck], true)
+            end
         end
-    end
+    end)
     writeThemeSlot(theme.id, false)
     ns.applyingTheme = false
     ns.quietPalette = false
@@ -2963,7 +3001,6 @@ local function buildPresetsPage(row)
         end
 
         hold:SetScript("OnClick", function()
-            ns.RevertPreview()
             local id, changed, pending = ns.shownTheme()
             local live = id == theme.id and not changed and not pending
             ns.setLooksOpen(true)
@@ -3505,7 +3542,6 @@ local function buildLooksTabPage(row)
         end
 
         hold:SetScript("OnClick", function()
-            ns.RevertPreview()
             ns.setLooksOpen(true)
             if catKey == "player_target" then
                 local live = wornFrame() == opt.id

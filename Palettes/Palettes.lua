@@ -2297,6 +2297,7 @@ function ns.setPreviewDeckMode(modeKey, fromSubTab)
             pcall(ns.setLooksSubTab, modeKey, true)
         end
     end
+    if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
     if type(previewDeckRefresh) == "function" then pcall(previewDeckRefresh) end
     local d = dui()
     local panel = type(d) == "table" and d.OptionsPanel
@@ -3619,6 +3620,27 @@ local function placeUndo(panel)
     end
 end
 
+local previewRefreshing = false
+ns.panelRefreshDepth = 0
+ns.panelRefreshDirty = false
+
+function ns.withSuppressedPanelRefresh(fn)
+    ns.panelRefreshDepth = (ns.panelRefreshDepth or 0) + 1
+    local ok, err = pcall(fn)
+    ns.panelRefreshDepth = math.max(0, (ns.panelRefreshDepth or 1) - 1)
+    if ns.panelRefreshDepth == 0 and ns.panelRefreshDirty then
+        ns.panelRefreshDirty = false
+        local d = dui()
+        local panel = type(d) == "table" and d.OptionsPanel
+        if type(panel) == "table" and type(panel.Refresh) == "function" and not previewRefreshing then
+            previewRefreshing = true
+            pcall(panel.Refresh)
+            previewRefreshing = false
+        end
+    end
+    if not ok then error(err, 0) end
+end
+
 syncUndo = function()
     local panel = type(DaylightUI) == "table" and DaylightUI.OptionsPanel
     if type(panel) ~= "table" then return end
@@ -3633,6 +3655,10 @@ syncUndo = function()
         local refresh = panel.Refresh
         if type(refresh) == "function" then
             panel.Refresh = function(...)
+                if (ns.panelRefreshDepth or 0) > 0 then
+                    ns.panelRefreshDirty = true
+                    return
+                end
                 local a, b, c, d = refresh(...)
                 syncUndo()
                 return a, b, c, d
@@ -3741,7 +3767,6 @@ syncUndo = function()
     placeChrome(panel)
 end
 
-local previewRefreshing = false
 local previewPalId = nil
 local function syncColorPreview()
     local staged = ns.staged
@@ -3776,17 +3801,12 @@ local function syncColorPreview()
 end
 
 ns.notePreview = function()
-    if syncUndo then syncUndo() end
-    pcall(syncColorPreview)
-    if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
-    if previewRefreshing then return end
-    local d = dui()
-    local panel = type(d) == "table" and d.OptionsPanel
-    if type(panel) == "table" and type(panel.Refresh) == "function" then
-        previewRefreshing = true
-        pcall(panel.Refresh)
-        previewRefreshing = false
-    end
+    ns.withSuppressedPanelRefresh(function()
+        if syncUndo then syncUndo() end
+        pcall(syncColorPreview)
+        if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
+        ns.panelRefreshDirty = true
+    end)
 end
 
 refreshList = function()
