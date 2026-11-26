@@ -2274,7 +2274,7 @@ ns.blendColor = blendColor
 
 local function makeActionBarPreview(parent)
     local holder = CreateFrame("Frame", nil, parent)
-    holder:SetHeight(76)
+    holder:SetHeight(82)
     local slots = {}
     local labels = {
         { k = "1", icon = "Interface\\Icons\\Spell_Holy_FlashHeal" },
@@ -2286,19 +2286,37 @@ local function makeActionBarPreview(parent)
     }
     for i = 1, #labels do
         local f = CreateFrame("Frame", nil, holder)
-        f:SetSize(40, 40)
-        local bg = f:CreateTexture(nil, "BACKGROUND")
-        if bg.SetAllPoints then bg:SetAllPoints() end
-        local art = f:CreateTexture(nil, "ARTWORK")
+        f:SetSize(42, 42)
+        local sqShadow = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+        local sqOuter = f:CreateTexture(nil, "BACKGROUND", nil, -2)
+        local sqBand = f:CreateTexture(nil, "BACKGROUND", nil, -1)
+        local shapeShadow = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+        local shapeOuter = f:CreateTexture(nil, "BORDER", nil, 0)
+        local shapeBand = f:CreateTexture(nil, "BORDER", nil, 1)
+        local art = f:CreateTexture(nil, "ARTWORK", nil, 2)
         if type(art.SetTexture) == "function" then art:SetTexture(labels[i].icon) end
-        local keyTxt = blankText(f)
-        keyTxt:SetPoint("TOPRIGHT", f, "TOPRIGHT", -3, -3)
+        local shapeMask = type(f.CreateMaskTexture) == "function" and f:CreateMaskTexture() or nil
+        local overlay = CreateFrame("Frame", nil, f)
+        overlay:SetAllPoints(f)
+        if type(overlay.SetFrameLevel) == "function" and type(f.GetFrameLevel) == "function" then
+            overlay:SetFrameLevel(f:GetFrameLevel() + 4)
+        end
+        local keyTxt = blankText(overlay)
+        keyTxt:SetPoint("TOPRIGHT", overlay, "TOPRIGHT", -4, -3)
         keyTxt:SetText(labels[i].k)
-        slots[i] = { frame = f, bg = bg, art = art, keyTxt = keyTxt }
+        if type(keyTxt.SetShadowColor) == "function" then keyTxt:SetShadowColor(0, 0, 0, 0.95) end
+        if type(keyTxt.SetShadowOffset) == "function" then keyTxt:SetShadowOffset(1, -1) end
+        slots[i] = {
+            frame = f, sqShadow = sqShadow, sqOuter = sqOuter, sqBand = sqBand,
+            shapeShadow = shapeShadow, shapeOuter = shapeOuter, shapeBand = shapeBand,
+            art = art, shapeMask = shapeMask, masked = false, keyTxt = keyTxt,
+        }
     end
     local caption = blankText(holder)
     caption:SetPoint("TOP", holder, "TOP", 0, -4)
     caption:SetJustifyH("CENTER")
+
+    local SHAPES = { circle = true, diamond = true, hexagon = true, octagon = true, shield = true }
 
     return {
         frame = holder,
@@ -2312,42 +2330,128 @@ local function makeActionBarPreview(parent)
                     abId = ns.staged.actionbars
                 end
             end
-            local spec = (type(ns.BUTTON_BY_ID) == "table" and ns.BUTTON_BY_ID[abId]) or { name = "Daylight Classic", border = 2, borderStyle = "daylight", zoom = 0.06 }
+            local spec = (type(ns.BUTTON_BY_ID) == "table" and ns.BUTTON_BY_ID[abId])
+                or { name = "Daylight Classic", shape = "square", border = 2, borderStyle = "daylight", corners = "round", shadow = true, zoom = 0.06 }
             local p = ns.byId[currentId()]
-            local accent = (p and accentBlock(p)) or { 0.91, 0.63, 0.29 }
+            local borderCol = (p and p.border) or { 0.34, 0.30, 0.25 }
             local labelCol = (p and p.label) or { 0.72, 0.76, 0.80 }
             local textCol = (p and p.text) or { 0.92, 0.94, 0.96 }
             uiFont(caption, nil, 11, labelCol)
             caption:SetText("Action Bars — " .. (spec.name or "Daylight Classic") .. "  (also previews live on your bars)")
 
+            local d = dui()
+            local mediaDir = type(d) == "table" and type(d.MEDIA) == "string" and d.MEDIA or nil
+            local shapeName = SHAPES[spec.shape] and spec.shape or nil
+            local useShape = shapeName ~= nil and mediaDir ~= nil
             local count = #slots
             local btnSize, gap = 42, 8
             local totalW = count * btnSize + (count - 1) * gap
             local startX = math.max(8, math.floor((w - totalW) / 2))
             local pad = spec.borderStyle == "none" and 0 or math.max(1, math.min(5, spec.border or 2))
             local z = tonumber(spec.zoom) or 0.06
+            local wantShadow = spec.shadow ~= false
+            local shapeFile = useShape and (mediaDir .. "shape-" .. shapeName .. ".png") or nil
+            local shadowFile = useShape and (mediaDir .. "shape-" .. shapeName .. "-shadow.png") or nil
+            local roundFile = mediaDir and (mediaDir .. "ui-round.png") or nil
+
             for i = 1, count do
                 local s = slots[i]
                 s.frame:SetSize(btnSize, btnSize)
                 s.frame:ClearAllPoints()
-                s.frame:SetPoint("TOPLEFT", holder, "TOPLEFT", startX + (i - 1) * (btnSize + gap), -24)
-                if type(s.bg.SetColorTexture) == "function" then
-                    if pad == 0 then
-                        s.bg:SetColorTexture(0.05, 0.06, 0.07, 0.9)
-                    else
-                        s.bg:SetColorTexture(accent[1], accent[2], accent[3], 0.92)
+                s.frame:SetPoint("TOPLEFT", holder, "TOPLEFT", startX + (i - 1) * (btnSize + gap), -26)
+
+                if useShape then
+                    if s.sqShadow.Hide then s.sqShadow:Hide() end
+                    if s.sqOuter.Hide then s.sqOuter:Hide() end
+                    if s.sqBand.Hide then s.sqBand:Hide() end
+
+                    local e = btnSize * (128 / 96 - 1) / 2
+                    if type(s.shapeShadow.SetTexture) == "function" then s.shapeShadow:SetTexture(shadowFile) end
+                    if type(s.shapeShadow.SetVertexColor) == "function" then s.shapeShadow:SetVertexColor(0, 0, 0, 0.65) end
+                    s.shapeShadow:ClearAllPoints()
+                    s.shapeShadow:SetPoint("TOPLEFT", s.frame, "TOPLEFT", -e, e)
+                    s.shapeShadow:SetPoint("BOTTOMRIGHT", s.frame, "BOTTOMRIGHT", e, -e)
+                    if s.shapeShadow.SetShown then s.shapeShadow:SetShown(wantShadow) end
+
+                    if type(s.shapeOuter.SetTexture) == "function" then s.shapeOuter:SetTexture(shapeFile) end
+                    if type(s.shapeOuter.SetVertexColor) == "function" then s.shapeOuter:SetVertexColor(0.05, 0.06, 0.07, 1) end
+                    s.shapeOuter:ClearAllPoints()
+                    s.shapeOuter:SetAllPoints(s.frame)
+                    if s.shapeOuter.SetShown then s.shapeOuter:SetShown(pad > 0) end
+
+                    if type(s.shapeBand.SetTexture) == "function" then s.shapeBand:SetTexture(shapeFile) end
+                    if type(s.shapeBand.SetVertexColor) == "function" then s.shapeBand:SetVertexColor(borderCol[1], borderCol[2], borderCol[3], 0.95) end
+                    s.shapeBand:ClearAllPoints()
+                    s.shapeBand:SetPoint("TOPLEFT", s.frame, "TOPLEFT", 1, -1)
+                    s.shapeBand:SetPoint("BOTTOMRIGHT", s.frame, "BOTTOMRIGHT", -1, 1)
+                    if s.shapeBand.SetShown then s.shapeBand:SetShown(pad >= 2) end
+
+                    s.art:ClearAllPoints()
+                    s.art:SetPoint("TOPLEFT", s.frame, "TOPLEFT", pad, -pad)
+                    s.art:SetPoint("BOTTOMRIGHT", s.frame, "BOTTOMRIGHT", -pad, pad)
+                    if s.shapeMask and type(s.shapeMask.SetTexture) == "function" then
+                        s.shapeMask:SetTexture(shapeFile, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+                        s.shapeMask:ClearAllPoints()
+                        s.shapeMask:SetAllPoints(s.art)
+                        if not s.masked and type(s.art.AddMaskTexture) == "function" then
+                            if pcall(s.art.AddMaskTexture, s.art, s.shapeMask) then s.masked = true end
+                        end
                     end
+                else
+                    if s.shapeShadow.Hide then s.shapeShadow:Hide() end
+                    if s.shapeOuter.Hide then s.shapeOuter:Hide() end
+                    if s.shapeBand.Hide then s.shapeBand:Hide() end
+
+                    local useRound = spec.corners == "round" and roundFile ~= nil and spec.borderStyle ~= "flat"
+                    if useRound and s.shapeMask and type(s.shapeMask.SetTexture) == "function" then
+                        s.shapeMask:SetTexture(roundFile, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+                        s.shapeMask:ClearAllPoints()
+                        s.shapeMask:SetAllPoints(s.art)
+                        if not s.masked and type(s.art.AddMaskTexture) == "function" then
+                            if pcall(s.art.AddMaskTexture, s.art, s.shapeMask) then s.masked = true end
+                        end
+                    elseif s.masked and s.shapeMask and type(s.art.RemoveMaskTexture) == "function" then
+                        pcall(s.art.RemoveMaskTexture, s.art, s.shapeMask)
+                        s.masked = false
+                    end
+
+                    if type(s.sqShadow.SetColorTexture) == "function" then s.sqShadow:SetColorTexture(0, 0, 0, 0.48) end
+                    s.sqShadow:ClearAllPoints()
+                    s.sqShadow:SetPoint("TOPLEFT", s.frame, "TOPLEFT", -2, 2)
+                    s.sqShadow:SetPoint("BOTTOMRIGHT", s.frame, "BOTTOMRIGHT", 3, -3)
+                    if s.sqShadow.SetShown then s.sqShadow:SetShown(wantShadow) end
+
+                    if type(s.sqOuter.SetColorTexture) == "function" then
+                        s.sqOuter:SetColorTexture(0.05, 0.06, 0.07, 1)
+                    end
+                    s.sqOuter:ClearAllPoints()
+                    s.sqOuter:SetAllPoints(s.frame)
+                    if s.sqOuter.SetShown then s.sqOuter:SetShown(pad > 0) end
+
+                    if type(s.sqBand.SetColorTexture) == "function" then
+                        if spec.borderStyle == "flat" then
+                            s.sqBand:SetColorTexture(0.24, 0.26, 0.30, 0.95)
+                        else
+                            s.sqBand:SetColorTexture(borderCol[1], borderCol[2], borderCol[3], 0.95)
+                        end
+                    end
+                    s.sqBand:ClearAllPoints()
+                    s.sqBand:SetPoint("TOPLEFT", s.frame, "TOPLEFT", 1, -1)
+                    s.sqBand:SetPoint("BOTTOMRIGHT", s.frame, "BOTTOMRIGHT", -1, 1)
+                    if s.sqBand.SetShown then s.sqBand:SetShown(pad >= 2) end
+
+                    s.art:ClearAllPoints()
+                    s.art:SetPoint("TOPLEFT", s.frame, "TOPLEFT", pad, -pad)
+                    s.art:SetPoint("BOTTOMRIGHT", s.frame, "BOTTOMRIGHT", -pad, pad)
                 end
-                s.art:ClearAllPoints()
-                s.art:SetPoint("TOPLEFT", s.frame, "TOPLEFT", pad, -pad)
-                s.art:SetPoint("BOTTOMRIGHT", s.frame, "BOTTOMRIGHT", -pad, pad)
+
                 if type(s.art.SetTexCoord) == "function" then
                     s.art:SetTexCoord(z, 1 - z, z, 1 - z)
                 end
                 uiFont(s.keyTxt, nil, 10, textCol)
             end
-            holder:SetSize(w, 76)
-            return 76
+            holder:SetSize(w, 82)
+            return 82
         end,
     }
 end

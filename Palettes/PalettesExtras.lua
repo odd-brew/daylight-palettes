@@ -128,33 +128,45 @@ local RAID_LOOKS = {
 local CAST_LOOKS = {
     {
         id = "matte", name = "Clean Matte",
-        desc = "Crisp 18px flat bar with 1px edges and zero fill animation.",
-        texture = "daylight", fx = "none", height = 18, border = 1, corner = 2, shadow = 0,
+        desc = "Crisp 16px flat rectangular bar with minimal border and zero animation.",
+        texture = "daylight", fx = "none", fill = "plain",
+        height = 16, showIcon = false, slant = false, slantLeft = false,
+        border = 2, corner = 0, shadow = 0,
     },
     {
         id = "silk", name = "Silk Sheen",
-        desc = "Sleek 16px woven silk bar with soft rounded corners and light shadow.",
-        texture = "silk", fx = "none", height = 16, border = 2, corner = 6, shadow = 6,
+        desc = "Sleek 18px rounded slanted ribbon with spell icon and woven silk texture.",
+        texture = "silk", fx = "none", fill = "pair",
+        height = 18, showIcon = true, slant = true, slantLeft = false,
+        border = 4, corner = 10, shadow = 6,
     },
     {
         id = "brushed", name = "Brushed Metal",
-        desc = "Sturdy 22px brushed steel bar with a bold 3px framed rim.",
-        texture = "brushed", fx = "none", height = 22, border = 3, corner = 2, shadow = 10,
+        desc = "Heavy 28px squared bar with spell icon, brushed steel texture, and thick framed rim.",
+        texture = "brushed", fx = "none", fill = "pair",
+        height = 28, showIcon = true, slant = false, slantLeft = false,
+        border = 10, corner = 2, shadow = 12,
     },
     {
         id = "flow", name = "Living Flow",
-        desc = "Rounded 20px bar with gentle liquid light flowing steadily across casts.",
-        texture = "daylight", fx = "flow", height = 20, border = 2, corner = 6, shadow = 8,
+        desc = "Double-angled 22px blade bar with spell icon and liquid Daylight gradient flow.",
+        texture = "tube", fx = "flow", fill = "daylight",
+        height = 22, showIcon = true, slant = true, slantLeft = true,
+        border = 6, corner = 6, shadow = 8,
     },
     {
         id = "tide", name = "Tidal Glass",
-        desc = "Slim 16px polished glass bar with a slow rising tide shimmer.",
-        texture = "glass", fx = "tide", height = 16, border = 2, corner = 4, shadow = 6,
+        desc = "Slim 15px slanted glass ribbon with a rising tide shimmer and no icon.",
+        texture = "glass", fx = "tide", fill = "pair",
+        height = 15, showIcon = false, slant = true, slantLeft = false,
+        border = 4, corner = 8, shadow = 6,
     },
     {
         id = "molten", name = "Molten Ember",
-        desc = "Bold 24px heavy-rimmed bar lit by a warm glowing ember pulse.",
-        texture = "grain", fx = "molten", height = 24, border = 3, corner = 4, shadow = 12,
+        desc = "Bold 30px heavy-rimmed bar with spell icon and glowing drifting embers.",
+        texture = "grain", fx = "embers", fill = "pair",
+        height = 30, showIcon = true, slant = true, slantLeft = false,
+        border = 12, corner = 4, shadow = 14,
     },
 }
 
@@ -444,24 +456,29 @@ local CATEGORY_CFG = {
         pairs = function(id)
             local spec = ns.CAST_BY_ID[id]
             if not spec then return {} end
-            local list = {}
+            local list = {
+                { "casts.fill", spec.fill or "pair" },
+            }
             local casts = { "playerCastbar", "targetCastbar", "focusCastbar", "partyCastbar" }
             for i = 1, #casts do
                 local cu = casts[i]
                 if cu ~= "partyCastbar" then
                     list[#list + 1] = { cu .. ".height", spec.height or 18 }
                 end
+                list[#list + 1] = { cu .. ".showIcon", spec.showIcon == true }
+                list[#list + 1] = { cu .. ".slant", spec.slant == true }
+                list[#list + 1] = { cu .. ".slantLeft", spec.slantLeft == true }
                 list[#list + 1] = { cu .. ".shell.own", true }
-                list[#list + 1] = { cu .. ".shell.borderPx", spec.border or 2 }
+                list[#list + 1] = { cu .. ".shell.borderPx", spec.border or 4 }
                 list[#list + 1] = { cu .. ".shell.cornerPx", spec.corner or 4 }
                 list[#list + 1] = { cu .. ".shell.shadowPx", spec.shadow or 6 }
                 list[#list + 1] = { cu .. ".media.bar", spec.texture }
                 list[#list + 1] = { cu .. ".media.barBack", spec.texture }
-                list[#list + 1] = { cu .. ".barFx.cast.style", spec.fx }
+                list[#list + 1] = { cu .. ".barFx.style", spec.fx }
                 if spec.fx ~= "none" then
-                    list[#list + 1] = { cu .. ".barFx.cast.speed", 1 }
-                    list[#list + 1] = { cu .. ".barFx.cast.strength", 1 }
-                    list[#list + 1] = { cu .. ".barFx.cast.colors", "bar" }
+                    list[#list + 1] = { cu .. ".barFx.speed", 1 }
+                    list[#list + 1] = { cu .. ".barFx.strength", 1 }
+                    list[#list + 1] = { cu .. ".barFx.colors", "bar" }
                 end
             end
             return list
