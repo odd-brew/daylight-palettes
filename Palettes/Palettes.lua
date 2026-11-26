@@ -2049,103 +2049,11 @@ local function buildCustomEditor(row)
         local d = dui()
         return type(d) == "table" and type(d.Get) == "function" and d:Get("Palettes", "only") == true
     end
-    local shareLabel = line(editor, "Share code", "TOPLEFT", editor, "TOPLEFT", 16, -332)
-    if type(W.Input) == "function" then
-        shareField = W.Input(editor, { height = 22, maxLetters = 80 })
-    elseif type(CreateFrame) == "function" then
-        shareField = CreateFrame("EditBox", nil, editor)
-    end
-    local copyButton, applyButton
-    if type(shareField) == "table" and shareField.SetPoint then
-        if type(shareLabel) == "table" then
-            shareField:SetPoint("LEFT", shareLabel, "RIGHT", 10, 0)
-        else
-            shareField:SetPoint("TOPLEFT", editor, "TOPLEFT", 110, -328)
-        end
-        if shareField.SetSize then shareField:SetSize(210, 22) end
-        if shareField.SetAutoFocus then shareField:SetAutoFocus(false) end
-        copyButton = dayButton(editor, "Copy", 64)
-        applyButton = dayButton(editor, "Apply", 64)
-        if type(copyButton) == "table" then
-            copyButton:SetPoint("LEFT", shareField, "RIGHT", 8, 0)
-        end
-        if type(applyButton) == "table" and type(copyButton) == "table" then
-            applyButton:SetPoint("LEFT", copyButton, "RIGHT", 6, 0)
-        end
-        shareNote = line(editor, "", "TOPLEFT", editor, "TOPLEFT", 16, -356)
-        if type(shareNote) == "table" then
-            if shareNote.SetWidth then shareNote:SetWidth(420) end
-            if shareNote.Hide then shareNote:Hide() end
-        end
-        editor.palettesShareField = shareField
-        editor.palettesShareNote = shareNote
-    end
-
-    local function buttonLabel(button, text)
-        if type(button) ~= "table" then return end
-        if type(button.text) == "table" and type(button.text.SetText) == "function" then
-            button.text:SetText(text)
-        elseif type(button.SetText) == "function" then
-            button:SetText(text)
-        end
-        if type(button.FitWidth) == "function" then button.FitWidth(64) end
-    end
-
-    local function writeClipboard(text)
-        if type(CopyToClipboard) ~= "function" then return end
-        pcall(CopyToClipboard, text)
-    end
-
-    if type(copyButton) == "table" and copyButton.SetScript then
-        copyButton:SetScript("OnClick", function()
-            if type(customDraft) ~= "table" or type(ns.shareCode) ~= "function" then return end
-            local code = ns.shareCode(customDraft)
-            if not code or type(shareField) ~= "table" then return end
-            if shareField.SetText then shareField:SetText(code) end
-            if shareField.SetFocus then shareField:SetFocus() end
-            if shareField.HighlightText then shareField:HighlightText() end
-            writeClipboard(code)
-            buttonLabel(copyButton, "Copied.")
-            if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
-                C_Timer.After(1.2, function() buttonLabel(copyButton, "Copy") end)
-            end
-        end)
-    end
-    if type(applyButton) == "table" and applyButton.SetScript then
-        applyButton:SetScript("OnClick", function()
-            if type(shareField) ~= "table" or type(ns.applyShareCode) ~= "function" then return end
-            local text = shareField.GetText and shareField:GetText() or ""
-            local parsed = type(ns.parseShare) == "function" and ns.parseShare(text) or nil
-            if type(parsed) == "table" and parsed.kind == "pal2" and parsed.custom ~= true then
-                if type(ns.applyLiveShare) == "function" and ns.applyLiveShare(parsed) then
-                    setShareNote("")
-                else
-                    setShareNote("That isn't a Palettes share code.")
-                end
-                return
-            end
-            local nextSpec, status = ns.applyShareCode(text)
-            if type(nextSpec) ~= "table" then
-                setShareNote("That isn't a Palettes share code.")
-                return
-            end
-            customDraft = nextSpec
-            shareQuiet = true
-            pushSliders()
-            shareQuiet = false
-            if status == "capped" then
-                setShareNote("Base was darkened so text stays readable.")
-            else
-                setShareNote("Applied. Save to keep it.")
-            end
-        end)
-    end
-
     local onlySwitch
     if type(W.Switch) == "function" then
         onlySwitch = W.Switch(editor)
         if type(onlySwitch) == "table" and onlySwitch.SetPoint then
-            onlySwitch:SetPoint("TOPLEFT", editor, "TOPLEFT", 16, -386)
+            onlySwitch:SetPoint("TOPLEFT", editor, "TOPLEFT", 16, -332)
             onlySwitch:SetScript("OnClick", function()
                 local d = dui()
                 if type(d) ~= "table" or type(d.Set) ~= "function" then return end
@@ -2406,12 +2314,26 @@ local function makePlayerSample(parent)
                 local half = math.max(120, math.floor((w - gap) / 2))
                 local hp = playerS.Refresh(half, room) or 0
                 local ht = targetS.Refresh(half, room) or 0
-                local h = math.max(hp, ht)
+                local function centerOffsetFromTop(sampleObj, boxH)
+                    local f = sampleObj.f
+                    if type(f) == "table" and type(f.GetPoint) == "function" then
+                        local _, _, _, _, cy = f:GetPoint(1)
+                        local sc = type(f.GetScale) == "function" and f:GetScale() or 1
+                        return (boxH / 2) - ((tonumber(cy) or 0) * (tonumber(sc) or 1))
+                    end
+                    return boxH / 2
+                end
+                local pCenter = centerOffsetFromTop(playerS, hp)
+                local tCenter = centerOffsetFromTop(targetS, ht)
+                local alignY = math.max(pCenter, tCenter)
+                local pTop = math.floor(alignY - pCenter + 0.5)
+                local tTop = math.floor(alignY - tCenter + 0.5)
+                local h = math.max(pTop + hp, tTop + ht)
                 container:SetSize(w, h)
                 playerS.frame:ClearAllPoints()
-                playerS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -math.floor((h - hp) / 2))
+                playerS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -pTop)
                 targetS.frame:ClearAllPoints()
-                targetS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", half + gap, -math.floor((h - ht) / 2))
+                targetS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", half + gap, -tTop)
                 return h
             end
             local h = playerS.Refresh(w, room) or 0
@@ -2883,99 +2805,6 @@ local function buttonWords(button, text)
     end
 end
 
-local function buildPageShare(row)
-    if row.made or type(CreateFrame) ~= "function" then return end
-    row.made = true
-    local d = dui()
-    local W = type(d) == "table" and type(d.Widgets) == "table" and d.Widgets or nil
-    local label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    if type(label) == "table" then
-        if label.SetText then label:SetText("Share code") end
-        if label.SetPoint then label:SetPoint("LEFT", row, "LEFT", 8, 0) end
-    end
-    local field = (W and type(W.Input) == "function" and W.Input(row, { height = 22, maxLetters = 80 })) or CreateFrame("EditBox", nil, row)
-    local copyButton = (W and type(W.Button) == "function" and W.Button(row, "Copy", 22)) or CreateFrame("Button", nil, row)
-    local applyButton = (W and type(W.Button) == "function" and W.Button(row, "Apply", 22)) or CreateFrame("Button", nil, row)
-    local note = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    if type(field) == "table" and field.SetPoint then
-        field:SetPoint("LEFT", row, "LEFT", 110, 0)
-        if field.SetSize then field:SetSize(280, 22) end
-        if field.SetAutoFocus then field:SetAutoFocus(false) end
-        if field.SetMaxLetters then field:SetMaxLetters(80) end
-    end
-    if type(copyButton) == "table" and copyButton.SetPoint then
-        if copyButton.FitWidth then copyButton.FitWidth(64) elseif copyButton.SetSize then copyButton:SetSize(64, 22) end
-        copyButton:SetPoint("LEFT", field, "RIGHT", 8, 0)
-        buttonWords(copyButton, "Copy")
-        if copyButton.SetScript then
-            copyButton:SetScript("OnClick", function()
-                if type(ns.currentPal2) ~= "function" or type(field) ~= "table" then return end
-                local code = ns.currentPal2()
-                if type(code) ~= "string" then return end
-                if field.SetText then field:SetText(code) end
-                if field.SetFocus then field:SetFocus() end
-                if field.HighlightText then field:HighlightText() end
-                local wrote = false
-                if type(CopyToClipboard) == "function" then
-                    wrote = pcall(CopyToClipboard, code)
-                end
-                if wrote then
-                    buttonWords(copyButton, "Copied.")
-                    if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
-                        C_Timer.After(1.2, function() buttonWords(copyButton, "Copy") end)
-                    end
-                end
-            end)
-        end
-    end
-    if type(applyButton) == "table" and applyButton.SetPoint then
-        if applyButton.FitWidth then applyButton.FitWidth(64) elseif applyButton.SetSize then applyButton:SetSize(64, 22) end
-        applyButton:SetPoint("LEFT", copyButton, "RIGHT", 6, 0)
-        buttonWords(applyButton, "Apply")
-        if applyButton.SetScript then
-            applyButton:SetScript("OnClick", function()
-                local text = type(field) == "table" and field.GetText and field:GetText() or ""
-                local function pageNote(words)
-                    if type(note) == "table" and note.SetText then note:SetText(words or "") end
-                    if type(note) == "table" and note.SetShown then note:SetShown(words ~= nil and words ~= "") end
-                end
-                local parsed = type(ns.parseShare) == "function" and ns.parseShare(text) or nil
-                if type(parsed) ~= "table" then
-                    pageNote("That isn't a Palettes share code.")
-                    return
-                end
-                if parsed.kind == "pal2" and parsed.custom ~= true then
-                    if type(ns.applyLiveShare) ~= "function" or not ns.applyLiveShare(parsed) then
-                        pageNote("That isn't a Palettes share code.")
-                        return
-                    end
-                    pageNote("")
-                    if refreshList then refreshList() end
-                    return
-                end
-                if type(ns.applyShareCode) ~= "function" then
-                    pageNote("That isn't a Palettes share code.")
-                    return
-                end
-                local spec = ns.applyShareCode(text)
-                if type(spec) ~= "table" then
-                    pageNote("That isn't a Palettes share code.")
-                    return
-                end
-                customDraft = spec
-                editorOn = true
-                if loadCustomEditor then loadCustomEditor() end
-                pageNote("")
-                if refreshList then refreshList() end
-            end)
-        end
-    end
-    row.shareField = field
-    row.shareNote = note
-    row.copyButton = copyButton
-    row.applyButton = applyButton
-end
-
 local function boot()
     local d = dui()
     if type(d) ~= "table" or type(d.RegisterPlugin) ~= "function" or type(d.RegisterModule) ~= "function" then
@@ -3012,8 +2841,6 @@ local function boot()
                         hidden = function() return editorOn == true end },
                     { type = "toggle", key = "only", label = "Save for this character only",
                         desc = "Off: this character uses your account palette. On: changes here apply only to this character.",
-                        hidden = function() return editorOn == true end },
-                    { type = "custom", label = "Share code", build = buildPageShare, height = function() return 36 end,
                         hidden = function() return editorOn == true end },
                 },
             },
@@ -3493,6 +3320,10 @@ syncUndo = function()
             frame:SetScript("OnHide", function(self, ...)
                 if type(oldHide) == "function" then oldHide(self, ...) end
                 if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, false) end
+                if type(ns.staged) == "table" then
+                    ns.staged = nil
+                    if type(ns.notePreview) == "function" then pcall(ns.notePreview) end
+                end
             end)
         end
         applyButton = widgets.Button(frame, "Apply", 24)
@@ -3541,8 +3372,38 @@ syncUndo = function()
 end
 
 local previewRefreshing = false
+local previewPalId = nil
+local function syncColorPreview()
+    local staged = ns.staged
+    local wantId = nil
+    if type(staged) == "table" then
+        if staged.kind == "palette" then
+            wantId = staged.id
+        elseif staged.kind == "theme" and type(ns.themePaletteId) == "function" then
+            wantId = ns.themePaletteId(staged.id)
+        end
+    end
+    if wantId == previewPalId then return end
+    previewPalId = wantId
+    if inCombat() then return end
+    local prevApplying = ns.applyingTheme
+    local savedHistory = history.current
+    ns.applyingTheme = true
+    if wantId and known(wantId) then
+        pcall(apply, wantId, false, true)
+    else
+        local liveId = currentId()
+        if liveId ~= paintedId then
+            pcall(apply, liveId, false, true)
+        end
+    end
+    history.current = savedHistory
+    ns.applyingTheme = prevApplying
+end
+
 ns.notePreview = function()
     if syncUndo then syncUndo() end
+    pcall(syncColorPreview)
     if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
     if previewRefreshing then return end
     local d = dui()

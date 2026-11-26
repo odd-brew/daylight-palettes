@@ -381,9 +381,8 @@ end
 local choicesAt = main:find('label = "Choices"', 1, true)
 local accentAt = main:find('label = "Accent follows class"', 1, true)
 local saveAt = main:find('label = "Save for this character only"', 1, true)
-local shareAt = main:find('label = "Share code"', 1, true)
-if not (choicesAt and accentAt and saveAt and shareAt
-    and choicesAt < accentAt and accentAt < saveAt and saveAt < shareAt) then
+if not (choicesAt and accentAt and saveAt
+    and choicesAt < accentAt and accentAt < saveAt) then
     fail("settings are out of order")
 end
 if not main:find('Reset Colours', 1, true) then
@@ -1292,42 +1291,6 @@ do
                 end
                 local again, againErr = pcall(custom.scripts.OnClick)
                 if not again then fail("reopening the editor: " .. tostring(againErr)) end
-                local field = row.palettesEditor.palettesShareField
-                local note = row.palettesEditor.palettesShareNote
-                local copy = named["Copy"]
-                local applyCode = named["Apply"]
-                if type(field) ~= "table" or type(note) ~= "table"
-                    or type(copy) ~= "table" or type(copy.scripts.OnClick) ~= "function"
-                    or type(applyCode) ~= "table" or type(applyCode.scripts.OnClick) ~= "function" then
-                    fail("the editor has no share code row")
-                else
-                    check(field:GetText(), "PAL1-341529-E2B14A", "the share field tracks the starter draft")
-                    local copied, copyErr = pcall(copy.scripts.OnClick)
-                    if not copied then fail("Copy: " .. tostring(copyErr)) end
-                    check(copy.words, "Copied.", "Copy reads Copied.")
-                    check(field.selected, true, "Copy selects the code")
-                    field:SetText("hello")
-                    field.selected = nil
-                    local rejected, rejectErr = pcall(applyCode.scripts.OnClick)
-                    if not rejected then fail("Apply hello: " .. tostring(rejectErr)) end
-                    check(note.words, "That isn't a Palettes share code.", "a bad code is named")
-                    local still, stillErr = pcall(copy.scripts.OnClick)
-                    if not still then fail("Copy after a bad code: " .. tostring(stillErr)) end
-                    check(field:GetText(), "PAL1-341529-E2B14A", "a bad code leaves the draft")
-                    field:SetText("PAL1-0E1916-E85A32")
-                    local pasted, pasteErr = pcall(applyCode.scripts.OnClick)
-                    if not pasted then fail("Apply a code: " .. tostring(pasteErr)) end
-                    check(note.words, "Applied. Save to keep it.", "a good code says to save")
-                    local keptCode, keptErr = pcall(copy.scripts.OnClick)
-                    if not keptCode then fail("Copy after Apply: " .. tostring(keptErr)) end
-                    check(field:GetText(), "PAL1-0E1916-E85A32", "Apply loads that base and accent")
-                    field:SetText("PAL1-F5E6D0-E8A04A")
-                    local capped, capErr = pcall(applyCode.scripts.OnClick)
-                    if not capped then fail("Apply a light code: " .. tostring(capErr)) end
-                    check(note.words, "Base was darkened so text stays readable.", "a light base says it was darkened")
-                    pcall(copy.scripts.OnClick)
-                    check(field:GetText(), "PAL1-4B412F-E8A04A", "a light base is the capped color")
-                end
                 local save = named["Save"]
                 if type(save) ~= "table" or type(save.scripts.OnClick) ~= "function" then
                     fail("the editor has no Save button")

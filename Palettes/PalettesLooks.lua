@@ -905,6 +905,11 @@ function ns.previewShownId()
     return previewShown and previewShown.id or nil
 end
 
+function ns.themePaletteId(id)
+    local theme = themeById(id)
+    return theme and theme.palette or nil
+end
+
 -- The staged frame or preset pick is what shows while Presets or Looks is open.
 function ns.syncFramePreview()
     local staged = ns.staged
