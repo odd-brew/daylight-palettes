@@ -515,6 +515,7 @@ local function restore(quiet)
         release(nil)
     end
     paintedId = nil
+    snap = nil
     local looksBack = false
     local armed = ns.restoreLooksToo == true
     ns.restoreLooksToo = nil
@@ -526,12 +527,12 @@ local function restore(quiet)
         ns.clearingTheme = true
         if type(ns.clearTheme) == "function" then ns.clearTheme() end
         ns.clearingTheme = false
-    elseif type(ns.notePalette) == "function" then
+    elseif type(ns.notePalette) == "function" and not ns.applyingTheme then
         ns.notePalette("off")
     end
+    notify()
+    pcall(dressExtras)
     if not quiet then
-        notify()
-        pcall(dressExtras)
         if looksBack then
             say("Palettes: off. Daylight's own colors and frame look are restored.")
         else
@@ -570,6 +571,7 @@ local function lift(path)
     -- The checkbox stays as it is. Only the palette in force is switched off.
     ns.restoreActive(ns.accountTable(), ns.charTable())
     paintedId = nil
+    snap = nil
     applying = false
     notify()
     pcall(dressExtras)
@@ -1006,7 +1008,7 @@ local function apply(id, fromQueue, quietLine)
     applying = true
     skipped = nil
     if id == "off" then
-        restore(false)
+        restore(quietLine == true)
         history.current = "off"
         applying = false
         if type(ns.refreshGameMenu) == "function" then pcall(ns.refreshGameMenu) end
@@ -3197,6 +3199,10 @@ local function placeChrome(panel)
     local page = type(panel.Current) == "function" and panel.Current()
     local onPage = page == "Palettes.main"
     local tab = currentTab(panel)
+    if not onPage and type(ns.staged) == "table" then
+        ns.staged = nil
+        if type(ns.notePreview) == "function" then pcall(ns.notePreview) end
+    end
     if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, onPage and (tab == "Looks" or tab == "Presets")) end
     local editor = ns.coloursResetHidden()
     if type(resetButtons) == "table" then
