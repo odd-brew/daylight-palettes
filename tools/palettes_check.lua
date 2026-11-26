@@ -1356,11 +1356,11 @@ do
     end
 end
 
-if not toc:find("## Version: 0.5.3", 1, true) then
-    fail("version stays 0.5.3")
+if not toc:find("## Version: 0.5.4", 1, true) then
+    fail("version stays 0.5.4")
 end
-if not toc:find("frame styles", 1, true) or not toc:find("glow styles", 1, true) then
-    fail("toc notes must cover frame styles and glow styles")
+if not toc:find("frame looks", 1, true) or toc:find("glow styles", 1, true) then
+    fail("toc notes must cover frame looks and not glow styles")
 end
 if not toc:find("PalettesLooks.lua", 1, true) then
     fail("toc must load PalettesLooks.lua")
@@ -1369,10 +1369,13 @@ local looksSource = readAll(root .. "/Palettes/PalettesLooks.lua")
 if looksSource:find("LooksDB", 1, true) and looksSource:find("LooksDB%s*=", 1, false) then
     fail("looks must not write LooksDB")
 end
-if not looksSource:find("Each preset is a ready-made pairing of a Colours palette with a Looks frame and glow. Pick one, then change any part on the Colours or Looks tab.", 1, true) then
+if looksSource:find("AddGlowStyle", 1, true) or looksSource:find("SetGlowStyle", 1, true) then
+    fail("looks must not register or set glow styles")
+end
+if not looksSource:find("Each preset is a ready-made pairing of a Colours palette with a frame look. Pick one, then change either part on the Colours or Looks tab.", 1, true) then
     fail("missing the presets intro")
 end
-if not looksSource:find("A Preset on the Presets tab sets all three.", 1, true) then
+if not looksSource:find("A Preset on the Presets tab sets both.", 1, true) then
     fail("missing the looks intro")
 end
 local frameLines = {
@@ -1410,40 +1413,40 @@ do
     end
     check(uses, 2, "look.style is read and written once, in the migration")
 end
-if not main:find("Presets set a palette, a frame style and a glow. ", 1, true) then
+if not main:find("Presets set a palette and a frame look. ", 1, true) then
     fail("the page subtitle must end with a period")
 end
-if not looksSource:find("Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", 1, true) then
+if not looksSource:find("Palettes: Daylight UI is missing the settings frame looks need, so only colors are available.", 1, true) then
     fail("missing the api guard line")
 end
-if not looksSource:find("Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes.", 1, true) then
+if not looksSource:find("Palettes: Looks is also loaded. Turn Looks off; frame looks now live in Palettes.", 1, true) then
     fail("missing the both-addons line")
 end
-if not main:find("Palettes: off. Daylight's own colors, frame style and glows are restored.", 1, true) then
+if not main:find("Palettes: off. Daylight's own colors and frame look are restored.", 1, true) then
     fail("missing the full restore line")
 end
-if not main:find('blurb = "Colors, frame styles and glow styles for Daylight. Class and combat colors stay Daylight\'s."', 1, true) then
-    fail("plugin blurb must cover colors, frames and glows")
+if not main:find('blurb = "Colors and frame looks for Daylight. Class and combat colors stay Daylight\'s."', 1, true) then
+    fail("plugin blurb must cover colors and frame looks")
 end
 local moods = {
-    "A winter hearth of campfire gold: a named beam and a quiet corner flame.",
-    "Harvest light on dark oak and pewter, washed along the sill of the bar.",
-    "Cool sea-green at the waterline: a tight stamp and a soft wash along the rim.",
-    "Near-black soot and weathered bronze: a weathered beam and a short catch of lantern light.",
-    "Rose on warm plum-brown. The name tab stays, and a flame is kept lit at the corners.",
-    "A deep gold cup in the quiet corner, and a short catch of lantern light.",
-    "A named work board and a quiet corner flame, like a forge kept open late.",
-    "Storm-grey water in a deep basin, and a soft wash along the rim.",
-    "A walnut beam and a brief catch of brass-lantern light, like a high-backed bench by the fire.",
-    "A hanging sign and a brief cut of carmine light, after the room has gone quiet.",
+    "A winter hearth of campfire gold on a dark, named beam.",
+    "Harvest light on dark oak and pewter, along a slim ribbon bar.",
+    "Cool sea-green at the waterline on a low-profile slate bar.",
+    "Near-black soot and weathered bronze on a sturdy beam.",
+    "Rose on warm plum-brown, with a slim ribbon bar and round portrait.",
+    "A deep gold cup with a rounded portrait in the quiet corner.",
+    "A named work board with a full portrait and hung power rail.",
+    "Storm-grey water in a deep, portrait-free square basin.",
+    "A walnut beam with a full-width tab, like a high-backed bench by the fire.",
+    "Deep carmine night on a sturdy beam, after the room has gone quiet.",
 }
 for i = 1, #moods do
     if not looksSource:find(moods[i], 1, true) then fail("missing preset mood: " .. moods[i]) end
 end
-local OFF_LINE = "Looks: off. Type /looks flagon, trestle, beam, stream, ledger, crest, slate, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
-local BEAM_LINE = "Looks: Beam is on. Type /looks flagon, trestle, stream, ledger, crest, slate, wick, draught, latch, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
-local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks flagon, trestle, stream, ledger, crest, slate, draught, latch, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
-local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks flagon, trestle, stream, ledger, crest, slate, wick, latch, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local OFF_LINE = "Looks: off. Type /looks flagon, trestle, beam, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local BEAM_LINE = "Looks: Beam is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks flagon, trestle, stream, ledger, crest, slate, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
 
 local function piece()
     local w = {}
@@ -1623,8 +1626,7 @@ local function saidHas(text)
 end
 
 check(styleCalls.frame, 0, "frame looks do not register frame styles")
-check(styleCalls.glow, 3, "three glow styles register")
-check(views.Looks and views.Looks.glowKey, "Looks:wick", "glow keys stay on Looks")
+check(styleCalls.glow, 0, "glow styles do not register")
 
 local FRAME_IDS = { "flagon", "trestle", "beam", "stream", "ledger", "crest", "slate" }
 local frameKeys = ns.frameKeys()
@@ -1855,43 +1857,43 @@ ns.looksSlash("")
 check(said[#said], BEAM_LINE, "/looks names beam and leaves it out of the list")
 ns.looksSlash("nope")
 check(said[#said], BEAM_LINE, "an unknown name reprints the status")
+sets.general.buttonGlow = "Neon:custom"
+sets.Nameplates.targetLight = "Neon:target"
 ns.looksSlash("hearthnight")
 check(palDb.palette, "ember", "hearthnight sets the ember palette")
 check(liveHas("beam"), true, "hearthnight sets beam")
-check(sets.general.buttonGlow, "Looks:wick", "hearthnight sets wick on the buttons")
-check(sets.Nameplates.targetLight, "Looks:wick", "hearthnight sets wick on the nameplate")
+check(sets.general.buttonGlow, "Neon:custom", "hearthnight leaves existing buttonGlow untouched")
+check(sets.Nameplates.targetLight, "Neon:target", "hearthnight leaves existing targetLight untouched")
 check(account.theme, "hearthnight", "hearthnight remembers the theme")
 check(account.looks.frameValues["player.width"], userValue("player.width"), "a second look does not replace the snapshot")
-check(account.looks.glow, "circle", "the first glow write saves the old glow")
-check(account.looks.light, "none", "the first glow write saves the old outline")
+check(account.looks.glow, nil, "a preset does not save a glow snapshot")
+check(account.looks.light, nil, "a preset does not save a targetLight snapshot")
 check(saidHas("Palettes: Hearthnight is on. Your layout is unchanged."), true, "a theme says it is on")
 said = {}
 ns.looksSlash("")
 check(said[#said], HEARTH_LINE, "/looks names the theme and leaves its parts out")
 ns.looksSlash("draught")
-check(palDb.palette, "ember", "a glow pick does not change the palette")
-check(sets.general.buttonGlow, "Looks:draught", "draught replaces wick")
-check(account.theme, "hearthnight", "a glow pick keeps the theme name")
-check(account.themeChanged, true, "a glow pick marks the theme changed")
-said = {}
-ns.looksSlash("")
-check(said[#said], CHANGED_LINE, "/looks reports the changed theme")
+check(sets.general.buttonGlow, "Neon:custom", "legacy glow name does not change buttonGlow")
+check(sets.Nameplates.targetLight, "Neon:target", "legacy glow name does not change targetLight")
+check(said[#said], HEARTH_LINE, "a retired glow name reprints the status")
+ns.looksSlash("tidemark")
+check(palDb.palette, "tide", "tidemark sets the tide palette")
 ns.looksSlash("hearthnight")
 check(account.themeChanged, false, "picking the theme again clears changed")
-check(sets.general.buttonGlow, "Looks:wick", "picking the theme again restores its glow")
-local glowBefore = sets.general.buttonGlow
 looksEnv.SlashCmdList.PALETTES("hearthnight")
 check(liveLook(), "beam", "/palettes does not take a theme name")
-check(sets.general.buttonGlow, glowBefore, "/palettes hearthnight does not change the glow")
+check(sets.general.buttonGlow, "Neon:custom", "/palettes hearthnight does not change buttonGlow")
 said = {}
 ns.looksSlash("off")
 check(account.theme, false, "a full restore clears the theme")
 check(userRestored(), true, "restore writes every saved frame value back")
 check(sets.UnitFrames["look.style"], "daylight", "restore does not write look.style")
-check(sets.general.buttonGlow, "circle", "restore writes the saved glow back")
-check(sets.Nameplates.targetLight, "none", "restore writes the saved outline back")
+check(sets.general.buttonGlow, "Neon:custom", "restore without legacy glow snapshot leaves buttonGlow alone")
+check(sets.Nameplates.targetLight, "Neon:target", "restore without legacy glow snapshot leaves targetLight alone")
 check(account.looks, false, "a successful restore clears the snapshot")
-check(saidHas("Palettes: off. Daylight's own colors, frame style and glows are restored."), true, "full restore chat")
+check(saidHas("Palettes: off. Daylight's own colors and frame look are restored."), true, "full restore chat")
+sets.general.buttonGlow = "circle"
+sets.Nameplates.targetLight = "none"
 setBundle("slate")
 local left = ns.restoreLooks(true)
 check(left, false, "restore with no snapshot does nothing")
@@ -1953,7 +1955,7 @@ said = {}
 ns.bootLooks()
 check(styleCalls.frame, 0, "api 1.7 does not register frames")
 check(styleCalls.glow, 0, "api 1.7 does not register glows")
-check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", "api 1.7 says only colors")
+check(said[#said], "Palettes: Daylight UI is missing the settings frame looks need, so only colors are available.", "api 1.7 says only colors")
 check(themeGroups[1].items[1].hidden(), true, "api 1.7 hides the presets tab")
 check(lookGroups[1].items[1].hidden(), true, "api 1.7 hides the looks tab")
 check(type(colourGroups[1].items[1].hidden) ~= "function" or colourGroups[1].items[1].hidden() ~= true, true, "api 1.7 still shows colours")
@@ -1965,7 +1967,7 @@ check(#unitWrites, 0, "api 1.7 /looks does not apply")
 ns.looksSlash("hearthnight")
 check(#unitWrites, 0, "api 1.7 /looks hearthnight does not apply a theme")
 check(palDb.palette, paletteGuard, "api 1.7 /looks hearthnight does not change colours")
-check(said[#said], "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available.", "/looks repeats the guard")
+check(said[#said], "Palettes: Daylight UI is missing the settings frame looks need, so only colors are available.", "/looks repeats the guard")
 
 ui.API.minor = 9
 ns.looksReady = nil
@@ -1976,14 +1978,15 @@ looksEnv.C_AddOns = { IsAddOnLoaded = function(name) return name == "Looks" end 
 said = {}
 ns.bootLooks()
 check(styleCalls.frame, 0, "a loaded Looks add-on is not registered twice")
-check(said[#said], "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes.", "both add-ons get one line")
+check(said[#said], "Palettes: Looks is also loaded. Turn Looks off; frame looks now live in Palettes.", "both add-ons get one line")
 looksEnv.C_AddOns = nil
 ns.looksReady = nil
 ns.looksGuard = nil
 ns.looksBothSaid = nil
 ns.bootLooks()
 check(styleCalls.frame, 0, "booting again still registers no frame styles")
-check(styleCalls.glow, 3, "booting again registers the glows")
+check(styleCalls.glow, 0, "booting again registers no glow styles")
+check(ns.looksReady, true, "booting again leaves looks ready")
 
 -- Leftover Looks: styles from 0.4.2 go back to daylight once, and retired frame names move.
 do
@@ -2038,13 +2041,21 @@ ns.looksGuard = nil
 if type(body) == "table" and type(body.build) == "function" then
     local built, buildErr = pcall(body.build, row)
     if not built then fail("looks tab did not build: " .. tostring(buildErr)) end
-    check(type(row.lines) == "table" and #row.lines or 0, 10, "frames and glows are rows")
+    check(type(row.lines) == "table" and #row.lines or 0, 7, "only the seven frame looks are rows")
     for i = 1, #FRAME_IDS do
         check(row.lines[i] and row.lines[i].id, FRAME_IDS[i], "frame row " .. i .. " is " .. FRAME_IDS[i])
         check(row.lines[i] and row.lines[i].kind, "frame", "frame row " .. i .. " is a frame")
         check(type(row.lines[i].button) == "table" and type(row.lines[i].button.scripts.OnClick), "function", "frame row " .. i .. " is a button")
     end
-    check(row.lines[8] and row.lines[8].kind, "glow", "glow rows follow the frames")
+    for i = 1, #row.lines do
+        if row.lines[i].kind == "glow" then fail("looks tab must have no glow rows") end
+    end
+    if not looksSource:find('FRAME_HEAD = "Frame looks"', 1, true) then
+        fail("looks tab section header must be Frame looks")
+    end
+    if looksSource:find("GLOW_HEAD", 1, true) or looksSource:find("GLOW_HINT", 1, true) then
+        fail("looks tab must have no glow heading or glow hint")
+    end
     for i = 1, #frameLines do
         check(row.lines[i].desc.words, frameLines[i], "frame row " .. i .. " reads the mock one-liner")
     end
@@ -2140,11 +2151,6 @@ if type(body) == "table" and type(body.build) == "function" then
     check(userRestored(), true, "clicking the previewed row again reverts both frames")
     check(ns.staged, nil, "clicking the previewed row again drops the pick")
     check(#held, 0, "reverting releases every override")
-    flagonRow.button.scripts.OnClick()
-    row.lines[8].button.scripts.OnClick()
-    check(userRestored(), true, "a glow pick replaces the frame preview")
-    check(#held, 0, "a glow pick holds no frame preview")
-    row.lines[8].button.scripts.OnClick()
     flagonRow.button.scripts.OnClick()
     ns.setLooksOpen(false)
     check(userRestored(), true, "leaving the Looks tab reverts the frames")
@@ -2258,13 +2264,6 @@ if type(body) == "table" and type(body.build) == "function" then
     check(sets.UnitFrames["player.portraitDragon"], false, "leaving Crest turns the dragon off")
     check(sets.UnitFrames["target.levelPos"], "foot", "leaving Crest puts the level badge back at the foot")
 
-    -- Glow applies repaint live too.
-    local glowRow = row.lines[8]
-    local beforeGlowPopups = popupCount()
-    glowRow.button.scripts.OnClick()
-    ns.commitStaged()
-    check(popupCount(), beforeGlowPopups, "applying a glow does not ask to reload")
-
     -- Reset Looks puts back every saved value, including the Flagon extras.
     account.looks = nil
     palDb.looks = nil
@@ -2330,9 +2329,6 @@ if type(body) == "table" and type(body.build) == "function" then
     ns.stagePick("frame", "slate", function() end, false)
     ns.commitStaged()
     check(popupCount(), lookPopups, "a Looks-only commit never asks to reload")
-    ns.stagePick("glow", "latch", function() end, false)
-    ns.commitStaged()
-    check(popupCount(), lookPopups, "a glow commit never asks to reload")
     row.lines[1].button.scripts.OnClick()
     ns.setLooksOpen(false)
     local entered = false
@@ -2369,21 +2365,21 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     check(hearth.baseName, "Hearthnight", "theme order still starts with Hearthnight")
     check(lastTheme.baseName, "After Hours", "theme order still ends with After Hours")
     check(hearth.palettePill and hearth.palettePill.words, "Ember", "hearthnight's palette pill")
-    check(hearth.lookPill and hearth.lookPill.words, "Beam + Wick", "hearthnight's frame and glow pill")
+    check(hearth.lookPill and hearth.lookPill.words, "Beam", "hearthnight's frame pill")
     check(lastTheme.palettePill and lastTheme.palettePill.words, "Carmine Night", "after hours' palette pill")
-    check(lastTheme.lookPill and lastTheme.lookPill.words, "Beam + Latch", "after hours' frame and glow pill")
+    check(lastTheme.lookPill and lastTheme.lookPill.words, "Beam", "after hours' frame pill")
     local pills = {
-        { "Hearthnight", "Ember", "Beam + Wick" }, { "Harvestide", "Vanilla", "Stream + Draught" },
-        { "Tidemark", "Tide", "Slate + Draught" }, { "Old Road", "Forever", "Beam + Latch" },
-        { "Vigil", "Paladin", "Stream + Wick" }, { "Snug", "Gilded", "Flagon + Latch" },
-        { "Bellows", "Forgeglow", "Trestle + Wick" }, { "Drawwell", "Shaman", "Ledger + Draught" },
-        { "Settle", "Keepstone", "Beam + Latch" }, { "After Hours", "Carmine Night", "Beam + Latch" },
+        { "Hearthnight", "Ember", "Beam" }, { "Harvestide", "Vanilla", "Stream" },
+        { "Tidemark", "Tide", "Slate" }, { "Old Road", "Forever", "Beam" },
+        { "Vigil", "Paladin", "Stream" }, { "Snug", "Gilded", "Flagon" },
+        { "Bellows", "Forgeglow", "Trestle" }, { "Drawwell", "Shaman", "Ledger" },
+        { "Settle", "Keepstone", "Beam" }, { "After Hours", "Carmine Night", "Beam" },
     }
     for i = 1, #pills do
         local line = themeRow.lines[i]
         check(line.baseName, pills[i][1], "preset " .. i .. " name")
         check(line.palettePill.words, pills[i][2], pills[i][1] .. " palette pill")
-        check(line.lookPill.words, pills[i][3], pills[i][1] .. " frame and glow pill")
+        check(line.lookPill.words, pills[i][3], pills[i][1] .. " frame pill")
     end
     local crestUsed = false
     for i = 1, #ns.themes do if ns.themes[i].frame == "crest" then crestUsed = true end end
@@ -2391,7 +2387,7 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     for i = 1, #ns.themes do
         check(ns.frameById(ns.themes[i].frame) ~= nil, true, ns.themes[i].id .. " names one of the seven looks")
     end
-    check(hearth.mood, "A winter hearth of campfire gold: a named beam and a quiet corner flame.", "hearthnight keeps its mood")
+    check(hearth.mood, "A winter hearth of campfire gold on a dark, named beam.", "hearthnight keeps its mood")
     check(type(hearth.preview) == "table" and #hearth.preview or 0, 3, "a theme row shows three swatches")
     check(hearth.preview[1], ns.byId.ember.background, "the first swatch is the palette background")
     check(hearth.preview[2], ns.byId.ember.band, "the second swatch is the band")
@@ -2403,7 +2399,7 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     if type(themeRow.UpdateLooks) == "function" then themeRow.UpdateLooks() end
     check(hearth.name.words, "Hearthnight (changed)", "a changed theme still renames the row")
     check(hearth.palettePill.words, "Ember", "changed leaves the palette pill")
-    check(hearth.lookPill.words, "Beam + Wick", "changed leaves the look pill")
+    check(hearth.lookPill.words, "Beam", "changed leaves the frame pill")
     hearth.SetOn(true, false)
     local cream = { 0.95, 0.91, 0.86 }
     local dim = { 0.62, 0.56, 0.48 }
@@ -2446,8 +2442,8 @@ else
 end
 
 seedFrames()
-sets.general.buttonGlow = "circle"
-sets.Nameplates.targetLight = "none"
+sets.general.buttonGlow = "Neon:custom"
+sets.Nameplates.targetLight = "Neon:target"
 account.looks = nil
 account.theme = false
 account.themeChanged = false
@@ -2461,7 +2457,8 @@ if type(coloursButton) == "table" and type(coloursButton.run) == "function" then
 end
 check(palDb.palette, "off", "Restore colours turns the palette off")
 check(liveHas("beam"), true, "Restore colours leaves the frame")
-check(sets.general.buttonGlow, "Looks:wick", "Restore colours leaves the glow")
+check(sets.general.buttonGlow, "Neon:custom", "Restore colours leaves existing buttonGlow alone")
+check(sets.Nameplates.targetLight, "Neon:target", "Restore colours leaves existing targetLight alone")
 check(account.theme, "hearthnight", "Restore colours keeps the theme name")
 check(account.themeChanged, true, "Restore colours marks the theme changed")
 
@@ -2485,13 +2482,14 @@ else
 end
 check(palDb.palette, "ember", "Restore looks leaves the palette")
 check(userRestored(), true, "Restore looks puts the saved frame values back")
-check(sets.general.buttonGlow, "circle", "Restore looks puts the saved glow back")
+check(sets.general.buttonGlow, "circle", "Restore looks puts the legacy saved glow back")
+check(sets.Nameplates.targetLight, "none", "Restore looks puts the legacy saved targetLight back")
 check(account.theme, "hearthnight", "Restore looks keeps the theme name")
 check(account.themeChanged, true, "Restore looks marks the theme changed")
 
 setBundle("stream")
-sets.general.buttonGlow = "Looks:latch"
-sets.Nameplates.targetLight = "Looks:latch"
+sets.general.buttonGlow = "Neon:custom"
+sets.Nameplates.targetLight = "Neon:target"
 account.looks = nil
 palDb.looks = nil
 account.theme = "hearthnight"
@@ -2499,27 +2497,32 @@ account.themeChanged = false
 palDb.palette = "ember"
 looksButton.run()
 check(liveHas("stream"), true, "Restore looks with no snapshot leaves the frame")
-check(sets.general.buttonGlow, "Looks:latch", "Restore looks with no snapshot leaves the glow")
+check(sets.general.buttonGlow, "Neon:custom", "Restore looks with no snapshot leaves buttonGlow")
+check(sets.Nameplates.targetLight, "Neon:target", "Restore looks with no snapshot leaves targetLight")
 check(palDb.palette, "ember", "Restore looks with no snapshot leaves the palette")
 check(account.theme, "hearthnight", "Restore looks with no snapshot keeps the theme")
 check(account.themeChanged, false, "Restore looks with no snapshot does not mark the theme changed")
 
--- A snapshot with only frame values leaves the glow alone, and the other way round.
+-- A snapshot with only frame values leaves the glow alone, and a legacy glow snapshot restores it.
 seedFrames()
 setBundle("slate")
-sets.general.buttonGlow = "Looks:draught"
-sets.Nameplates.targetLight = "Looks:draught"
+sets.general.buttonGlow = "Neon:custom"
+sets.Nameplates.targetLight = "Neon:target"
 account.looks = { frameValues = userSnapshot().frameValues }
 palDb.looks = account.looks
 looksButton.run()
 check(userRestored(), true, "a frame-only snapshot restores the frame")
-check(sets.general.buttonGlow, "Looks:draught", "a frame-only snapshot leaves the glow")
+check(sets.general.buttonGlow, "Neon:custom", "a frame-only snapshot leaves buttonGlow")
+check(sets.Nameplates.targetLight, "Neon:target", "a frame-only snapshot leaves targetLight")
 setBundle("slate")
+sets.general.buttonGlow = "Looks:wick"
+sets.Nameplates.targetLight = "Looks:wick"
 account.looks = { glow = "circle", light = "none" }
 palDb.looks = account.looks
 looksButton.run()
-check(liveHas("slate"), true, "a glow-only snapshot leaves the frame")
-check(sets.general.buttonGlow, "circle", "a glow-only snapshot restores the glow")
+check(liveHas("slate"), true, "a legacy glow-only snapshot leaves the frame")
+check(sets.general.buttonGlow, "circle", "a legacy glow-only snapshot restores buttonGlow")
+check(sets.Nameplates.targetLight, "none", "a legacy glow-only snapshot restores targetLight")
 
 palDb.palette = "ember"
 setBundle("beam")
@@ -2537,35 +2540,47 @@ else
 end
 check(palDb.palette, "off", "Restore Daylight turns colours off")
 check(userRestored(), true, "Restore Daylight puts the saved frame values back")
+check(sets.general.buttonGlow, "circle", "Restore Daylight restores legacy saved buttonGlow")
+check(sets.Nameplates.targetLight, "none", "Restore Daylight restores legacy saved targetLight")
 check(account.theme, false, "Restore Daylight clears the theme")
 
 local retired = { lintel = "beam", sill = "stream", stamp = "slate", signboard = "beam", trough = "ledger" }
 for old, new in pairs(retired) do
     local plain = ns.parseShare("PAL2-ember-" .. old .. "-wick")
-    check(plain and plain.frame, new, "PAL2 decodes " .. old .. " as " .. new)
+    check(plain and plain.frame, new, "PAL2 legacy code decodes " .. old .. " as " .. new)
+    local modern = ns.parseShare("PAL2-ember-" .. old)
+    check(modern and modern.frame, new, "PAL2 decodes " .. old .. " as " .. new)
     local themed = ns.parseShare("PAL2-hearthnight-ember-" .. old .. "-wick")
     check(themed and themed.frame, new, "a themed PAL2 decodes " .. old .. " as " .. new)
     local custom = ns.parseShare("PAL2-C-1A1410-C4A574-" .. old .. "-wick")
     check(custom and custom.frame, new, "PAL2-C decodes " .. old .. " as " .. new)
-    check(ns.pal2Code({ palette = "ember", frame = old, glow = "wick" }), "PAL2-ember-" .. new .. "-wick", "PAL2 never emits " .. old)
+    check(ns.pal2Code({ palette = "ember", frame = old }), "PAL2-ember-" .. new, "PAL2 never emits " .. old)
 end
 for _, id in ipairs(FRAME_IDS) do
-    local parsed = ns.parseShare("PAL2-tide-" .. id .. "-latch")
+    local parsed = ns.parseShare("PAL2-tide-" .. id)
     check(parsed and parsed.frame, id, "PAL2 decodes " .. id)
-    check(ns.pal2Code(parsed), "PAL2-tide-" .. id .. "-latch", "PAL2 emits " .. id)
+    check(ns.pal2Code(parsed), "PAL2-tide-" .. id, "PAL2 emits " .. id)
 end
-check(ns.parseShare("PAL2-tide-CREST-latch") and ns.parseShare("PAL2-tide-CREST-latch").frame, "crest", "PAL2 ignores case on the new ids")
+check(ns.parseShare("PAL2-tide-CREST") and ns.parseShare("PAL2-tide-CREST").frame, "crest", "PAL2 ignores case on the new ids")
 for _, id in ipairs(FRAME_IDS) do
     seedFrames()
     setBundle(id)
-    palDb.palette = "ember"
+    palDb.palette = "ash"
     account.theme = false
     local code = ns.currentPal2()
-    check(code, "PAL2-ember-" .. id .. "-daylight", "Copy emits " .. id)
+    check(code, "PAL2-ash-" .. id, "Copy emits " .. id)
 end
 do
     seedFrames()
-    check(ns.currentPal2(), "PAL2-ember-daylight-daylight", "Copy emits daylight when no look is worn")
+    setBundle("beam")
+    palDb.palette = "ember"
+    account.theme = false
+    check(ns.currentPal2(), "PAL2-hearthnight-ember-beam", "Copy emits preset name when palette and frame match")
+end
+do
+    seedFrames()
+    palDb.palette = "ember"
+    check(ns.currentPal2(), "PAL2-ember-daylight", "Copy emits daylight when no look is worn")
     for _, old in ipairs({ "lintel", "sill", "stamp", "signboard", "trough" }) do
         check(string.find(ns.currentPal2(), old, 1, true), nil, "Copy never emits " .. old)
     end
@@ -2574,35 +2589,34 @@ local round = ns.parseShare("PAL2-hearthnight-ember-lintel-wick")
 check(round and round.theme, "hearthnight", "PAL2 keeps the theme")
 check(round and round.palette, "ember", "PAL2 keeps the palette")
 check(round and round.frame, "beam", "PAL2 turns lintel into beam")
-check(round and round.glow, "wick", "PAL2 keeps the glow")
-check(ns.pal2Code(round), "PAL2-hearthnight-ember-beam-wick", "PAL2 theme code round-trips")
-local drifted = ns.parseShare("PAL2-HEARTHNIGHT-EMBER-LINTEL-DRAUGHT")
-check(drifted and drifted.glow, "draught", "PAL2 ignores case")
-check(ns.pal2Code({ theme = "hearthnight", palette = "ember", frame = "beam", glow = "draught" }), "PAL2-hearthnight-ember-beam-draught", "a changed theme keeps its name in the code")
-local parts = ns.parseShare("PAL2-ember-lintel-wick")
+check(ns.pal2Code(round), "PAL2-hearthnight-ember-beam", "PAL2 drops legacy glow on round-trip")
+local drifted = ns.parseShare("PAL2-HEARTHNIGHT-EMBER-LINTEL")
+check(drifted and drifted.frame, "beam", "PAL2 ignores case")
+check(ns.pal2Code({ theme = "hearthnight", palette = "ember", frame = "beam" }), "PAL2-hearthnight-ember-beam", "a changed theme keeps its name in the code")
+local parts = ns.parseShare("PAL2-ember-lintel")
 check(parts and parts.theme, nil, "PAL2 without a theme has no theme name")
-check(ns.pal2Code(parts), "PAL2-ember-beam-wick", "PAL2 parts round-trip")
-local onlyPalette = ns.parseShare("PAL2-ember-none-none")
+check(ns.pal2Code(parts), "PAL2-ember-beam", "PAL2 parts round-trip")
+local onlyPalette = ns.parseShare("PAL2-ember-none")
 check(onlyPalette and onlyPalette.frame, "none", "PAL2 none leaves the frame unset")
 local customCode = ns.parseShare("PAL2-#C-#1A1410-#C4A574-sill-wick")
 check(customCode and customCode.custom, true, "PAL2-C is custom colors")
 check(customCode and customCode.frame, "stream", "PAL2-C turns sill into stream")
-check(ns.pal2Code({ custom = true, base = "1A1410", accent = "C4A574", frame = "stream", glow = "wick" }), "PAL2-C-1A1410-C4A574-stream-wick", "PAL2-C round-trips")
-local customOnly = ns.applyShareCode("PAL2-C-1A1410-C4A574-none-none")
+check(ns.pal2Code({ custom = true, base = "1A1410", accent = "C4A574", frame = "stream" }), "PAL2-C-1A1410-C4A574-stream", "PAL2-C round-trips")
+local customOnly = ns.applyShareCode("PAL2-C-1A1410-C4A574-none")
 check(type(customOnly) == "table", true, "PAL2-C loads a custom draft")
 check(ns.shareLook, nil, "PAL2-C with none does not queue a frame")
 local queued = ns.applyShareCode("PAL2-C-341529-E2B14A-sill-wick")
 check(type(queued) == "table", true, "PAL2-C with a look loads the draft")
 check(ns.shareLook and ns.shareLook.frame, "stream", "PAL2-C holds the frame until Save")
-check(ns.shareLook and ns.shareLook.glow, "wick", "PAL2-C holds the glow until Save")
+check(ns.shareLook and ns.shareLook.glow, nil, "PAL2-C ignores legacy glow")
 ns.shareLook = nil
 local pal1 = ns.applyShareCode("PAL1-341529-E2B14A")
 check(ns.shareCode(pal1), "PAL1-341529-E2B14A", "PAL1 still imports colors only")
-check(ns.shareLook, nil, "PAL1 does not queue a frame or glow")
-check(ns.parseShare("PAL2-nope-ember-lintel-wick"), nil, "a bad PAL2 is rejected")
+check(ns.shareLook, nil, "PAL1 does not queue a frame")
+check(ns.parseShare("PAL2-nope-ember-lintel"), nil, "a bad PAL2 is rejected")
 seedFrames()
-sets.general.buttonGlow = "circle"
-sets.Nameplates.targetLight = "none"
+sets.general.buttonGlow = "Neon:custom"
+sets.Nameplates.targetLight = "Neon:target"
 palDb.palette = "tide"
 account.theme = false
 account.looks = nil
@@ -2613,22 +2627,21 @@ check(palDb.palette, "ember", "PAL2 theme sets the palette")
 check(liveHas("beam"), true, "PAL2 theme sets the frame")
 logsStayOnTwoFrames(unitWrites, "a PAL2 look writes only the player and target keys")
 check(sets.UnitFrames["look.style"], "daylight", "a PAL2 look never writes look.style")
-check(sets.general.buttonGlow, "Looks:wick", "PAL2 theme sets the glow")
+check(sets.general.buttonGlow, "Neon:custom", "PAL2 theme leaves buttonGlow untouched")
+check(sets.Nameplates.targetLight, "Neon:target", "PAL2 theme leaves targetLight untouched")
 check(account.theme, "hearthnight", "PAL2 theme marks the theme on")
 check(account.themeChanged, false, "an exact PAL2 theme is not changed")
-check(ns.applyLiveShare(ns.parseShare("PAL2-tide-none-none")), true, "a palette-only PAL2 applies")
+check(ns.applyLiveShare(ns.parseShare("PAL2-tide-none")), true, "a palette-only PAL2 applies")
 check(palDb.palette, "tide", "a palette-only PAL2 changes colours")
 check(liveHas("beam"), true, "PAL2 none leaves the frame alone")
 check(account.theme, false, "a PAL2 with no theme name drops a theme the parts do not match")
-check(ns.applyLiveShare(ns.parseShare("PAL2-tide-crest-wick")), true, "a PAL2 with Crest applies")
+check(ns.applyLiveShare(ns.parseShare("PAL2-tide-crest")), true, "a PAL2 with Crest applies")
 check(liveHas("crest"), true, "PAL2 applies Crest")
-check(ns.applyLiveShare(ns.parseShare("PAL2-tide-daylight-wick")), true, "a PAL2 with daylight applies")
+check(ns.applyLiveShare(ns.parseShare("PAL2-tide-daylight")), true, "a PAL2 with daylight applies")
 check(userRestored(), true, "a PAL2 daylight frame puts the saved frame values back")
 
 seedFrames()
 setBundle("beam")
-sets.general.buttonGlow = "Looks:wick"
-sets.Nameplates.targetLight = "Looks:wick"
 account.theme = "hearthnight"
 account.themeChanged = false
 palDb.palette = "ember"
@@ -2642,8 +2655,6 @@ check(account.themeChanged, false, "parts that match the theme clear changed")
 
 local shot = ns.captureUndo("theme")
 setBundle("stream")
-sets.general.buttonGlow = "Looks:draught"
-sets.Nameplates.targetLight = "Looks:draught"
 account.theme = "hearthnight"
 account.themeChanged = true
 resetLogs()
@@ -2651,7 +2662,7 @@ ns.applyUndoShot(shot)
 check(liveHas("beam"), true, "undo of a theme puts the frame back")
 check(sets.UnitFrames["look.style"], "daylight", "undo does not write look.style")
 logsStayOnTwoFrames(unitWrites, "undo writes only the player and target keys")
-check(sets.general.buttonGlow, "Looks:wick", "undo of a theme puts the glow back")
+check(sets.general.buttonGlow, "Neon:custom", "undo of a theme leaves buttonGlow alone")
 check(account.themeChanged, false, "undo of a theme clears changed when the parts match")
 
 local bare = { palette = "tide", classAccent = false, seeded = true, theme = "vigil" }
@@ -2660,8 +2671,8 @@ local bareDb = { palette = "ember", classAccent = false, carried = true }
 ns.adoptProfile(bare, bareChar, bareDb)
 check(bare.theme, "vigil", "a profile with no theme keys leaves the theme")
 seedFrames()
-local brought = { palette = "tide", classAccent = false, seeded = true }
-local broughtChar = { only = false, ready = true }
+local brought = { palette = "tide", classAccent = false, seeded = true, glow = "wick" }
+local broughtChar = { only = false, ready = true, glow = "draught" }
 local broughtDb = {
     palette = "vanilla", classAccent = false, carried = true,
     theme = "harvestide", themeChanged = false, frame = "sill", glow = "draught",
@@ -2669,27 +2680,22 @@ local broughtDb = {
 ns.adoptProfile(brought, broughtChar, broughtDb)
 check(brought.theme, "harvestide", "a profile theme is adopted")
 check(brought.frame, "stream", "a retired profile frame is carried as its replacement")
-check(brought.glow, "draught", "a profile glow id is carried")
+check(brought.glow, nil, "adopting drops account glow savedvar")
+check(broughtChar.glow, nil, "adopting drops char glow savedvar")
+check(broughtDb.glow, nil, "adopting drops profile glow savedvar")
 check(liveHas("stream"), false, "adopting a profile does not write its frame")
 check(sets.UnitFrames["look.style"], "daylight", "a profile frame never writes look.style")
-check(sets.general.buttonGlow ~= "Looks:draught", true, "adopting a profile does not write its glow")
 seedFrames()
 ns.looksSlash("stream")
 check(liveHas("stream"), true, "picking a frame look applies its values at once")
-ns.looksSlash("draught")
-check(sets.general.buttonGlow, "Looks:draught", "picking a glow applies it at once")
-check(sets.Nameplates.targetLight, "Looks:draught", "picking a glow applies the outline at once")
 sets.UnitFrames["player.width"] = 321
-sets.general.buttonGlow = "Looks:edited"
-sets.Nameplates.targetLight = "Looks:edited"
 local keptDb = { palette = "vanilla", classAccent = false, carried = true, frame = "stream", glow = "draught" }
 local keptAccount = { palette = "tide", classAccent = false, seeded = true, frame = "stream", glow = "draught" }
 ns.adoptProfile(keptAccount, { only = false, ready = true }, keptDb)
 check(sets.UnitFrames["player.width"], 321, "a later width edit survives adopting the same frame")
-check(sets.general.buttonGlow, "Looks:edited", "a later glow edit survives adopting the same glow")
-check(sets.Nameplates.targetLight, "Looks:edited", "a later outline edit survives adopting the same glow")
 check(keptAccount.frame, "stream", "adopting keeps the frame id for the Looks tab")
-check(keptAccount.glow, "draught", "adopting keeps the glow id for the Looks tab")
+check(keptAccount.glow, nil, "adopting clears legacy account glow")
+check(keptDb.glow, nil, "adopting clears legacy profile glow")
 check(sets.UnitFrames["look.style"], "daylight", "adopting never writes look.style")
 local unknownTheme = { palette = "ember", classAccent = false, seeded = true, theme = "snug", frame = "flagon", glow = "latch" }
 local unknownChar = { only = false, ready = true }
@@ -2698,6 +2704,7 @@ ns.adoptProfile(unknownTheme, unknownChar, unknownDb)
 check(unknownTheme.palette, "ember", "an unknown profile palette still falls back to ember")
 check(unknownTheme.theme, "snug", "an unknown profile palette does not apply its theme")
 check(unknownTheme.frame, "flagon", "an unknown profile palette does not apply its frame")
+check(unknownTheme.glow, nil, "an unknown profile palette still drops account glow")
 
 looksEnv.StaticPopupDialogs = looksEnv.StaticPopupDialogs or {}
 if type(looksEnv.StaticPopup_Show) ~= "function" then
@@ -2705,16 +2712,23 @@ if type(looksEnv.StaticPopup_Show) ~= "function" then
 end
 if type(ui.module) == "table" and type(ui.module.OnEnable) == "function" then
     ui.module.OnEnable(nil, palDb)
-    local frameBefore, glowBefore = palDb.frame, palDb.glow
+    local frameBefore = palDb.frame
     seedFrames()
     palDb.frame, palDb.glow = "stream", "draught"
+    account.glow = "wick"
+    char.glow = "latch"
     sets.UnitFrames["player.width"] = 654
-    sets.general.buttonGlow = "Looks:edited"
+    sets.general.buttonGlow = "Neon:edited"
+    sets.Nameplates.targetLight = "Neon:target"
     ui.module.OnEnable(nil, palDb)
     check(sets.UnitFrames["player.width"], 654, "a reload with the same saved frame keeps a later width edit")
-    check(sets.general.buttonGlow, "Looks:edited", "a reload with the same saved glow keeps a later glow edit")
+    check(sets.general.buttonGlow, "Neon:edited", "a reload keeps existing buttonGlow untouched")
+    check(sets.Nameplates.targetLight, "Neon:target", "a reload keeps existing targetLight untouched")
+    check(account.glow, nil, "reload drops PalettesAccount.glow")
+    check(char.glow, nil, "reload drops PalettesChar.glow")
+    check(palDb.glow, nil, "reload drops profile glow")
     check(liveHas("stream"), false, "a reload does not write the saved frame")
-    palDb.frame, palDb.glow = frameBefore, glowBefore
+    palDb.frame = frameBefore
 end
 seedFrames()
 local quiet = popupCount()
@@ -2728,12 +2742,12 @@ check(popupCount(), quiet, "/looks <frame> does not ask to reload")
 ns.looksSlash("flagon")
 check(liveHas("flagon"), true, "/looks flagon applies Flagon")
 check(popupCount(), quiet, "/looks flagon does not ask to reload")
+sets.general.buttonGlow = "Neon:edited"
+sets.Nameplates.targetLight = "Neon:target"
 ns.looksSlash("wick")
-check(sets.general.buttonGlow, "Looks:wick", "/looks wick applies the glow")
-check(popupCount(), quiet, "/looks <glow> does not ask to reload")
-ns.looksSlash("draught")
-check(sets.general.buttonGlow, "Looks:draught", "/looks draught applies the glow")
-check(popupCount(), quiet, "a second glow does not ask to reload")
+check(sets.general.buttonGlow, "Neon:edited", "/looks wick no longer touches buttonGlow")
+check(sets.Nameplates.targetLight, "Neon:target", "/looks wick no longer touches targetLight")
+check(popupCount(), quiet, "/looks <retired glow> does not ask to reload")
 looksEnv.SlashCmdList.PALETTES("")
 check(popupCount(), quiet, "a blank /palettes does not ask to reload")
 looksEnv.SlashCmdList.PALETTES("dusk")
@@ -2773,7 +2787,7 @@ ns.looksSlash("flagon")
 ns.looksSlash("hearthnight")
 check(palDb.palette, "ember", "the preset's palette is already on")
 check(liveHas("beam"), true, "/looks <preset> puts the preset's frame back")
-check(popupCount(), quiet + 4, "/looks <preset> asks even when only its frame and glow change")
+check(popupCount(), quiet + 4, "/looks <preset> asks even when only its frame changes")
 looksEnv.InCombatLockdown = function() return true end
 ns.looksSlash("sill")
 check(popupCount(), quiet + 4, "a combat /looks <frame> waits")
@@ -2782,13 +2796,6 @@ ns.finishLooksCombat()
 ns.finishQueuedReload(true)
 check(liveHas("stream"), true, "combat end paints the slash frame")
 check(popupCount(), quiet + 4, "a combat /looks <frame> never asks to reload")
-looksEnv.InCombatLockdown = function() return true end
-ns.looksSlash("latch")
-looksEnv.InCombatLockdown = function() return false end
-ns.finishLooksCombat()
-ns.finishQueuedReload(true)
-check(sets.general.buttonGlow, "Looks:latch", "combat end paints the slash glow")
-check(popupCount(), quiet + 4, "a combat /looks <glow> never asks to reload")
 
 char.only = false
 char.looks = nil
@@ -2803,7 +2810,8 @@ check(liveHas("stream"), true, "Reset Colours leaves the frame")
 local offBase = popupCount()
 looksEnv.SlashCmdList.PALETTES("off")
 check(userRestored(), true, "/palettes off restores the saved frame values")
-check(sets.general.buttonGlow, "circle", "/palettes off restores the saved glow")
+check(sets.general.buttonGlow, "circle", "/palettes off restores the legacy saved glow")
+check(sets.Nameplates.targetLight, "none", "/palettes off restores the legacy saved targetLight")
 check(popupCount(), offBase + 1, "/palettes off asks to reload when it restores Looks")
 looksEnv.SlashCmdList.PALETTES("off")
 check(popupCount(), offBase + 1, "a no-op /palettes off does not ask again")

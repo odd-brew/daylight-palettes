@@ -1,9 +1,9 @@
 # World of Warcraft: Forever. Confirm on the client with /dump select(4, GetBuildInfo()).
 ## Interface: 16001
 ## Title: Palettes (DaylightUI Plugin)
-## Notes: Recolor Daylight's windows, panels, borders, accent and text, and add frame styles and glow styles. Class and combat colors stay Daylight's.
+## Notes: Recolor Daylight's windows, panels, borders, accent and text, and add frame looks. Class and combat colors stay Daylight's.
 ## Author: odd-brew
-## Version: 0.5.3
+## Version: 0.5.4
 ## Dependencies: DaylightUI
 ## Category: DaylightUI Plugins
 ## SavedVariables: PalettesAccount

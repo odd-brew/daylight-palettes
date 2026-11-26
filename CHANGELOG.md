@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.4] - 2026-11-26
+
+### Removed
+- Glow styles (`Wick`, `Draught`, `Latch`) have been removed from Palettes, as DaylightUI's Neon plugin covers glows. The Looks tab now shows only **Frame looks** and **Reset Looks**, and Presets pair a palette with a frame look.
+- Palettes no longer writes button glow or `Nameplates.targetLight` settings. Existing DaylightUI / Neon glow settings are left untouched, and glow saved variables are dropped on `/reload`.
+- **Reset Looks** and **Restore Daylight** still restore pre-Palettes glow settings for users who applied a glow before this update.
+- `PAL2` share codes now omit the glow suffix; older `PAL2` codes with a trailing glow still import cleanly and ignore the glow.
+
 ## [0.5.3] - 2026-11-23
 
 ### Changed

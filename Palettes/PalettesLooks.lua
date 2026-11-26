@@ -1,61 +1,14 @@
--- Frame looks, glow styles and Presets. A frame look is a bundle of DaylightUI
+-- Frame looks and Presets. A frame look is a bundle of DaylightUI
 -- settings for the player and target frames. Palettes never registers a frame
 -- style and never writes UnitFrames look.style, so every other frame stays put.
--- A Preset sets one palette, one frame look and one glow. Palettes stay color-only.
--- Glow styles register through a Looks-named API handle, so their saved keys stay
--- Looks:wick and so on. The plugin name stays Palettes.
+-- A Preset sets one palette and one frame look. Palettes stay color-only.
 -- The snapshot lives in Palettes' saved data and profile settings, never LooksDB.
 -- A pick waits out combat. API 1.7 and 1.8 keep colors and hide this page.
 
 local _, ns = ...
 
-local NEED_STYLES = "Palettes: Daylight UI is missing the settings frame and glow styles need, so only colors are available."
-local BOTH = "Palettes: Looks is also loaded. Turn Looks off; frame and glow styles now live in Palettes."
-local GLOW_HINT = "Glow colour follows your accent colour. Change it on the Colours tab."
-
-local CORNER = { 0, 0.25, 0.5, 0.75 }
-
-local function wave(at)
-    return 0.5 - 0.5 * math.cos(at * math.pi * 2)
-end
-
-local function lightSize(size)
-    if type(size) == "number" and size > 0 then return size end
-    return 8
-end
-
-local function drawWick(g, at, lo, hi, size)
-    local s = lightSize(size) * (0.55 + 0.5 * wave(at))
-    local alpha = 0.35 + 0.65 * wave(at)
-    for i = 1, 4 do
-        local color = (i % 2 == 1) and lo or hi
-        g:Light(CORNER[i], s, color, alpha)
-        g:Trail(CORNER[i], 0.045, alpha * 0.45, lo, hi)
-    end
-end
-
-local function drawDraught(g, at, lo, hi)
-    local span = 0.62
-    local from = (1 - span) * wave(at)
-    g:Edge(1, 0, 1, 0.16, 0.16, lo, hi)
-    g:Edge(1, from, from + span, 0.2, 0.9, lo, hi)
-end
-
-local function drawLatch(g, at, lo, hi, size)
-    if at >= 0.42 then return end
-    local alpha
-    if at < 0.16 then
-        alpha = 0.45 + 0.55 * (at / 0.16)
-    else
-        alpha = 1 - (at - 0.16) / (0.42 - 0.16)
-    end
-    g:Edge(1, 0, 1, alpha * 0.45, alpha, lo, hi)
-    g:Edge(2, 0, 1, alpha, alpha * 0.3, hi, lo)
-    g:Edge(3, 0, 1, alpha * 0.3, alpha * 0.55, lo, hi)
-    g:Edge(4, 0, 1, alpha * 0.55, alpha * 0.4, hi, lo)
-    g:Light(0, lightSize(size) * 0.7, hi, alpha)
-    g:Trail(0.02, 0.08, alpha * 0.5, lo, hi)
-end
+local NEED_STYLES = "Palettes: Daylight UI is missing the settings frame looks need, so only colors are available."
+local BOTH = "Palettes: Looks is also loaded. Turn Looks off; frame looks now live in Palettes."
 
 -- One row per look. Every look carries the same keys, so switching never leaves
 -- a value from the last one behind. Widths are settings: 187 draws 188 wide.
@@ -266,23 +219,17 @@ local function buildFrames()
 end
 buildFrames()
 
-local GLOWS = {
-    { id = "wick", name = "Wick", mood = "A quiet flame gathers at the corners.", spec = { label = "Wick", lap = 2, draw = drawWick } },
-    { id = "draught", name = "Draught", mood = "A soft wash along the rim.", spec = { label = "Draught", lap = 2, draw = drawDraught } },
-    { id = "latch", name = "Latch", mood = "A short catch of light, then still.", spec = { label = "Latch", lap = 2, draw = drawLatch } },
-}
-
 local THEMES = {
-    { id = "hearthnight", name = "Hearthnight", palette = "ember", frame = "beam", glow = "wick", mood = "A winter hearth of campfire gold: a named beam and a quiet corner flame." },
-    { id = "harvestide", name = "Harvestide", palette = "vanilla", frame = "stream", glow = "draught", mood = "Harvest light on dark oak and pewter, washed along the sill of the bar." },
-    { id = "tidemark", name = "Tidemark", palette = "tide", frame = "slate", glow = "draught", mood = "Cool sea-green at the waterline: a tight stamp and a soft wash along the rim." },
-    { id = "oldroad", name = "Old Road", palette = "forever", frame = "beam", glow = "latch", mood = "Near-black soot and weathered bronze: a weathered beam and a short catch of lantern light." },
-    { id = "vigil", name = "Vigil", palette = "paladin", frame = "stream", glow = "wick", mood = "Rose on warm plum-brown. The name tab stays, and a flame is kept lit at the corners." },
-    { id = "snug", name = "Snug", palette = "gilded", frame = "flagon", glow = "latch", mood = "A deep gold cup in the quiet corner, and a short catch of lantern light." },
-    { id = "bellows", name = "Bellows", palette = "forgeglow", frame = "trestle", glow = "wick", mood = "A named work board and a quiet corner flame, like a forge kept open late." },
-    { id = "drawwell", name = "Drawwell", palette = "shaman", frame = "ledger", glow = "draught", mood = "Storm-grey water in a deep basin, and a soft wash along the rim." },
-    { id = "settle", name = "Settle", palette = "keepstone", frame = "beam", glow = "latch", mood = "A walnut beam and a brief catch of brass-lantern light, like a high-backed bench by the fire." },
-    { id = "afterhours", name = "After Hours", palette = "carmine-night", frame = "beam", glow = "latch", mood = "A hanging sign and a brief cut of carmine light, after the room has gone quiet." },
+    { id = "hearthnight", name = "Hearthnight", palette = "ember", frame = "beam", mood = "A winter hearth of campfire gold on a dark, named beam." },
+    { id = "harvestide", name = "Harvestide", palette = "vanilla", frame = "stream", mood = "Harvest light on dark oak and pewter, along a slim ribbon bar." },
+    { id = "tidemark", name = "Tidemark", palette = "tide", frame = "slate", mood = "Cool sea-green at the waterline on a low-profile slate bar." },
+    { id = "oldroad", name = "Old Road", palette = "forever", frame = "beam", mood = "Near-black soot and weathered bronze on a sturdy beam." },
+    { id = "vigil", name = "Vigil", palette = "paladin", frame = "stream", mood = "Rose on warm plum-brown, with a slim ribbon bar and round portrait." },
+    { id = "snug", name = "Snug", palette = "gilded", frame = "flagon", mood = "A deep gold cup with a rounded portrait in the quiet corner." },
+    { id = "bellows", name = "Bellows", palette = "forgeglow", frame = "trestle", mood = "A named work board with a full portrait and hung power rail." },
+    { id = "drawwell", name = "Drawwell", palette = "shaman", frame = "ledger", mood = "Storm-grey water in a deep, portrait-free square basin." },
+    { id = "settle", name = "Settle", palette = "keepstone", frame = "beam", mood = "A walnut beam with a full-width tab, like a high-backed bench by the fire." },
+    { id = "afterhours", name = "After Hours", palette = "carmine-night", frame = "beam", mood = "Deep carmine night on a sturdy beam, after the room has gone quiet." },
 }
 ns.themes = THEMES
 
@@ -305,7 +252,6 @@ end
 
 local ICONS = {
     flagon = {}, trestle = {}, beam = {}, stream = {}, ledger = {}, crest = {}, slate = {},
-    wick = {}, draught = {}, latch = {},
 }
 
 -- Flagon: a small boss at the cup, the name on the lip.
@@ -340,40 +286,21 @@ addBox(ICONS.crest, 18, 6, 16, 9)
 addEdge(ICONS.slate, 1, 4, 20, 1)
 addBox(ICONS.slate, 1, 6, 34, 5)
 addEdge(ICONS.slate, 1, 13, 34, 2)
-addBox(ICONS.wick, 1, 1, 34, 16)
-addEdge(ICONS.wick, 3, 3, 3, 1)
-addEdge(ICONS.wick, 30, 3, 3, 1)
-addEdge(ICONS.wick, 3, 14, 3, 1)
-addEdge(ICONS.wick, 30, 14, 3, 1)
-addBox(ICONS.draught, 1, 1, 34, 16)
-addEdge(ICONS.draught, 4, 3, 28, 1)
-addEdge(ICONS.draught, 6, 5, 24, 1)
-addBox(ICONS.latch, 1, 1, 34, 16)
-addEdge(ICONS.latch, 4, 3, 1, 12)
-addEdge(ICONS.latch, 4, 3, 8, 1)
-addEdge(ICONS.latch, 4, 14, 8, 1)
 
 ns.frameIcons = ICONS
 
 local ORDER = {}
 for i = 1, #FRAMES do ORDER[#ORDER + 1] = FRAMES[i] end
-for i = 1, #GLOWS do ORDER[#ORDER + 1] = GLOWS[i] end
 for i = 1, #THEMES do ORDER[#ORDER + 1] = THEMES[i] end
-
-local GLOW_READS = {
-    { "general", "buttonGlow" },
-    { "Nameplates", "targetLight" },
-}
 
 local view
 local refreshers = {}
 local looksPending
 
-local THEME_INTRO = "Each preset is a ready-made pairing of a Colours palette with a Looks frame and glow. Pick one, then change any part on the Colours or Looks tab."
-local LOOKS_INTRO = "A Preset on the Presets tab sets all three."
+local THEME_INTRO = "Each preset is a ready-made pairing of a Colours palette with a frame look. Pick one, then change either part on the Colours or Looks tab."
+local LOOKS_INTRO = "A Preset on the Presets tab sets both."
 local PAGE_NOTE = "Starts off on first login · /looks"
-local FRAME_HEAD = "FRAME STYLES"
-local GLOW_HEAD = "GLOW STYLES"
+local FRAME_HEAD = "Frame looks"
 local THEME_HEAD = "PRESETS"
 
 local CREAM = { 0.95, 0.91, 0.86, 1 }
@@ -398,9 +325,6 @@ local PRESET_H = 88
 local STYLE_H = 26
 local HEAD_H = 18
 local HINT_H = 26
-
-local DAYLIGHT_GLOW = "circle"
-local DAYLIGHT_LIGHT = "none"
 
 local function say(text)
     local frame = DEFAULT_CHAT_FRAME
@@ -433,12 +357,6 @@ function ns.resolveFrame(id)
     return resolveFrame(id)
 end
 
-local function glowById(id)
-    for i = 1, #GLOWS do
-        if GLOWS[i].id == id then return GLOWS[i] end
-    end
-end
-
 local function themeById(id)
     for i = 1, #THEMES do
         if THEMES[i].id == id then return THEMES[i] end
@@ -452,24 +370,17 @@ local function partLabel(kind, id)
         row = type(ns.byId) == "table" and ns.byId[id] or nil
     elseif kind == "frame" then
         row = frameById(id)
-    else
-        row = glowById(id)
     end
     if type(row) == "table" and type(row.name) == "string" and row.name ~= "" then return row.name end
     return "—"
 end
 
 local function themePills(theme)
-    return partLabel("palette", theme.palette),
-        partLabel("frame", theme.frame) .. " + " .. partLabel("glow", theme.glow)
+    return partLabel("palette", theme.palette), partLabel("frame", theme.frame)
 end
 
 function ns.frameById(id)
     return frameById(id)
-end
-
-function ns.glowById(id)
-    return glowById(id)
 end
 
 function ns.themeById(id)
@@ -760,21 +671,6 @@ function ns.frameSizeKeys()
     return out
 end
 
-local function wornGlows()
-    local api = apiOf()
-    local out, seen = {}, {}
-    if not api or type(api.GetSetting) ~= "function" then return out end
-    for i = 1, #GLOW_READS do
-        local ok, value = pcall(api.GetSetting, GLOW_READS[i][1], GLOW_READS[i][2])
-        local found = ok and glowById(looksId(value))
-        if found and not seen[found.id] then
-            seen[found.id] = true
-            out[#out + 1] = found
-        end
-    end
-    return out
-end
-
 local function hintLine(name, omit)
     local names = {}
     for i = 1, #ORDER do
@@ -797,7 +693,6 @@ local function statusLine()
         return "Looks: " .. (theme and theme.name or themeId) .. " queued until combat ends."
     end
     local id, name = wornFrame()
-    local glows = wornGlows()
     local omit = {}
     if themeId then
         local theme = themeById(themeId)
@@ -806,21 +701,7 @@ local function statusLine()
         omit[themeId] = true
     end
     if id then omit[id] = true end
-    for i = 1, #glows do omit[glows[i].id] = true end
-    if not name and glows[1] then name = glows[1].name end
     return hintLine(name, omit)
-end
-
-local function glowSetter()
-    if type(view) == "table" and type(view.SetGlowStyle) == "function" then
-        return function(key) view.SetGlowStyle(key) end
-    end
-    local api = apiOf()
-    if api and type(api.SetGlowStyle) == "function" then
-        return function(key)
-            if key == "none" then api.SetGlowStyle("none") else api.SetGlowStyle("Looks:" .. key) end
-        end
-    end
 end
 
 local function allowedWrite(scope, path)
@@ -840,24 +721,15 @@ local function readKnown(scope, path)
     return nil, false
 end
 
--- Parts of the restore snapshot Palettes has not saved yet. A frame write saves
--- the frame values and a glow write saves the glow, each once, just before the
--- first change, so Reset Looks only puts back what Palettes changed.
-local function captureMissing(frames, glows)
+-- Parts of the restore snapshot Palettes has not saved yet. Saved once, just
+-- before the first frame change, so Reset Looks only puts back what Palettes changed.
+local function captureMissing(frames)
     local have = readSnapshot()
     if type(have) ~= "table" then have = {} end
-    local shot, any = {}, false
-    if glows and have.glow == nil and have.light == nil then
-        local glow, glowOk = readKnown("general", "buttonGlow")
-        local light, lightOk = readKnown("Nameplates", "targetLight")
-        if glowOk then shot.glow = glow; any = true end
-        if lightOk then shot.light = light; any = true end
-    end
     if frames and have.frameValues == nil then
         local values = readFrameValues()
-        if values then shot.frameValues = values; any = true end
+        if values then return { frameValues = values } end
     end
-    if any then return shot end
 end
 
 local function mergeSnapshot(add)
@@ -898,23 +770,14 @@ local function refreshLooks()
 end
 ns.refreshLooks = refreshLooks
 
-local function pointAtGlow(id)
-    if id == "none" then
-        say("Looks: pick none in the glow menu.")
-        return
-    end
-    local found = glowById(id)
-    say("Looks: pick " .. (found and found.name or id) .. " in the glow menu.")
-end
-
 local function pointAtGlowValue(value)
     if type(value) ~= "string" or value == "" or value == "none" then
-        pointAtGlow("none")
+        say("Looks: pick none in the glow menu.")
         return
     end
     local id = looksId(value)
     if id then
-        pointAtGlow(id)
+        say("Looks: pick " .. id .. " in the glow menu.")
         return
     end
     say("Looks: pick " .. value .. " in the glow menu.")
@@ -1112,7 +975,7 @@ local function applyFrame(id, quiet)
         return finish(false)
     end
     local snapshot = readSnapshot()
-    local shot = captureMissing(true, false)
+    local shot = captureMissing(true)
     local list = lookPairs(id)
     local extras = extraPairs(id, type(snapshot) == "table" and snapshot.frameValues or nil)
     for i = 1, #extras do list[#list + 1] = extras[i] end
@@ -1124,51 +987,6 @@ local function applyFrame(id, quiet)
     return finish(ok)
 end
 
-local function applyGlow(id, quiet)
-    if inCombat() then
-        local found = glowById(id)
-        queueLook("glow", id, found and found.name or id)
-        return false
-    end
-    local undoShot = (not ns.applyingTheme and type(ns.captureUndo) == "function") and ns.captureUndo("glow") or nil
-    local function finish(ok)
-        if ok then
-            if undoShot and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
-            if type(ns.storeLookPart) == "function" then ns.storeLookPart("glow", id) end
-            if not ns.applyingTheme and type(ns.notePalette) == "function" then ns.notePalette(ns.screenPalette()) end
-        end
-        return ok
-    end
-    local set = glowSetter()
-    local shot = (set or hasWrite()) and captureMissing(false, true) or nil
-    if set and pcall(set, id) then
-        if shot then mergeSnapshot(shot) end
-        refreshPage()
-        refreshLooks()
-        return finish(true)
-    end
-    local buttonKey, lightKey
-    if id == "none" then
-        buttonKey, lightKey = "circle", "none"
-    else
-        buttonKey, lightKey = "Looks:" .. id, "Looks:" .. id
-    end
-    local buttons = writeSetting("general", "buttonGlow", buttonKey)
-    local light = writeSetting("Nameplates", "targetLight", lightKey)
-    if buttons or light then
-        if shot then mergeSnapshot(shot) end
-    end
-    if buttons and light then
-        refreshPage()
-        refreshLooks()
-        return finish(true)
-    end
-    if buttons or light then refreshPage() end
-    if not quiet then pointAtGlow(id) end
-    refreshLooks()
-    return finish(false)
-end
-
 -- Puts back the frame values saved before Palettes first changed them. With
 -- nothing saved there is nothing to put back.
 local function restoreSavedFrames()
@@ -1177,18 +995,11 @@ local function restoreSavedFrames()
     return writeFrameValues(saved.frameValues)
 end
 
+-- Restores pre-Palettes glow values from a legacy snapshot created before glow removal.
 local function writeGlowValue(buttonValue, lightValue)
-    local buttons = writeSetting("general", "buttonGlow", buttonValue)
-    local light = writeSetting("Nameplates", "targetLight", lightValue)
-    if buttons and light then return true end
-    if not buttons and not light then
-        local set = glowSetter()
-        if set and buttonValue == lightValue then
-            local id = buttonValue == "none" and "none" or looksId(buttonValue)
-            if id and (id == "none" or glowById(id)) and pcall(set, id) then return true end
-        end
-    end
-    return false
+    local buttons = buttonValue == nil or writeSetting("general", "buttonGlow", buttonValue)
+    local light = lightValue == nil or writeSetting("Nameplates", "targetLight", lightValue)
+    return buttons and light
 end
 
 
@@ -1258,16 +1069,6 @@ function ns.storeLookPart(key, value)
     end
 end
 
-local function soleGlow()
-    local button, buttonOk = readKnown("general", "buttonGlow")
-    local light, lightOk = readKnown("Nameplates", "targetLight")
-    if not buttonOk or not lightOk then return nil end
-    local b = glowById(looksId(button))
-    local l = glowById(looksId(light))
-    if b and l and b.id == l.id then return b.id end
-    if button == DAYLIGHT_GLOW and light == DAYLIGHT_LIGHT then return "daylight" end
-end
-
 function ns.screenPalette()
     local d = DaylightUI
     if type(d) == "table" and type(d.Get) == "function" then
@@ -1279,11 +1080,11 @@ function ns.screenPalette()
     return "off"
 end
 
-function ns.exactTheme(palette, frameId, glowId)
+function ns.exactTheme(palette, frameId)
     if type(palette) ~= "string" then return nil end
     for i = 1, #THEMES do
         local theme = THEMES[i]
-        if theme.palette == palette and theme.frame == frameId and theme.glow == glowId then
+        if theme.palette == palette and theme.frame == frameId then
             return theme
         end
     end
@@ -1291,7 +1092,7 @@ end
 
 function ns.notePalette(id)
     if ns.applyingTheme or ns.clearingTheme then return end
-    local exact = ns.exactTheme(id, wornFrame(), soleGlow())
+    local exact = ns.exactTheme(id, wornFrame())
     if exact then
         writeThemeSlot(exact.id, false)
         refreshLooks()
@@ -1306,7 +1107,7 @@ function ns.shownTheme()
     if type(looksPending) == "table" and looksPending.kind == "theme" then
         return looksPending.id, false, true
     end
-    local exact = ns.exactTheme(ns.screenPalette(), wornFrame(), soleGlow())
+    local exact = ns.exactTheme(ns.screenPalette(), wornFrame())
     if exact then return exact.id, false, false end
     local id = ns.readTheme()
     if id then return id, true, false end
@@ -1315,13 +1116,9 @@ end
 
 function ns.captureUndo(kind)
     local themeId, changed = ns.readTheme()
-    local glow = select(1, readKnown("general", "buttonGlow"))
-    local light = select(1, readKnown("Nameplates", "targetLight"))
     return {
         kind = kind,
         frameValues = readFrameValues(),
-        glow = glow,
-        light = light,
         theme = themeId or false,
         themeChanged = changed == true,
     }
@@ -1332,15 +1129,10 @@ function ns.applyUndoShot(shot)
     if shot.kind == "theme" or shot.kind == "frame" or shot.kind == "looks" or shot.kind == "full" then
         if type(shot.frameValues) == "table" then writeFrameValues(shot.frameValues) end
     end
-    if shot.kind == "theme" or shot.kind == "glow" or shot.kind == "looks" or shot.kind == "full" then
-        if type(shot.glow) == "string" or type(shot.light) == "string" then
-            writeGlowValue(shot.glow or DAYLIGHT_GLOW, shot.light or DAYLIGHT_LIGHT)
-        end
-    end
     if shot.theme == false or type(shot.theme) == "string" then
         writeThemeSlot(shot.theme, shot.themeChanged == true)
     end
-    local exact = ns.exactTheme(ns.screenPalette(), wornFrame(), soleGlow())
+    local exact = ns.exactTheme(ns.screenPalette(), wornFrame())
     if exact then writeThemeSlot(exact.id, false) end
     refreshLooks()
 end
@@ -1351,10 +1143,6 @@ function ns.applyShareLook(look)
         if look.frame == "daylight" then restoreSavedFrames()
         elseif resolveFrame(look.frame) then applyFrame(look.frame, true) end
     end
-    if type(look.glow) == "string" then
-        if look.glow == "daylight" then writeGlowValue(DAYLIGHT_GLOW, DAYLIGHT_LIGHT)
-        elseif glowById(look.glow) then applyGlow(look.glow, true) end
-    end
     if not ns.applyingTheme then ns.notePalette(ns.screenPalette()) end
 end
 
@@ -1362,21 +1150,23 @@ function ns.currentPal2()
     local palette = ns.screenPalette()
     local themeId = select(1, ns.shownTheme())
     local frameId = wornFrame() or "daylight"
-    local glowId = soleGlow() or "daylight"
     if palette == "custom" and type(ns.readCustom) == "function" and type(ns.shareCode) == "function" then
         local spec = ns.readCustom(type(ns.accountTable) == "function" and ns.accountTable() or {}, type(ns.charTable) == "function" and ns.charTable() or {})
         local code = ns.shareCode(spec)
         local base, accent = string.match(code or "", "^PAL1%-(%x%x%x%x%x%x)%-(%x%x%x%x%x%x)$")
-        return ns.pal2Code({ theme = themeId, custom = true, base = base, accent = accent, frame = frameId, glow = glowId })
+        return ns.pal2Code({ theme = themeId, custom = true, base = base, accent = accent, frame = frameId })
     end
-    return ns.pal2Code({ theme = themeId, palette = palette, frame = frameId, glow = glowId })
+    return ns.pal2Code({ theme = themeId, palette = palette, frame = frameId })
 end
 
 local function themeKeys(db)
-    return type(db) == "table" and (db.theme ~= nil or db.themeChanged ~= nil or db.frame ~= nil or db.glow ~= nil)
+    return type(db) == "table" and (db.theme ~= nil or db.themeChanged ~= nil or db.frame ~= nil)
 end
 
 function ns.takeTheme(account, char, db, onlyOn)
+    if type(account) == "table" then account.glow = nil end
+    if type(char) == "table" then char.glow = nil end
+    if type(db) == "table" then db.glow = nil end
     if not themeKeys(db) then return false end
     local function write(key, value)
         if onlyOn and type(char) == "table" then
@@ -1389,7 +1179,6 @@ function ns.takeTheme(account, char, db, onlyOn)
     if db.theme ~= nil then write("theme", db.theme) end
     if db.themeChanged ~= nil then write("themeChanged", db.themeChanged == true) end
     if db.frame ~= nil then write("frame", resolveFrame(db.frame) or db.frame) end
-    if db.glow ~= nil then write("glow", db.glow) end
     return true
 end
 
@@ -1419,14 +1208,12 @@ local function applyTheme(theme)
         d:Set("Palettes", "palette", theme.palette)
     end
     local frameOk = applyFrame(theme.frame, true)
-    local glowOk = applyGlow(theme.glow, true)
     writeThemeSlot(theme.id, false)
     ns.applyingTheme = false
     ns.quietPalette = false
     ns.undoHold = nil
     say("Palettes: " .. theme.name .. " is on. Your layout is unchanged.")
     if not frameOk then failFrame(theme.frame) end
-    if not glowOk then pointAtGlow(theme.glow) end
     refreshLooks()
 end
 
@@ -1438,13 +1225,13 @@ function ns.restoreColoursOnly()
     end
 end
 
--- Puts back only what Palettes saved: frame values, and the glow with its outline.
+-- Puts back only what Palettes saved: frame values, plus any pre-update glow snapshot.
 local function restoreSaved(saved)
     local frameOk, glowOk = true, true
     local hadFrames = type(saved.frameValues) == "table"
     local hadGlow = saved.glow ~= nil or saved.light ~= nil
     if hadFrames then frameOk = writeFrameValues(saved.frameValues) end
-    if hadGlow then glowOk = writeGlowValue(saved.glow or DAYLIGHT_GLOW, saved.light or DAYLIGHT_LIGHT) end
+    if hadGlow then glowOk = writeGlowValue(saved.glow, saved.light) end
     return frameOk, glowOk, hadFrames, hadGlow
 end
 
@@ -1459,18 +1246,11 @@ function ns.restoreLooksOnly()
     end
     local undoShot = type(ns.captureUndo) == "function" and ns.captureUndo("looks") or nil
     ns.RevertPreview()
-    local frameOk, glowOk, hadFrames, hadGlow = restoreSaved(saved)
+    local frameOk, glowOk, hadFrames = restoreSaved(saved)
     if frameOk or glowOk then refreshPage() end
     if frameOk and glowOk then storeSnapshot(false) end
     if undoShot and (frameOk or glowOk) and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
     if hadFrames then ns.storeLookPart("frame", wornFrame() or "daylight") end
-    if hadGlow then
-        local glow = saved.glow or DAYLIGHT_GLOW
-        local light = saved.light or DAYLIGHT_LIGHT
-        local glowId = looksId(glow)
-        if glow == DAYLIGHT_GLOW and light == DAYLIGHT_LIGHT then glowId = "daylight" end
-        if glowId then ns.storeLookPart("glow", glowId) end
-    end
     ns.notePalette(ns.screenPalette())
     refreshLooks()
     return frameOk and glowOk
@@ -1514,12 +1294,8 @@ function ns.applyLiveShare(parsed)
         if parsed.frame == "daylight" then restoreSavedFrames()
         elseif resolveFrame(parsed.frame) then applyFrame(parsed.frame, true) end
     end
-    if parsed.glow and parsed.glow ~= "none" then
-        if parsed.glow == "daylight" then writeGlowValue(DAYLIGHT_GLOW, DAYLIGHT_LIGHT)
-        elseif glowById(parsed.glow) then applyGlow(parsed.glow, true) end
-    end
     if theme then
-        local exact = ns.exactTheme(ns.screenPalette(), wornFrame(), soleGlow())
+        local exact = ns.exactTheme(ns.screenPalette(), wornFrame())
         if exact and exact.id == theme.id then
             writeThemeSlot(theme.id, false)
             say("Palettes: " .. theme.name .. " is on. Your layout is unchanged.")
@@ -1594,8 +1370,6 @@ function ns.finishLooksCombat()
     end
     if pending.kind == "frame" then
         applyFrame(pending.id, false)
-    elseif pending.kind == "glow" then
-        applyGlow(pending.id, false)
     elseif pending.kind == "theme" then
         local theme = themeById(pending.id)
         if theme then applyTheme(theme) end
@@ -1610,12 +1384,11 @@ end
 
 function ns.lookMark()
     local frame = wornFrame() or "daylight"
-    local glow = soleGlow() or "daylight"
     local pending = ""
     if type(looksPending) == "table" then
         pending = tostring(looksPending.kind) .. ":" .. tostring(looksPending.id)
     end
-    return frame .. "/" .. glow .. "/" .. pending
+    return frame .. "/" .. pending
 end
 
 local looksSlashRun
@@ -1631,9 +1404,9 @@ function ns.looksSlash(msg)
     end
     local beforeLook = ns.lookMark()
     local beforePal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
-    -- A frame look or a glow repaints live. A Preset or off changes colours.
+    -- A frame look repaints live. A Preset or off changes colours.
     local arg = string.lower(trim(msg or ""))
-    local looksOnly = resolveFrame(arg) ~= nil or glowById(arg) ~= nil
+    local looksOnly = resolveFrame(arg) ~= nil
     ns.withReloadAction(function()
         run()
         local afterPal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
@@ -1676,10 +1449,6 @@ function looksSlashRun(msg)
         applyFrame(frameId)
         return
     end
-    if glowById(arg) then
-        applyGlow(arg)
-        return
-    end
     local theme = themeById(arg)
     if theme then
         applyTheme(theme)
@@ -1694,7 +1463,7 @@ local function rowPending(kind, id)
     if pending.kind == kind and pending.id == id then return true end
     if pending.kind == "theme" then
         local theme = themeById(pending.id)
-        if theme and ((kind == "frame" and theme.frame == id) or (kind == "glow" and theme.glow == id) or (kind == "theme" and theme.id == id)) then
+        if theme and ((kind == "frame" and theme.frame == id) or (kind == "theme" and theme.id == id)) then
             return true
         end
     end
@@ -2114,8 +1883,6 @@ local function buildListPage(row, spec)
                 end
             elseif line.kind == "frame" then
                 on = stagedOn("frame", line.id, spec.frameOn(line.id))
-            else
-                on = stagedOn("glow", line.id, spec.glowOn(line.id))
             end
             line.SetOn(on and true or false, pending)
         end
@@ -2170,7 +1937,6 @@ function ns.themesPage()
         intro = THEME_INTRO,
         introH = 44,
         frameOn = function() return false end,
-        glowOn = function() return false end,
         sections = { { head = THEME_HEAD, rows = rows, rowH = THEME_H } },
     }
     return {
@@ -2203,10 +1969,7 @@ function ns.looksPage()
     local function frameOn(id)
         return wornFrame() == id
     end
-    local function glowOn(id)
-        return soleGlow() == id
-    end
-    local frames, glows = {}, {}
+    local frames = {}
     for i = 1, #FRAMES do
         local frame = FRAMES[i]
         frames[#frames + 1] = {
@@ -2225,31 +1988,12 @@ function ns.looksPage()
             end,
         }
     end
-    for i = 1, #GLOWS do
-        local glow = GLOWS[i]
-        glows[#glows + 1] = {
-            kind = "glow", id = glow.id, name = glow.name, desc = glow.mood,
-            key = "Looks:" .. glow.id, icon = ICONS[glow.id],
-            select = function()
-                local live = soleGlow() == glow.id
-                if type(ns.stagePick) == "function" then
-                    ns.stagePick("glow", glow.id, function() applyGlow(glow.id) end, live)
-                else
-                    applyGlow(glow.id)
-                end
-                refreshLooks()
-            end,
-        }
-    end
     local spec = {
         intro = LOOKS_INTRO,
         introH = 22,
-        hint = GLOW_HINT,
         frameOn = frameOn,
-        glowOn = glowOn,
         sections = {
             { head = FRAME_HEAD, rows = frames },
-            { head = GLOW_HEAD, rows = glows },
         },
     }
     return {
@@ -2270,22 +2014,12 @@ function ns.looksPage()
                         update = function(row)
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
-                        height = function() return listHeight(spec.sections, true, spec.introH) end,
+                        height = function() return listHeight(spec.sections, false, spec.introH) end,
                     },
                 },
             },
         },
     }
-end
-
-local function registerStyles()
-    if type(view) ~= "table" or type(view.AddGlowStyle) ~= "function" then
-        return false
-    end
-    for i = 1, #GLOWS do
-        view.AddGlowStyle(GLOWS[i].id, GLOWS[i].spec)
-    end
-    return true
 end
 
 -- 0.4.2 and earlier wrote look.style = "Looks:<frame>". Once, a leftover one
@@ -2301,6 +2035,7 @@ function ns.migrateFrames()
         local slot = slots[i]
         if type(slot) == "table" then
             if type(slot.frame) == "string" then slot.frame = resolveFrame(slot.frame) or slot.frame end
+            slot.glow = nil
             if type(slot.looks) == "table" then slot.looks.frame = nil end
         end
     end
@@ -2348,12 +2083,6 @@ function ns.bootLooks()
     if looksAddonLoaded() then
         ns.looksReady = true
         ns.noteLooksAddon()
-        return
-    end
-    if not registerStyles() then
-        ns.looksReady = false
-        ns.looksGuard = NEED_STYLES
-        say(NEED_STYLES)
         return
     end
     ns.looksReady = true

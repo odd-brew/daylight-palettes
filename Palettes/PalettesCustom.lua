@@ -441,20 +441,27 @@ local function parseCustomTail(body)
     local base, rest = eatHex(body)
     local accent, rest2 = eatHex(rest)
     local frame, rest3 = eatFrame(rest2)
-    local glow, rest4 = eatGlow(rest3)
-    if not base or not accent or not frame or not glow or rest4 ~= "" then return nil end
-    return { custom = true, base = base, accent = accent, frame = ns.canonicalFrame(frame), glow = glow }
+    if not base or not accent or not frame then return nil end
+    if rest3 ~= "" then
+        local glow, rest4 = eatGlow(rest3)
+        if not glow or rest4 ~= "" then return nil end
+    end
+    return { custom = true, base = base, accent = accent, frame = ns.canonicalFrame(frame) }
 end
 
 local function parseLookTail(body)
     local palette, rest = eatPalette(body)
     local frame, rest2 = eatFrame(rest)
-    local glow, rest3 = eatGlow(rest2)
-    if not palette or not frame or not glow or rest3 ~= "" then return nil end
-    return { palette = palette, frame = ns.canonicalFrame(frame), glow = glow }
+    if not palette or not frame then return nil end
+    if rest2 ~= "" then
+        local glow, rest3 = eatGlow(rest2)
+        if not glow or rest3 ~= "" then return nil end
+    end
+    return { palette = palette, frame = ns.canonicalFrame(frame) }
 end
 
--- PAL2-theme-palette-frame-glow, PAL2-palette-frame-glow, or PAL2-C-base-accent-frame-glow.
+-- PAL2-theme-palette-frame, PAL2-palette-frame, or PAL2-C-base-accent-frame.
+-- Legacy codes with a trailing glow token still decode and ignore the glow.
 -- A leading theme is included only when one is on. "none" leaves that part alone.
 function ns.parseShare(text)
     if type(text) ~= "string" then return nil end
@@ -497,20 +504,19 @@ end
 function ns.pal2Code(part)
     if type(part) ~= "table" then return nil end
     local frame = type(part.frame) == "string" and ns.canonicalFrame(part.frame) or "none"
-    local glow = type(part.glow) == "string" and part.glow or "none"
     local theme = type(part.theme) == "string" and part.theme ~= "" and part.theme or nil
     if part.custom == true then
         local base = bareHex(part.base)
         local accent = bareHex(part.accent)
         if not base or not accent then return nil end
-        local tail = "C-" .. base .. "-" .. accent .. "-" .. frame .. "-" .. glow
+        local tail = "C-" .. base .. "-" .. accent .. "-" .. frame
         if theme then return "PAL2-" .. theme .. "-" .. tail end
         return "PAL2-" .. tail
     end
     local palette = type(part.palette) == "string" and part.palette or nil
     if not palette or palette == "" then return nil end
-    if theme then return "PAL2-" .. theme .. "-" .. palette .. "-" .. frame .. "-" .. glow end
-    return "PAL2-" .. palette .. "-" .. frame .. "-" .. glow
+    if theme then return "PAL2-" .. theme .. "-" .. palette .. "-" .. frame end
+    return "PAL2-" .. palette .. "-" .. frame
 end
 
 local function specFromHex(baseBody, accentBody)
@@ -540,8 +546,7 @@ function ns.applyShareCode(text)
     local parsed = ns.parseShare(text)
     if type(parsed) == "table" and parsed.kind == "pal2" and parsed.custom == true then
         local frame = parsed.frame ~= "none" and parsed.frame or nil
-        local glow = parsed.glow ~= "none" and parsed.glow or nil
-        if frame or glow then ns.shareLook = { frame = frame, glow = glow }
+        if frame then ns.shareLook = { frame = frame }
         else ns.shareLook = nil end
         return specFromHex(parsed.base, parsed.accent)
     end
@@ -554,7 +559,7 @@ function ns.applyShareCode(text)
 end
 
 -- Saving custom colors is a palette pick, so Undo can step back to the previous one.
--- A PAL2-C frame and glow wait until this Save. PAL1 never writes them.
+-- A PAL2-C frame look waits until this Save. PAL1 never writes it.
 function ns.saveCustom(state, account, char, spec, duringCombat)
     local look = ns.shareLook
     ns.shareLook = nil

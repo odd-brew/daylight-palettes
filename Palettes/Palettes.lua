@@ -533,7 +533,7 @@ local function restore(quiet)
         notify()
         pcall(dressExtras)
         if looksBack then
-            say("Palettes: off. Daylight's own colors, frame style and glows are restored.")
+            say("Palettes: off. Daylight's own colors and frame look are restored.")
         else
             say("Palettes: off. Daylight's own colors are restored.")
         end
@@ -1098,6 +1098,8 @@ local function normalizeSaved(account, char)
     if type(char.palette) == "string" and not known(char.palette) then
         char.palette = fallbackId(char.palette) or "off"
     end
+    account.glow = nil
+    char.glow = nil
 end
 
 function ns.setPalette(account, char, id)
@@ -1141,7 +1143,7 @@ end
 function ns.pushUndo(shot)
     if type(shot) ~= "table" then return end
     history.lookUndo = shot
-    if shot.kind == "frame" or shot.kind == "glow" or shot.kind == "looks" then
+    if shot.kind == "frame" or shot.kind == "looks" then
         history.previous = nil
     end
 end
@@ -1150,7 +1152,7 @@ function ns.rememberUndo(kind)
     if ns.applyingTheme then return end
     if type(ns.captureUndo) ~= "function" then return end
     history.lookUndo = ns.captureUndo(kind)
-    if kind == "frame" or kind == "glow" or kind == "looks" then
+    if kind == "frame" or kind == "looks" then
         history.previous = nil
     end
 end
@@ -1261,7 +1263,8 @@ function ns.setOnly(account, char, on)
             char.theme = account.theme
             char.themeChanged = account.themeChanged == true
             char.frame = account.frame
-            char.glow = account.glow
+            char.glow = nil
+            account.glow = nil
         end
         char.only = true
     else
@@ -1412,6 +1415,9 @@ function ns.adoptProfile(account, char, db)
     db.only = onlyOn
     db.own = nil
     db.everyCharacter = nil
+    db.glow = nil
+    account.glow = nil
+    char.glow = nil
     if type(ns.takeLooks) == "function" then
         ns.takeLooks(account, char, db, hadLook, onlyOn)
     end
@@ -1518,15 +1524,15 @@ function onSettingRun(scope, path)
         local themeChanged = char.only == true and char.themeChanged == true or char.only ~= true and account.themeChanged == true
         local frameStored = char.only == true and char.frame or account.frame
         if frameStored == nil then frameStored = false end
-        local glowStored = char.only == true and char.glow or account.glow
-        if glowStored == nil then glowStored = false end
+        account.glow = nil
+        char.glow = nil
         applying = true
         d:Set("Palettes", "custom", stored)
         d:Set("Palettes", "looks", looksStored)
         d:Set("Palettes", "theme", themeStored)
         d:Set("Palettes", "themeChanged", themeChanged)
         d:Set("Palettes", "frame", frameStored)
-        d:Set("Palettes", "glow", glowStored)
+        d:Set("Palettes", "glow", nil)
         d:Set("Palettes", "carried", true)
         applying = false
         if id ~= beforeId or (accent == true) ~= beforeAccent then
@@ -2638,8 +2644,13 @@ local function onEnable(_, db)
     watchFrames()
     local account = ns.accountTable()
     local char = ns.charTable()
-    -- A saved choice from the removed setting is dropped, so the palette accent is its own.
-    if type(db) == "table" then db.mixAccent = nil end
+    -- Drop saved choices from removed settings on enable/reload.
+    if type(db) == "table" then
+        db.mixAccent = nil
+        db.glow = nil
+    end
+    account.glow = nil
+    char.glow = nil
     -- 0.1.0 still moves into the account once. After that the profile wins.
     ns.migrateLogin(account, char, db)
     if type(ns.migrateFrames) == "function" then pcall(ns.migrateFrames) end
@@ -2661,7 +2672,7 @@ local function onEnable(_, db)
         if type(db) == "table" and db.theme ~= nil then d:Set("Palettes", "theme", db.theme) end
         if type(db) == "table" and db.themeChanged ~= nil then d:Set("Palettes", "themeChanged", db.themeChanged == true) end
         if type(db) == "table" and db.frame ~= nil then d:Set("Palettes", "frame", db.frame) end
-        if type(db) == "table" and db.glow ~= nil then d:Set("Palettes", "glow", db.glow) end
+        if d:Get("Palettes", "glow") ~= nil then d:Set("Palettes", "glow", nil) end
         if d:Get("Palettes", "carried") ~= true then d:Set("Palettes", "carried", true) end
         applying = false
     end
@@ -2790,14 +2801,14 @@ local function boot()
         -- No icon file of our own. Daylight tints its fallback with this color.
         color = { 0.91, 0.63, 0.29 },
         short = "Palettes",
-        blurb = "Colors, frame styles and glow styles for Daylight. Class and combat colors stay Daylight's.",
+        blurb = "Colors and frame looks for Daylight. Class and combat colors stay Daylight's.",
     })
     if type(plugin) ~= "table" or plugin.off then return end
 
     local coloursPage = {
         id = "colours",
         label = "Colours",
-        desc = "Recolor Daylight's windows, panels, borders, accent and text. Class and combat colors stay Daylight's. Picking a palette never changes the frame style or the glow.",
+        desc = "Recolor Daylight's windows, panels, borders, accent and text. Class and combat colors stay Daylight's. Picking a palette never changes the frame look.",
         groups = {
             {
                 tab = "Colours",
@@ -2839,7 +2850,7 @@ local function boot()
         plugin = "Palettes",
         defaults = {
             palette = "off", classAccent = false, only = false, carried = false,
-            theme = false, themeChanged = false, frame = false, glow = false, looks = false,
+            theme = false, themeChanged = false, frame = false, looks = false,
         },
         OnEnable = onEnable,
         options = { pages = {
@@ -2850,7 +2861,7 @@ local function boot()
                 -- glyph when the string is wider than the header. The short line
                 -- fits. The trailing space is the glyph that gets clipped, so the
                 -- period stays on every load.
-                desc = "Presets set a palette, a frame style and a glow. ",
+                desc = "Presets set a palette and a frame look. ",
                 groups = groups,
             },
         } },
@@ -3014,8 +3025,8 @@ function ns.commitStaged()
     local staged = ns.staged
     if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
     ns.staged = nil
-    -- Frame looks and glows repaint Player and Target live. Only colours need a reload.
-    local looksOnly = staged.kind == "frame" or staged.kind == "glow"
+    -- Frame looks repaint Player and Target live. Only colours need a reload.
+    local looksOnly = staged.kind == "frame"
     ns.withReloadAction(function()
         if staged.kind == "frame" and type(ns.CommitPreview) == "function" then
             ns.CommitPreview(staged.commit)
@@ -3065,7 +3076,7 @@ local function runTabReset(tab)
             DaylightUI:Set("Palettes", "palette", "off")
         end
         local afterLook = type(ns.lookMark) == "function" and ns.lookMark() or ""
-        -- Reset Looks only moves frames and glows, which repaint live.
+        -- Reset Looks only moves frames, which repaint live.
         local looksMoved = tab ~= "Looks" and beforeLook ~= afterLook
         if looksMoved or paletteMoved(beforeCur, beforePend) then
             ns.requestReload()
