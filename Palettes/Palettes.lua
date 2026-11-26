@@ -2358,17 +2358,68 @@ local function makePlayerSample(parent)
     local d = dui()
     local opts = type(d) == "table" and d.Options
     if type(opts) ~= "table" or type(opts.GetPage) ~= "function" then return nil end
-    local ok, ufPage = pcall(opts.GetPage, "UnitFrames.player")
-    if not ok or type(ufPage) ~= "table" or type(ufPage.sample) ~= "function" then return nil end
-    local okS, inner = pcall(ufPage.sample, parent)
-    if not okS or type(inner) ~= "table" or type(inner.frame) ~= "table" then return nil end
+    local okP, ufPlayer = pcall(opts.GetPage, "UnitFrames.player")
+    if not okP or type(ufPlayer) ~= "table" or type(ufPlayer.sample) ~= "function" then return nil end
+
+    local container = CreateFrame("Frame", nil, parent)
+    local okSP, playerS = pcall(ufPlayer.sample, container)
+    if not okSP or type(playerS) ~= "table" or type(playerS.frame) ~= "table" then return nil end
+
+    local targetS
+    local okT, ufTarget = pcall(opts.GetPage, "UnitFrames.target")
+    if okT and type(ufTarget) == "table" and type(ufTarget.sample) == "function" then
+        local okST, ts = pcall(ufTarget.sample, container)
+        if okST and type(ts) == "table" and type(ts.frame) == "table" then
+            targetS = ts
+        end
+    end
+
+    local function showDeckOnTab()
+        local panel = type(d) == "table" and d.OptionsPanel
+        if type(panel) ~= "table" or type(panel.PageFrame) ~= "function" then return true end
+        local pf = panel.PageFrame("Palettes.main")
+        local tab = type(pf) == "table" and type(pf.tab) == "string" and pf.tab or "Presets"
+        return tab == "Presets" or tab == "Looks"
+    end
+
     return {
-        frame = inner.frame,
-        hint = "Live preview of your Player frame. Pick a preset, palette, or look below, then click Apply.",
-        zoomRange = inner.zoomRange,
-        Zoom = inner.Zoom,
-        SetZoom = inner.SetZoom,
-        Refresh = function(w, room) return inner.Refresh(w, room) end,
+        frame = container,
+        hint = targetS
+            and "Live preview of your Player and Target frames. Pick a preset or look below, then click Apply."
+            or "Live preview of your Player frame. Pick a preset or look below, then click Apply.",
+        zoomRange = playerS.zoomRange,
+        Zoom = playerS.Zoom,
+        SetZoom = function(v)
+            if type(playerS.SetZoom) == "function" then pcall(playerS.SetZoom, v) end
+            if targetS and type(targetS.SetZoom) == "function" then pcall(targetS.SetZoom, v) end
+        end,
+        Refresh = function(w, room)
+            if not showDeckOnTab() then
+                if playerS.frame.Hide then playerS.frame:Hide() end
+                if targetS and targetS.frame.Hide then targetS.frame:Hide() end
+                return 0
+            end
+            if playerS.frame.Show then playerS.frame:Show() end
+            if targetS then
+                if targetS.frame.Show then targetS.frame:Show() end
+                local gap = 16
+                local half = math.max(120, math.floor((w - gap) / 2))
+                local hp = playerS.Refresh(half, room) or 0
+                local ht = targetS.Refresh(half, room) or 0
+                local h = math.max(hp, ht)
+                container:SetSize(w, h)
+                playerS.frame:ClearAllPoints()
+                playerS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -math.floor((h - hp) / 2))
+                targetS.frame:ClearAllPoints()
+                targetS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", half + gap, -math.floor((h - ht) / 2))
+                return h
+            end
+            local h = playerS.Refresh(w, room) or 0
+            container:SetSize(w, h)
+            playerS.frame:ClearAllPoints()
+            playerS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+            return h
+        end,
         Parts = function() return {} end,
     }
 end
@@ -3168,7 +3219,7 @@ function ns.commitStaged()
     -- Frame looks repaint Player and Target live. Only colours need a reload.
     local looksOnly = staged.kind == "frame"
     ns.withReloadAction(function()
-        if staged.kind == "frame" and type(ns.CommitPreview) == "function" then
+        if (staged.kind == "frame" or staged.kind == "theme") and type(ns.CommitPreview) == "function" then
             ns.CommitPreview(staged.commit)
         else
             staged.commit()
@@ -3319,7 +3370,7 @@ local function placeChrome(panel)
     local page = type(panel.Current) == "function" and panel.Current()
     local onPage = page == "Palettes.main"
     local tab = currentTab(panel)
-    if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, onPage and tab == "Looks") end
+    if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, onPage and (tab == "Looks" or tab == "Presets")) end
     local editor = ns.coloursResetHidden()
     if type(resetButtons) == "table" then
         for i = 1, #TAB_ORDER do
@@ -3489,9 +3540,18 @@ syncUndo = function()
     placeChrome(panel)
 end
 
+local previewRefreshing = false
 ns.notePreview = function()
     if syncUndo then syncUndo() end
     if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
+    if previewRefreshing then return end
+    local d = dui()
+    local panel = type(d) == "table" and d.OptionsPanel
+    if type(panel) == "table" and type(panel.Refresh) == "function" then
+        previewRefreshing = true
+        pcall(panel.Refresh)
+        previewRefreshing = false
+    end
 end
 
 refreshList = function()

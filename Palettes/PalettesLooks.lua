@@ -905,21 +905,29 @@ function ns.previewShownId()
     return previewShown and previewShown.id or nil
 end
 
--- The staged frame pick is what shows, and only while the Looks tab is open.
+-- The staged frame or preset pick is what shows while Presets or Looks is open.
 function ns.syncFramePreview()
     local staged = ns.staged
-    if looksOpen and type(staged) == "table" and staged.kind == "frame" and frameById(staged.id) then
-        ns.BeginPreview(staged.id)
-    else
-        ns.RevertPreview()
+    if looksOpen and type(staged) == "table" then
+        if staged.kind == "frame" and frameById(staged.id) then
+            ns.BeginPreview(staged.id)
+            return
+        elseif staged.kind == "theme" then
+            local theme = themeById(staged.id)
+            if theme and frameById(theme.frame) then
+                ns.BeginPreview(theme.frame)
+                return
+            end
+        end
     end
+    ns.RevertPreview()
 end
 
--- Drops an unapplied frame pick and its preview. Anything that writes a look
+-- Drops an unapplied frame/preset pick and its preview. Anything that writes a look
 -- from somewhere else calls this first, so it reads the saved style.
 function ns.dropFramePreview()
     local staged = ns.staged
-    if type(staged) == "table" and staged.kind == "frame" then
+    if type(staged) == "table" and (staged.kind == "frame" or staged.kind == "theme") then
         ns.staged = nil
         refreshLooks()
     end
@@ -1961,8 +1969,10 @@ function ns.themesPage()
             rowH = THEME_H,
             key = "Looks:" .. theme.id, icon = ICONS[theme.frame],
             select = function()
+                ns.RevertPreview()
                 local id, changed, pending = ns.shownTheme()
                 local live = id == theme.id and not changed and not pending
+                ns.setLooksOpen(true)
                 if type(ns.stagePick) == "function" then
                     ns.stagePick("theme", theme.id, function() applyTheme(theme) end, live)
                 else
