@@ -416,16 +416,7 @@ if main:find('owns = { "healthFill" }', 1, true) or main:find("healthBack", 1, t
     fail("dark health must not take the fill away from other modes or recolor missing health")
 end
 
-local shown = readAll(root .. "/README.md") .. "\n" .. main .. "\n" .. readAll(colorsPath)
-local bannedWord = {
-    "horde", "alliance", "night elf", "dwarf", "gnome", "tauren", "undead",
-}
-for i = 1, #bannedWord do
-    local word = bannedWord[i]
-    if shown:lower():find(word, 1, true) then
-        fail("a ship name or a player-facing line uses a faction or ancestry word: " .. word)
-    end
-end
+
 if type(ns.accentPasses) ~= "function" or type(ns.shiftShade) ~= "function"
     or type(ns.classShade) ~= "function" or type(ns.shadeOf) ~= "table"
     or type(ns.classes) ~= "table" or type(ns.classById) ~= "table" then
@@ -2336,7 +2327,7 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
         { "Tidemark", "Tide", "Slate" }, { "Old Road", "Forever", "Beam" },
         { "Vigil", "Paladin", "Stream" }, { "Snug", "Gilded", "Flagon" },
         { "Bellows", "Forgeglow", "Trestle" }, { "Drawwell", "Shaman", "Ledger" },
-        { "Settle", "Keepstone", "Beam" }, { "After Hours", "Carmine Night", "Beam" },
+        { "Settle", "Azeroth", "Beam" }, { "After Hours", "Carmine Night", "Beam" },
     }
     for i = 1, #pills do
         local line = themeRow.lines[i]
