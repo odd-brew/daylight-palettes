@@ -85,6 +85,16 @@ local LOOK_SPECS = {
         showPowerText = false, powerFormat = "value", targetLevel = "foot",
         percent = 11, big = 18,
     },
+    daylight_standard = {
+        style = "daylight", width = 187, height = 43, powerHeight = 11, ribbonGap = 4, tabHeight = 16, slant = true,
+        shellOwn = false, border = 8, corner = 6, shadow = 4,
+        portrait = "class", portraitLook = "socket", portraitShape = "round", ring = "class", ringWidth = "normal", scale = 1.0,
+        dragon = false, nameOnBar = false, namePos = "bar",
+        tabOwn = false, tabWidth = "fit", tabSlant = "frame", tabCorner = 6, tabShadow = 4,
+        bigNumber = true, playerHealth = "value", targetHealth = "percent",
+        showPowerText = false, powerFormat = "value", targetLevel = "ring",
+        percent = 12, big = 22,
+    },
 }
 
 local FRAMES = {
@@ -95,6 +105,7 @@ local FRAMES = {
     { id = "ledger", name = "Ledger", desc = "Square portrait-free bar with dual health and power readouts for clean resource tracking.", bestFor = "Mana Management, Raiding" },
     { id = "crest", name = "Crest", desc = "Tall hero bar with 3D portrait, thick class ring, and big numbers for classic presence.", bestFor = "Solo Questing, Tanking" },
     { id = "slate", name = "Slate", desc = "Flat 22px portrait-free strip with hairline power bar for the smallest combat footprint.", bestFor = "20/40-Man Raiding, Minimalists" },
+    { id = "daylight_standard", name = "Daylight Standard", isDefault = true, desc = "Restores DaylightUI's native 187x43 slanted Player & Target frames with global border settings.", bestFor = "Daylight Default" },
 }
 
 -- Only these two frames are ever written. Everything else DaylightUI keeps is the player's.
@@ -120,11 +131,11 @@ local function unitPairs(unit, spec)
     put("showName", true)
     put("showPercent", true)
     put("showLevel", not isPlayer)
-    put("shell.own", true)
+    put("shell.own", spec.shellOwn ~= false)
     put("shell.borderPx", spec.border)
     put("shell.cornerPx", spec.corner)
     put("shell.shadowPx", spec.shadow)
-    put("tab.own", true)
+    put("tab.own", spec.tabOwn ~= false)
     put("tab.width", spec.tabWidth)
     put("tab.at", "outer")
     put("tab.slant", spec.tabSlant)
@@ -336,6 +347,17 @@ local EXTRA_LOOKS = {
               showPower = true, showPowerText = false, showLevel = false,
               ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 0,
           } },
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 153x34 slanted Focus frame with round portrait and global border settings.",
+          bestFor = "Daylight Default",
+          settings = {
+              style = "daylight", width = 153, height = 34, powerHeight = 7, slant = true,
+              portrait = "class", portraitLook = "socket", portraitShape = "round",
+              portraitRing = "class", portraitRingWidth = "normal", portraitScale = 1.0,
+              nameOnBar = false, namePos = "bar", tabHeight = 16, bigNumber = false,
+              showPower = true, showPowerText = false, showLevel = true,
+              ["tab.own"] = false, ["shell.own"] = false,
+          } },
     },
     tot = {
         { id = "match", name = "Match Player & Target", isMatch = true,
@@ -364,6 +386,14 @@ local EXTRA_LOOKS = {
               width = 124, height = 22, slant = false, showPower = false, powerHeight = 4,
               portrait = "class", namePos = "bar", showPercent = true,
               ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 2,
+          } },
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 94x22 slanted Target of Target frame with global border settings.",
+          bestFor = "Daylight Default",
+          settings = {
+              width = 94, height = 22, slant = true, showPower = false, powerHeight = 4,
+              portrait = "none", namePos = "bar", showPercent = false,
+              ["shell.own"] = false,
           } },
     },
     party = {
@@ -455,6 +485,16 @@ local EXTRA_LOOKS = {
               showThreat = true, showDispel = true, ["media.health"] = "brushed",
               ["shell.own"] = true, ["shell.borderPx"] = 3, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 5,
           } },
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 72x28 Raid grid with 3px power strip and global border settings.",
+          bestFor = "Daylight Default",
+          settings = {
+              width = 72, height = 28, spacing = 2, groupSpacing = 4, slant = false,
+              showPower = true, powerHeight = 3, namePos = "bar", nameAlign = "center",
+              showPercent = false, showRole = true, predictHeals = true, predictAbsorbs = true,
+              showThreat = true, showDispel = true, ["media.health"] = "general",
+              ["shell.own"] = false,
+          } },
     },
     castbars = {
         { id = "matte", name = "Clean Matte",
@@ -505,6 +545,14 @@ local EXTRA_LOOKS = {
               ["barFx.style"] = "embers", ["barFx.speed"] = 1.15, ["barFx.strength"] = 1.1, ["barFx.colors"] = "accent",
               ["shell.own"] = true, ["shell.borderPx"] = 4, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 6,
           } },
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 27px slanted Cast Bar with global bar texture and border settings.",
+          bestFor = "Daylight Default",
+          settings = {
+              height = 27, slant = true, showIcon = false, ["media.bar"] = "general",
+              ["barFx.style"] = "none", ["barFx.speed"] = 1.0, ["barFx.strength"] = 0.5, ["barFx.colors"] = "bar",
+              ["shell.own"] = false,
+          } },
     },
     actionbars = {
         { id = "classic", name = "Daylight Classic",
@@ -548,6 +596,13 @@ local EXTRA_LOOKS = {
           settings = {
               ["look.shape"] = "shield", ["look.borderStyle"] = "daylight", ["look.border"] = 2,
               ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0.10,
+          } },
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 3px rounded square Action Bar buttons with zero icon crop.",
+          bestFor = "Daylight Default",
+          settings = {
+              ["look.shape"] = "square", ["look.borderStyle"] = "daylight", ["look.border"] = 3,
+              ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0,
           } },
     },
     nameplates = {
@@ -635,6 +690,7 @@ end
 
 local ICONS = {
     flagon = {}, trestle = {}, beam = {}, stream = {}, ledger = {}, crest = {}, slate = {},
+    daylight_standard = {},
 }
 
 -- Flagon: a small boss at the cup, the name on the lip.
@@ -669,11 +725,18 @@ addBox(ICONS.crest, 18, 6, 16, 9)
 addEdge(ICONS.slate, 1, 4, 20, 1)
 addBox(ICONS.slate, 1, 6, 34, 5)
 addEdge(ICONS.slate, 1, 13, 34, 2)
+-- Daylight Standard: native round portrait socket, fitted tab, and balanced health/power bar.
+addBox(ICONS.daylight_standard, 1, 3, 11, 11)
+addBox(ICONS.daylight_standard, 14, 2, 12, 4)
+addBox(ICONS.daylight_standard, 14, 6, 20, 9)
+addEdge(ICONS.daylight_standard, 15, 12, 18, 1)
 
 ns.frameIcons = ICONS
 
 local ORDER = {}
-for i = 1, #FRAMES do ORDER[#ORDER + 1] = FRAMES[i] end
+for i = 1, #FRAMES do
+    if not FRAMES[i].isDefault then ORDER[#ORDER + 1] = FRAMES[i] end
+end
 for i = 1, #THEMES do ORDER[#ORDER + 1] = THEMES[i] end
 
 local view

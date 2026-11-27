@@ -1991,7 +1991,7 @@ ns.looksGuard = nil
 if type(body) == "table" and type(body.build) == "function" then
     local built, buildErr = pcall(body.build, row)
     if not built then fail("looks tab did not build: " .. tostring(buildErr)) end
-    check(type(row.lines) == "table" and #row.lines or 0, 40, "all 8 Looks categories register 40 option cards")
+    check(type(row.lines) == "table" and #row.lines or 0, 46, "all 8 Looks categories register 46 option cards")
     for i = 1, #FRAME_IDS do
         check(row.lines[i] and row.lines[i].id, FRAME_IDS[i], "frame row " .. i .. " is " .. FRAME_IDS[i])
         check(row.lines[i] and row.lines[i].kind, "frame", "frame row " .. i .. " is a frame")
@@ -2880,6 +2880,14 @@ do
     check(ns.getLooksSubTab(), "focus", "#42 setLooksSubTab switches to focus")
     check(ns.getPreviewDeckMode(), "focus", "#42 sub-tab syncs Preview Deck mode")
     ns.setLooksSubTab("player_target", false)
+
+    -- Every Looks category includes a "Daylight Standard" option to reset that category to DaylightUI defaults
+    check(ns.frameById("daylight_standard") and ns.frameById("daylight_standard").name, "Daylight Standard", "player_target has Daylight Standard option")
+    for i = 2, #ns.lookCategories do
+        local ck = ns.lookCategories[i].key
+        local std = ns.extraLookById(ck, "standard")
+        check(std and std.name, "Daylight Standard", ck .. " has Daylight Standard option")
+    end
 
     -- #34: 5 curated Nameplate looks & strict Combat-Color Immunity
     local npList = ns.extraLooks and ns.extraLooks.nameplates or {}
