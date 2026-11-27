@@ -1661,6 +1661,20 @@ function slashRun(msg)
         return
     end
     if arg == "daylight" then arg = "off" end
+    if not known(arg) then
+        local normArg = string.gsub(arg, "%-", " ")
+        for i = 1, #(ns.order or {}) do
+            local pid = ns.order[i]
+            local p = ns.byId[pid]
+            if type(p) == "table" and type(p.name) == "string" then
+                local normName = string.gsub(string.lower(trim(p.name)), "[%s%-]+", " ")
+                if normName == normArg then
+                    arg = pid
+                    break
+                end
+            end
+        end
+    end
     if arg == "off" and type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
     if not known(arg) then
         say(statusLine())
