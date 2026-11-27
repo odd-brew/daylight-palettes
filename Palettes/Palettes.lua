@@ -2272,6 +2272,7 @@ local DECK_MODES = {
     { key = "raid", label = "Raid", page = "UnitFrames.raid" },
     { key = "castbars", label = "Cast Bars", page = "UnitFrames.castbars" },
     { key = "actionbars", label = "Action Bars", page = nil },
+    { key = "nameplates", label = "Nameplates", page = nil },
 }
 
 local previewDeckMode = "player_target"
@@ -2396,6 +2397,81 @@ local function makePlayerSample(parent)
     end
     if abPreview.Hide then abPreview:Hide() end
 
+    -- Live Nameplates preview strip: Target casting interruptible spell + Secondary Enemy + Friendly plate.
+    -- Semantic reaction/cast colors remain fixed (combat-color immune); frame chrome updates live with ns.staged.
+    local NP_PREVIEW_H = 78
+    local npPreview = CreateFrame("Frame", nil, container)
+    npPreview:SetHeight(NP_PREVIEW_H)
+
+    local function makeMockPlate(nameStr, pctVal, fillCol, isTarget, isFriendly)
+        local wrap = CreateFrame("Frame", nil, npPreview)
+        wrap:SetSize(160, 56)
+
+        local nameFs = blankText(wrap)
+        nameFs:SetText(nameStr)
+
+        local barHost = CreateFrame("Frame", nil, wrap)
+        barHost:SetSize(148, 16)
+
+        local shadow = barHost:CreateTexture(nil, "BACKGROUND", nil, -7)
+        local rim = barHost:CreateTexture(nil, "BACKGROUND", nil, -5)
+        local roundCard = ns.makeRoundCard(barHost)
+        local borderTex = barHost:CreateTexture(nil, "BORDER", nil, 0)
+        local bgTex = barHost:CreateTexture(nil, "ARTWORK", nil, 0)
+        local fillTex = barHost:CreateTexture(nil, "ARTWORK", nil, 2)
+        local pctFs = blankText(barHost)
+        pctFs:SetPoint("RIGHT", barHost, "RIGHT", -4, 0)
+
+        local arrowL, arrowR
+        if isTarget then
+            arrowL = blankText(wrap)
+            arrowL:SetText(">")
+            arrowR = blankText(wrap)
+            arrowR:SetText("<")
+        end
+
+        local castHost, castBg, castFill, castIconBox, castIconTex, castText, castTime
+        if isTarget then
+            castHost = CreateFrame("Frame", nil, wrap)
+            castHost:SetSize(148, 14)
+            castBg = castHost:CreateTexture(nil, "BORDER", nil, 0)
+            castFill = castHost:CreateTexture(nil, "ARTWORK", nil, 2)
+            castIconBox = CreateFrame("Frame", nil, wrap)
+            castIconBox:SetSize(14, 14)
+            castIconTex = castIconBox:CreateTexture(nil, "ARTWORK", nil, 1)
+            if type(castIconTex.SetTexture) == "function" then
+                castIconTex:SetTexture("Interface\\Icons\\Spell_Shadow_ShadowBolt")
+            end
+            if type(castIconTex.SetTexCoord) == "function" then
+                castIconTex:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+            end
+            castIconTex:SetAllPoints(castIconBox)
+            castText = blankText(castHost)
+            castText:SetPoint("LEFT", castHost, "LEFT", 4, 0)
+            castText:SetText("Shadow Bolt")
+            castTime = blankText(castHost)
+            castTime:SetPoint("RIGHT", castHost, "RIGHT", -4, 0)
+            castTime:SetText("1.4s")
+        end
+
+        return {
+            wrap = wrap, nameFs = nameFs, barHost = barHost,
+            shadow = shadow, rim = rim, roundCard = roundCard, borderTex = borderTex,
+            bgTex = bgTex, fillTex = fillTex, pctFs = pctFs,
+            arrowL = arrowL, arrowR = arrowR,
+            castHost = castHost, castBg = castBg, castFill = castFill,
+            castIconBox = castIconBox, castIconTex = castIconTex, castText = castText, castTime = castTime,
+            pctVal = pctVal, fillCol = fillCol, isTarget = isTarget, isFriendly = isFriendly,
+        }
+    end
+
+    local npPlates = {
+        makeMockPlate("Shadowweaver", 0.72, { 0.78, 0.22, 0.20 }, true, false),
+        makeMockPlate("Boneguard", 0.48, { 0.78, 0.24, 0.20 }, false, false),
+        makeMockPlate("Aelindra", 0.94, { 0.26, 0.72, 0.34 }, false, true),
+    }
+    if npPreview.Hide then npPreview:Hide() end
+
     local function modeLabel(key)
         for i = 1, #DECK_MODES do
             if DECK_MODES[i].key == key then return DECK_MODES[i].label end
@@ -2415,9 +2491,36 @@ local function makePlayerSample(parent)
         if playerS.frame.Hide then playerS.frame:Hide() end
         if targetS and targetS.frame.Hide then targetS.frame:Hide() end
         if abPreview.Hide then abPreview:Hide() end
+        if npPreview.Hide then npPreview:Hide() end
         for _, s in pairs(extraSamples) do
             if type(s) == "table" and s.frame and s.frame.Hide then s.frame:Hide() end
         end
+    end
+
+    local function resolveNameplateLook()
+        local staged = ns.staged
+        local npId = nil
+        if type(staged) == "table" then
+            if type(staged.looks) == "table" and type(staged.looks.nameplates) == "string" then
+                npId = staged.looks.nameplates
+            elseif staged.kind == "look" and staged.catKey == "nameplates" and type(staged.id) == "string" then
+                npId = staged.id
+            else
+                local baseTheme = (staged.baseKind == "theme" or staged.kind == "theme")
+                    and type(ns.themeById) == "function" and ns.themeById(staged.baseId or staged.id) or nil
+                local baseRec = (staged.baseKind == "mypreset" or staged.kind == "mypreset")
+                    and type(staged.recipe) == "table" and staged.recipe or nil
+                npId = (baseTheme and baseTheme.nameplates) or (baseRec and baseRec.nameplates)
+            end
+        end
+        if not npId and type(ns.readLookPick) == "function" then
+            npId = ns.readLookPick("nameplates")
+        end
+        local opt = type(ns.extraLookById) == "function" and ns.extraLookById("nameplates", npId or "standard") or nil
+        if not opt and type(ns.extraLookById) == "function" then
+            opt = ns.extraLookById("nameplates", "standard")
+        end
+        return (opt and opt.settings) or {}, (opt and opt.preview) or { borderPx = 2, corner = "round", shadow = true }
     end
 
     local function readActionBarLook()
@@ -2552,6 +2655,164 @@ local function makePlayerSample(parent)
                 sl.text:SetTextColor(txt[1], txt[2], txt[3], 1)
             end
         end
+
+        -- Paint mock overhead Nameplates reflecting active/staged Nameplates look
+        local npSet, npPrev = resolveNameplateLook()
+        local npBorderPx = math.max(1, math.min(4, tonumber(npPrev.borderPx) or 2))
+        local npRound = (npPrev.corner == "round")
+        local npShadow = (npPrev.shadow ~= false)
+        local npBarW = math.max(110, math.min(180, math.floor((tonumber(npSet.width) or 170) * 0.88)))
+        local npBarH = math.max(8, math.min(22, tonumber(npSet.height) or 16))
+        local npCastH = math.max(8, math.min(18, tonumber(npSet.castHeight) or 14))
+        local npCastIcon = (npSet.castIcon ~= false)
+        local npShowPct = (npSet.percent ~= false)
+        local npPctSign = (npSet.percentSign ~= false)
+        local npTargetStyle = npSet.targetStyle or "outline"
+        local npTargetArrows = npSet.targetArrows or "none"
+        local npBackAlpha = tonumber(npSet.backAlpha) or 0.80
+        local npBarTexKey = npSet["media.health"]
+        local npBarTexPath = (type(d.Media) == "table" and type(d.Media.Fetch) == "function" and npBarTexKey and npBarTexKey ~= "daylight")
+            and select(2, pcall(d.Media.Fetch, "statusbar", npBarTexKey)) or nil
+
+        for i = 1, #npPlates do
+            local pl = npPlates[i]
+            local bw = pl.isTarget and math.floor(npBarW * 1.08) or (pl.isFriendly and math.floor(npBarW * 0.86) or npBarW)
+            local bh = pl.isFriendly and math.max(8, math.min(16, tonumber(npSet["friendly.height"]) or math.max(8, npBarH - 4))) or npBarH
+            pl.barHost:SetSize(bw, bh)
+            pl.nameFs:ClearAllPoints()
+            pl.nameFs:SetPoint("BOTTOM", pl.barHost, "TOP", 0, 3)
+            if type(pl.nameFs.SetTextColor) == "function" then
+                if pl.isFriendly then
+                    pl.nameFs:SetTextColor(0.45, 0.88, 0.55, 1)
+                else
+                    pl.nameFs:SetTextColor(txt[1], txt[2], txt[3], 1)
+                end
+            end
+
+            -- Shadow
+            if pl.shadow.ClearAllPoints then pl.shadow:ClearAllPoints() end
+            pl.shadow:SetPoint("TOPLEFT", pl.barHost, "TOPLEFT", -3, 3)
+            pl.shadow:SetPoint("BOTTOMRIGHT", pl.barHost, "BOTTOMRIGHT", 3, -3)
+            if npShadow then
+                if type(pl.shadow.SetColorTexture) == "function" then pl.shadow:SetColorTexture(0, 0, 0, 0.50) end
+                if pl.shadow.Show then pl.shadow:Show() end
+            else
+                if pl.shadow.Hide then pl.shadow:Hide() end
+            end
+
+            -- Target highlight rim / glow
+            if pl.rim.ClearAllPoints then pl.rim:ClearAllPoints() end
+            if pl.isTarget and npTargetStyle ~= "none" then
+                local pad = (npTargetStyle == "glow") and (npBorderPx + 3) or (npBorderPx + 1)
+                pl.rim:SetPoint("TOPLEFT", pl.barHost, "TOPLEFT", -pad, pad)
+                pl.rim:SetPoint("BOTTOMRIGHT", pl.barHost, "BOTTOMRIGHT", pad, -pad)
+                if type(pl.rim.SetColorTexture) == "function" then
+                    pl.rim:SetColorTexture(acc[1], acc[2], acc[3], (npTargetStyle == "glow") and 0.65 or 0.95)
+                end
+                if pl.rim.Show then pl.rim:Show() end
+            else
+                if pl.rim.Hide then pl.rim:Hide() end
+            end
+
+            -- Border / corner chrome
+            local rimCol = pl.isTarget and acc or brd
+            if npRound then
+                if pl.borderTex.Hide then pl.borderTex:Hide() end
+                if pl.roundCard.fill.Show then pl.roundCard.fill:Show() end
+                if pl.roundCard.line.Show then pl.roundCard.line:Show() end
+                pl.roundCard.paint(bnd, 0.92, rimCol, 0.95)
+            else
+                if pl.roundCard.fill.Hide then pl.roundCard.fill:Hide() end
+                if pl.roundCard.line.Hide then pl.roundCard.line:Hide() end
+                pl.borderTex:ClearAllPoints()
+                pl.borderTex:SetAllPoints(pl.barHost)
+                if type(pl.borderTex.SetColorTexture) == "function" then
+                    pl.borderTex:SetColorTexture(rimCol[1], rimCol[2], rimCol[3], 1)
+                end
+                if pl.borderTex.Show then pl.borderTex:Show() end
+            end
+
+            -- Bar backdrop & semantic combat fill (combat-color immune)
+            pl.bgTex:ClearAllPoints()
+            pl.bgTex:SetPoint("TOPLEFT", pl.barHost, "TOPLEFT", npBorderPx, -npBorderPx)
+            pl.bgTex:SetPoint("BOTTOMRIGHT", pl.barHost, "BOTTOMRIGHT", -npBorderPx, npBorderPx)
+            if type(pl.bgTex.SetColorTexture) == "function" then
+                pl.bgTex:SetColorTexture(win[1], win[2], win[3], npBackAlpha)
+            end
+
+            local innerW = math.max(10, bw - npBorderPx * 2)
+            local innerH = math.max(4, bh - npBorderPx * 2)
+            pl.fillTex:ClearAllPoints()
+            pl.fillTex:SetPoint("TOPLEFT", pl.barHost, "TOPLEFT", npBorderPx, -npBorderPx)
+            pl.fillTex:SetSize(math.max(4, math.floor(innerW * pl.pctVal)), innerH)
+            if npBarTexPath and type(pl.fillTex.SetTexture) == "function" then
+                pl.fillTex:SetTexture(npBarTexPath)
+                if type(pl.fillTex.SetVertexColor) == "function" then
+                    pl.fillTex:SetVertexColor(pl.fillCol[1], pl.fillCol[2], pl.fillCol[3], 1)
+                end
+            elseif type(pl.fillTex.SetColorTexture) == "function" then
+                pl.fillTex:SetColorTexture(pl.fillCol[1], pl.fillCol[2], pl.fillCol[3], 1)
+            end
+
+            -- Health percent text
+            local showThisPct = pl.isFriendly and (npSet["friendly.percent"] == true) or (not pl.isFriendly and npShowPct)
+            if showThisPct then
+                local numStr = tostring(math.floor(pl.pctVal * 100))
+                pl.pctFs:SetText(npPctSign and (numStr .. "%") or numStr)
+                if type(pl.pctFs.SetTextColor) == "function" then pl.pctFs:SetTextColor(1, 1, 1, 0.95) end
+                if pl.pctFs.Show then pl.pctFs:Show() end
+            else
+                if pl.pctFs.Hide then pl.pctFs:Hide() end
+            end
+
+            -- Target side arrows
+            if pl.arrowL and pl.arrowR then
+                local showArrows = (npTargetArrows == "sides")
+                pl.arrowL:ClearAllPoints()
+                pl.arrowL:SetPoint("RIGHT", pl.barHost, "LEFT", -4, 0)
+                pl.arrowR:ClearAllPoints()
+                pl.arrowR:SetPoint("LEFT", pl.barHost, "RIGHT", 4, 0)
+                if type(pl.arrowL.SetTextColor) == "function" then pl.arrowL:SetTextColor(acc[1], acc[2], acc[3], 1) end
+                if type(pl.arrowR.SetTextColor) == "function" then pl.arrowR:SetTextColor(acc[1], acc[2], acc[3], 1) end
+                if showArrows then
+                    if pl.arrowL.Show then pl.arrowL:Show() end
+                    if pl.arrowR.Show then pl.arrowR:Show() end
+                else
+                    if pl.arrowL.Hide then pl.arrowL:Hide() end
+                    if pl.arrowR.Hide then pl.arrowR:Hide() end
+                end
+            end
+
+            -- Attached interruptible cast bar on Target plate
+            if pl.castHost then
+                pl.castHost:ClearAllPoints()
+                pl.castHost:SetPoint("TOPLEFT", pl.barHost, "BOTTOMLEFT", 0, -3)
+                pl.castHost:SetSize(bw, npCastH)
+                pl.castBg:ClearAllPoints()
+                pl.castBg:SetAllPoints(pl.castHost)
+                if type(pl.castBg.SetColorTexture) == "function" then
+                    pl.castBg:SetColorTexture(win[1], win[2], win[3], 0.92)
+                end
+                pl.castFill:ClearAllPoints()
+                pl.castFill:SetPoint("TOPLEFT", pl.castHost, "TOPLEFT", 1, -1)
+                pl.castFill:SetSize(math.max(8, math.floor((bw - 2) * 0.68)), math.max(4, npCastH - 2))
+                if type(pl.castFill.SetColorTexture) == "function" then
+                    pl.castFill:SetColorTexture(0.82, 0.64, 0.24, 1)
+                end
+                if type(pl.castText.SetTextColor) == "function" then pl.castText:SetTextColor(1, 1, 1, 0.95) end
+                if type(pl.castTime.SetTextColor) == "function" then pl.castTime:SetTextColor(1, 1, 1, 0.90) end
+                if pl.castIconBox then
+                    pl.castIconBox:ClearAllPoints()
+                    pl.castIconBox:SetPoint("RIGHT", pl.castHost, "LEFT", -3, 0)
+                    pl.castIconBox:SetSize(npCastH, npCastH)
+                    if npCastIcon then
+                        if pl.castIconBox.Show then pl.castIconBox:Show() end
+                    else
+                        if pl.castIconBox.Hide then pl.castIconBox:Hide() end
+                    end
+                end
+            end
+        end
     end
 
     previewDeckRefresh = paintHeader
@@ -2595,6 +2856,26 @@ local function makePlayerSample(parent)
                     abSlots[i].frame:SetPoint("TOPLEFT", abPreview, "TOPLEFT", startX + (i - 1) * 46, -9)
                 end
                 local h = topOffset + 56
+                container:SetSize(w, h)
+                return h
+            end
+
+            if previewDeckMode == "nameplates" then
+                if npPreview.Show then npPreview:Show() end
+                npPreview:ClearAllPoints()
+                npPreview:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -topOffset)
+                npPreview:SetWidth(w)
+                local colW = math.max(150, math.floor((w - 24) / 3))
+                for i = 1, #npPlates do
+                    local pl = npPlates[i]
+                    local cx = 12 + (i - 1) * colW + math.floor(colW / 2)
+                    local yOff = pl.isTarget and -22 or -28
+                    pl.wrap:ClearAllPoints()
+                    pl.wrap:SetPoint("TOP", npPreview, "TOPLEFT", cx, 0)
+                    pl.barHost:ClearAllPoints()
+                    pl.barHost:SetPoint("TOP", pl.wrap, "TOP", 0, yOff)
+                end
+                local h = topOffset + NP_PREVIEW_H
                 container:SetSize(w, h)
                 return h
             end

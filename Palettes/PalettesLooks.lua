@@ -224,68 +224,75 @@ local THEMES = {
         id = "hearthnight", name = "Hearthnight",
         palette = "ember", frame = "beam", focus = "compact_beam", tot = "compact_pill",
         party = "framed", raid = "framed", castbars = "molten", actionbars = "classic",
+        nameplates = "sculpted",
         tags = { "Beam", "Molten" },
         bestFor = "Dungeons, Raiding, DPS & Tanks",
         mood = "Warm ember frames and fiery casts for high-focus combat.",
-        rationale = "Pairs Ember's dark contrast with Beam's bold portrait bars, framed group plates, and Molten casts so interrupts and threat spikes stand out in dim instances.",
+        rationale = "Pairs Ember's dark contrast with Beam's bold portrait bars, framed group plates, Sculpted nameplates, and Molten casts so interrupts and threat spikes stand out in dim instances.",
     },
     {
         id = "harvestide", name = "Harvestide",
         palette = "vanilla", frame = "stream", focus = "slim_ribbon", tot = "compact_pill",
         party = "standard", raid = "tiles", castbars = "silk", actionbars = "classic",
+        nameplates = "standard",
         tags = { "Stream", "Silk" },
         bestFor = "All-Rounder, Solo Leveling, Group Questing",
         mood = "Warm classic ribbons and soft bars for relaxed sessions.",
-        rationale = "Blends Vanilla tones with Stream's airy ribbons, standard party portraits, and Silk cast bars for a readable, low-fatigue UI across quests and dungeons.",
+        rationale = "Blends Vanilla tones with Stream's airy ribbons, standard party portraits, Daylight Standard nameplates, and Silk cast bars for a readable, low-fatigue UI across quests and dungeons.",
     },
     {
         id = "tidemark", name = "Tidemark",
         palette = "tide", frame = "slate", focus = "minimal_slate", tot = "slim_bar",
         party = "compact", raid = "tight", castbars = "tide", actionbars = "flat",
+        nameplates = "razor",
         tags = { "Slate", "Tight Grid" },
         bestFor = "20/40-Man Raiding, DPS, Minimalists",
         mood = "Portrait-free, razor-thin frames for maximum screen view.",
-        rationale = "Strips portraits, shadows, and extra borders across every layer—pairing Tide with Slate, Tight Raid Grid, and Crisp Flat buttons so encounter mechanics own the screen.",
+        rationale = "Strips portraits, shadows, and extra borders across every layer—pairing Tide with Slate, Tight Raid Grid, Razor Strip nameplates, and Crisp Flat buttons so encounter mechanics own the screen.",
     },
     {
         id = "oldroad", name = "Old Road",
         palette = "forever", frame = "crest", focus = "compact_beam", tot = "crisp_square",
         party = "framed", raid = "framed", castbars = "brushed", actionbars = "heavy",
+        nameplates = "sculpted",
         tags = { "Crest", "Heavy Rim" },
         bestFor = "Tanking, Solo & Group Questing, Classic Feel",
         mood = "Tall 3D hero portraits and heavy steel for classic weight.",
-        rationale = "Combines Forever's dark palette with Crest's 3D portraits, thick-bordered group frames, Brushed casts, and Heavy Rim buttons for unmistakable peripheral clarity.",
+        rationale = "Combines Forever's dark palette with Crest's 3D portraits, thick-bordered group frames, Sculpted nameplates, Brushed casts, and Heavy Rim buttons for unmistakable peripheral clarity.",
     },
     {
         id = "vigil", name = "Vigil",
         palette = "paladin", frame = "stream", focus = "slim_ribbon", tot = "compact_pill",
         party = "healer", raid = "matte", castbars = "silk", actionbars = "circle",
+        nameplates = "triage",
         tags = { "Healer Grid", "Medallion" },
         bestFor = "Healing & Triage, 5-Man Dungeons, Raiding",
         mood = "Triage-ready party grids, vertical raid bars, medallions.",
-        rationale = "Built for healers: pairs Paladin accents and low-profile Stream player bars with tall Healer Grid party frames, Vertical Healer raid cells, and Silk cast tracking.",
+        rationale = "Built for healers: pairs Paladin accents and low-profile Stream player bars with tall Healer Grid party frames, Vertical Healer raid cells, Triage nameplates, and Silk cast tracking.",
     },
     {
         id = "snug", name = "Snug",
         palette = "gilded", frame = "flagon", focus = "match", tot = "compact_pill",
         party = "standard", raid = "tiles", castbars = "flow", actionbars = "circle",
+        nameplates = "standard",
         tags = { "Flagon", "Living Flow" },
         bestFor = "All-Rounder, Solo Leveling, 5-Man Dungeons",
         mood = "Gilded trim with animated flow bars and round buttons.",
-        rationale = "Matches Gilded's warm metallic accents with Flagon's flowing health bars, Living Flow casts, and Rounded Medallion buttons for a cohesive, animated everyday setup.",
+        rationale = "Matches Gilded's warm metallic accents with Flagon's flowing health bars, Daylight Standard nameplates, Living Flow casts, and Rounded Medallion buttons for a cohesive, animated everyday setup.",
     },
 }
 ns.themes = THEMES
 
--- 7 single-row Looks sub-tab categories (Issue #42).
+-- 8 single-row Looks sub-tab categories (Issues #34, #42).
 local LOOK_CATEGORIES = {
-    { key = "player_target", short = "Player & Target", label = "Player & Target" },
+    { key = "player_target", short = "Player/Target", label = "Player & Target", tooltip = "Player & Target" },
     { key = "focus", short = "Focus", label = "Focus" },
     { key = "tot", short = "ToT", label = "Target of Target", tooltip = "Target of Target" },
     { key = "party", short = "Party", label = "Party" },
     { key = "raid", short = "Raid", label = "Raid" },
     { key = "castbars", short = "Cast Bars", label = "Cast Bars" },
     { key = "actionbars", short = "Action Bars", label = "Action Bars" },
+    { key = "nameplates", short = "Nameplates", label = "Nameplates" },
 }
 ns.lookCategories = LOOK_CATEGORIES
 
@@ -543,6 +550,64 @@ local EXTRA_LOOKS = {
               ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0.10,
           } },
     },
+    nameplates = {
+        { id = "standard", name = "Daylight Standard",
+          desc = "Balanced medium bar with 2px frame, soft corners, and attached spell-icon cast bar for questing and dungeons.",
+          bestFor = "All-Rounder, Questing & Dungeons",
+          preview = { borderPx = 2, corner = "round", shadow = true },
+          settings = {
+              width = 170, height = 16, slant = true, backAlpha = 0.80,
+              ["media.health"] = "daylight", ["media.cast"] = "daylight",
+              castHeight = 14, castIcon = true, castIconPos = "outleft",
+              nameSize = 13, percent = true, healthFormat = "percent", percentSign = true,
+              targetStyle = "outline", targetAccent = true, targetScale = true, ["target.scale"] = 1.15, targetArrows = "none",
+          } },
+        { id = "razor", name = "Razor Strip",
+          desc = "Ultra-slim, 1px-framed health strip with minimal shadow and compact cast bar for dense M+ pulls and raids.",
+          bestFor = "Mythic+, Dense Pulls, Raiding",
+          preview = { borderPx = 1, corner = "square", shadow = false },
+          settings = {
+              width = 148, height = 10, slant = false, backAlpha = 0.65,
+              ["media.health"] = "daylight", ["media.cast"] = "daylight",
+              castHeight = 10, castIcon = false, castIconPos = "outleft",
+              nameSize = 11, percent = false, healthFormat = "percent", percentSign = true,
+              targetStyle = "outline", targetAccent = true, targetScale = true, ["target.scale"] = 1.10, targetArrows = "none",
+          } },
+        { id = "sculpted", name = "Sculpted Plate",
+          desc = "Thick 3px bordered plate with brushed texture, prominent target highlight, and oversized cast bar for tanking.",
+          bestFor = "Tanking, Interrupt Tracking",
+          preview = { borderPx = 3, corner = "round", shadow = true },
+          settings = {
+              width = 188, height = 20, slant = true, backAlpha = 0.90,
+              ["media.health"] = "brushed", ["media.cast"] = "brushed",
+              castHeight = 18, castIcon = true, castIconPos = "outleft",
+              nameSize = 14, percent = true, healthFormat = "percent", percentSign = true,
+              targetStyle = "glow", targetAccent = true, targetScale = true, ["target.scale"] = 1.20, targetArrows = "sides",
+          } },
+        { id = "flat", name = "Crisp Flat",
+          desc = "Sharp 90° corners, 1px flat border, zero shadow, and matte glass finish for high-contrast cleave and PvP.",
+          bestFor = "Cleave DPS, PvP, Minimalists",
+          preview = { borderPx = 1, corner = "square", shadow = false },
+          settings = {
+              width = 164, height = 13, slant = false, backAlpha = 0.85,
+              ["media.health"] = "glass", ["media.cast"] = "glass",
+              castHeight = 12, castIcon = true, castIconPos = "outleft",
+              nameSize = 12, percent = true, healthFormat = "percent", percentSign = false,
+              targetStyle = "outline", targetAccent = true, targetScale = true, ["target.scale"] = 1.12, targetArrows = "none",
+          } },
+        { id = "triage", name = "Triage Bar",
+          desc = "Silk-textured bar with clear % health readout and soft rounded profile tailored for healers tracking plates.",
+          bestFor = "Healing, Friendly Plates, Debuff Triage",
+          preview = { borderPx = 2, corner = "round", shadow = true },
+          settings = {
+              width = 168, height = 17, slant = true, backAlpha = 0.82,
+              ["media.health"] = "silk", ["media.cast"] = "silk",
+              castHeight = 14, castIcon = true, castIconPos = "outleft",
+              nameSize = 13, percent = true, healthFormat = "percent", percentSign = true,
+              targetStyle = "outline", targetAccent = true, targetScale = true, ["target.scale"] = 1.15, targetArrows = "none",
+              ["friendly.height"] = 10, ["friendly.percent"] = true,
+          } },
+    },
 }
 ns.extraLooks = EXTRA_LOOKS
 
@@ -742,6 +807,28 @@ local function looksAddonLoaded()
     return false
 end
 
+local function nameplatesModuleLoaded()
+    local d = DaylightUI
+    if type(d) == "table" and type(d.GetModule) == "function" then
+        local ok, mod = pcall(d.GetModule, d, "Nameplates")
+        return ok and type(mod) == "table" and mod.enabled ~= false
+    end
+    if type(C_AddOns) == "table" and type(C_AddOns.IsAddOnLoaded) == "function" then
+        local ok, loaded = pcall(C_AddOns.IsAddOnLoaded, "DaylightUI_Nameplates")
+        if ok then return loaded == true end
+    end
+    if type(IsAddOnLoaded) == "function" then
+        local ok, loaded = pcall(IsAddOnLoaded, "DaylightUI_Nameplates")
+        if ok then return loaded == true end
+    end
+    if type(d) == "table" and type(d.Get) == "function" then
+        local ok, val = pcall(d.Get, d, "Nameplates", "width")
+        if ok and val ~= nil then return true end
+    end
+    return false
+end
+ns.nameplatesModuleLoaded = nameplatesModuleLoaded
+
 local function copyValues(values)
     if type(values) ~= "table" then return nil end
     local out, any = {}, false
@@ -765,6 +852,7 @@ local function copyShot(shot)
         frameValues = copyValues(shot.frameValues),
         extraUnitValues = copyValues(shot.extraUnitValues),
         actionBarValues = copyValues(shot.actionBarValues),
+        nameplateValues = copyValues(shot.nameplateValues),
     }
 end
 ns.copyLooksShot = copyShot
@@ -1076,6 +1164,12 @@ local function mergeSnapshot(add)
                 if out.actionBarValues[k] == nil then out.actionBarValues[k] = v end
             end
         end
+        if type(add.nameplateValues) == "table" then
+            out.nameplateValues = out.nameplateValues or {}
+            for k, v in pairs(add.nameplateValues) do
+                if out.nameplateValues[k] == nil then out.nameplateValues[k] = v end
+            end
+        end
     end
     storeSnapshot(out)
 end
@@ -1176,6 +1270,11 @@ local function categoryPairs(catKey, optId, activePT)
         for k, v in pairs(settings) do
             list[#list + 1] = { "ActionBars", k, v }
         end
+    elseif catKey == "nameplates" then
+        if not nameplatesModuleLoaded() then return list end
+        for k, v in pairs(settings) do
+            list[#list + 1] = { "Nameplates", k, v }
+        end
     elseif catKey == "castbars" then
         for u = 1, #CASTBAR_UNITS do
             local unit = CASTBAR_UNITS[u]
@@ -1210,8 +1309,8 @@ local function writeScopedPairs(list)
 end
 
 local function captureExtraForPairs(list)
-    local addUnit, addAB = {}, {}
-    local anyU, anyA = false, false
+    local addUnit, addAB, addNP = {}, {}, {}
+    local anyU, anyA, anyN = false, false, false
     for i = 1, #list do
         local scope, path = list[i][1], list[i][2]
         local val, ok = readSetting(scope, path)
@@ -1223,13 +1322,17 @@ local function captureExtraForPairs(list)
             elseif scope == "ActionBars" then
                 addAB[path] = val
                 anyA = true
+            elseif scope == "Nameplates" then
+                addNP[path] = val
+                anyN = true
             end
         end
     end
-    if anyU or anyA then
+    if anyU or anyA or anyN then
         mergeSnapshot({
             extraUnitValues = anyU and addUnit or nil,
             actionBarValues = anyA and addAB or nil,
+            nameplateValues = anyN and addNP or nil,
         })
     end
 end
@@ -1664,7 +1767,7 @@ function ns.screenPalette()
     return "off"
 end
 
-local EXTRA_CAT_KEYS = { "focus", "tot", "party", "raid", "castbars", "actionbars" }
+local EXTRA_CAT_KEYS = { "focus", "tot", "party", "raid", "castbars", "actionbars", "nameplates" }
 
 local function readLookPicks()
     local slot = activeSlot()
@@ -1699,8 +1802,8 @@ local function copyLookPicks()
 end
 
 local function readCurrentExtraValues()
-    local unitVals, abVals = {}, {}
-    local anyU, anyA = false, false
+    local unitVals, abVals, npVals = {}, {}, {}
+    local anyU, anyA, anyN = false, false, false
     local saved = readSnapshot()
     if type(saved) == "table" then
         if type(saved.extraUnitValues) == "table" then
@@ -1715,17 +1818,26 @@ local function readCurrentExtraValues()
                 if ok and v ~= nil then abVals[k] = v; anyA = true end
             end
         end
+        if type(saved.nameplateValues) == "table" and nameplatesModuleLoaded() then
+            for k in pairs(saved.nameplateValues) do
+                local v, ok = readSetting("Nameplates", k)
+                if ok and v ~= nil then npVals[k] = v; anyN = true end
+            end
+        end
     end
-    return anyU and unitVals or nil, anyA and abVals or nil
+    return anyU and unitVals or nil, anyA and abVals or nil, anyN and npVals or nil
 end
 
-local function restoreExtraValues(unitVals, abVals)
+local function restoreExtraValues(unitVals, abVals, npVals)
     local list = {}
     if type(unitVals) == "table" then
         for k, v in pairs(unitVals) do list[#list + 1] = { "UnitFrames", k, v } end
     end
     if type(abVals) == "table" then
         for k, v in pairs(abVals) do list[#list + 1] = { "ActionBars", k, v } end
+    end
+    if type(npVals) == "table" and nameplatesModuleLoaded() then
+        for k, v in pairs(npVals) do list[#list + 1] = { "Nameplates", k, v } end
     end
     if #list == 0 then return true end
     return writeScopedPairs(list)
@@ -1735,15 +1847,21 @@ function ns.applyCategoryLook(catKey, optId, quiet)
     if catKey == "player_target" then return applyFrame(optId, quiet) end
     local opt = extraLookById(catKey, optId)
     if not opt then return false end
+    if catKey == "nameplates" and not nameplatesModuleLoaded() then
+        if not quiet and not ns.applyingTheme then
+            say("Looks: DaylightUI Nameplates module isn't loaded, so nameplate changes were skipped.")
+        end
+        return false
+    end
     if inCombat() then
         queueLook("look", catKey .. ":" .. optId, opt.name)
         return false
     end
-    local undoShot = (not ns.applyingTheme and type(ns.captureUndo) == "function") and ns.captureUndo("look") or nil
     if not hasWrite() then return false end
     local list = categoryPairs(catKey, optId)
     if #list == 0 then return false end
     captureExtraForPairs(list)
+    local undoShot = (not ns.applyingTheme and type(ns.captureUndo) == "function") and ns.captureUndo("look") or nil
     local ok = writeScopedPairs(list)
     if ok then
         writeLookPick(catKey, optId)
@@ -1787,6 +1905,7 @@ function ns.currentRecipe()
         raid = picks.raid or (theme and theme.raid) or "tiles",
         castbars = picks.castbars or (theme and theme.castbars) or "silk",
         actionbars = picks.actionbars or (theme and theme.actionbars) or "classic",
+        nameplates = picks.nameplates or (theme and theme.nameplates) or "standard",
     }
 end
 
@@ -1894,12 +2013,13 @@ end
 
 function ns.captureUndo(kind)
     local themeId, changed = ns.readTheme()
-    local extraU, extraAB = readCurrentExtraValues()
+    local extraU, extraAB, extraNP = readCurrentExtraValues()
     return {
         kind = kind,
         frameValues = readFrameValues(),
         extraUnitValues = extraU,
         actionBarValues = extraAB,
+        nameplateValues = extraNP,
         lookPicks = copyLookPicks(),
         theme = themeId or false,
         themeChanged = changed == true,
@@ -1910,7 +2030,7 @@ function ns.applyUndoShot(shot)
     if type(shot) ~= "table" then return end
     if shot.kind == "theme" or shot.kind == "frame" or shot.kind == "look" or shot.kind == "looks" or shot.kind == "full" then
         if type(shot.frameValues) == "table" then writeFrameValues(shot.frameValues) end
-        restoreExtraValues(shot.extraUnitValues, shot.actionBarValues)
+        restoreExtraValues(shot.extraUnitValues, shot.actionBarValues, shot.nameplateValues)
         if type(shot.lookPicks) == "table" then
             local slot, account, onlyOn = activeSlot()
             local target = (onlyOn and type(slot) == "table") and slot or account
@@ -2028,8 +2148,8 @@ local function restoreSaved(saved)
     local hadFrames = type(saved.frameValues) == "table"
     local hadGlow = saved.glow ~= nil or saved.light ~= nil
     if hadFrames then frameOk = writeFrameValues(saved.frameValues) end
-    if type(saved.extraUnitValues) == "table" or type(saved.actionBarValues) == "table" then
-        restoreExtraValues(saved.extraUnitValues, saved.actionBarValues)
+    if type(saved.extraUnitValues) == "table" or type(saved.actionBarValues) == "table" or type(saved.nameplateValues) == "table" then
+        restoreExtraValues(saved.extraUnitValues, saved.actionBarValues, saved.nameplateValues)
     end
     if hadGlow then glowOk = writeGlowValue(saved.glow, saved.light) end
     local slot, account, onlyOn = activeSlot()
@@ -2176,6 +2296,11 @@ function ns.finishLooksCombat()
     elseif pending.kind == "theme" then
         local theme = themeById(pending.id)
         if theme then applyTheme(theme) end
+    elseif pending.kind == "look" and type(pending.id) == "string" then
+        local catKey, optId = string.match(pending.id, "^([^:]+):(.+)$")
+        if catKey and optId then
+            ns.applyCategoryLook(catKey, optId, false)
+        end
     end
     refreshLooks()
 end
@@ -2207,9 +2332,9 @@ function ns.looksSlash(msg)
     end
     local beforeLook = ns.lookMark()
     local beforePal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
-    -- A frame look repaints live. A Preset or off changes colours.
+    -- A frame or nameplate look repaints live. A Preset or off changes colours.
     local arg = string.lower(trim(msg or ""))
-    local looksOnly = resolveFrame(arg) ~= nil
+    local looksOnly = resolveFrame(arg) ~= nil or extraLookById("nameplates", arg) ~= nil
     ns.withReloadAction(function()
         run()
         local afterPal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
@@ -2257,13 +2382,23 @@ function looksSlashRun(msg)
         applyTheme(theme)
         return
     end
+    local npOpt = extraLookById("nameplates", arg)
+    if npOpt then
+        if ns.applyCategoryLook("nameplates", npOpt.id, false) then
+            say("Looks: Nameplates set to " .. npOpt.name .. ".")
+        end
+        return
+    end
     say(statusLine())
 end
 
-local function rowPending(kind, id)
+local function rowPending(kind, id, catKey)
     local pending = looksPending
     if type(pending) ~= "table" or pending.kind == "off" then return false end
     if pending.kind == kind and pending.id == id then return true end
+    if kind == "look" and pending.kind == "look" and type(catKey) == "string" and pending.id == (catKey .. ":" .. id) then
+        return true
+    end
     if pending.kind == "theme" then
         local theme = themeById(pending.id)
         if theme and ((kind == "frame" and theme.frame == id) or (kind == "theme" and theme.id == id)) then
@@ -2844,7 +2979,7 @@ end
 
 -- Issue #41: Presets Tab — 6 core themes in 3x2 grid + split Recipe / My Presets footer.
 local PRESET_GRID_CARD_H = 86
-local PRESET_FOOTER_H = 154
+local PRESET_FOOTER_H = 186
 
 local function buildPresetsPage(row)
     if row.made or type(CreateFrame) ~= "function" then return end
@@ -3049,6 +3184,7 @@ local function buildPresetsPage(row)
         { key = "raid", label = "Raid", tab = "Looks", sub = "raid" },
         { key = "castbars", label = "Cast Bars", tab = "Looks", sub = "castbars" },
         { key = "actionbars", label = "Action Bars", tab = "Looks", sub = "actionbars" },
+        { key = "nameplates", label = "Nameplates", tab = "Looks", sub = "nameplates" },
     }
     local layerButtons = {}
     for i = 1, #LAYER_DEFS do
@@ -3210,14 +3346,14 @@ local function buildPresetsPage(row)
         recipeDesc:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -26)
         recipeDesc:SetWidth(math.max(120, halfW - 20))
 
-        local pillW = math.floor((halfW - 20 - 3 * 5) / 4)
+        local pillW = math.floor((halfW - 20 - 2 * 5) / 3)
         for i = 1, #layerButtons do
             local lb = layerButtons[i]
             local idx = i - 1
-            local lr = math.floor(idx / 4)
-            local lc = idx - lr * 4
+            local lr = math.floor(idx / 3)
+            local lc = idx - lr * 3
             local lx = 10 + lc * (pillW + 5)
-            local ly = 84 + lr * 33
+            local ly = 84 + lr * 32
             lb.btn:ClearAllPoints()
             lb.btn:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", lx, -ly)
             lb.btn:SetWidth(pillW)
@@ -3297,6 +3433,7 @@ local function buildPresetsPage(row)
             raid = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.raid) or baseRec.raid,
             castbars = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.castbars) or baseRec.castbars,
             actionbars = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.actionbars) or baseRec.actionbars,
+            nameplates = (type(staged) == "table" and type(staged.looks) == "table" and staged.looks.nameplates) or baseRec.nameplates,
         }
         for i = 1, #layerButtons do
             local lb = layerButtons[i]
@@ -3595,29 +3732,44 @@ local function buildLooksTabPage(row)
     combatNote:SetText("Applies when combat ends.")
     setShownSafe(combatNote, false)
 
+    local npModuleNote = uiFont(row, 10, DIM)
+    npModuleNote:SetText("DaylightUI Nameplates module is not loaded or enabled — nameplate writes are skipped safely.")
+    if type(npModuleNote.SetWordWrap) == "function" then npModuleNote:SetWordWrap(true) end
+    setShownSafe(npModuleNote, false)
+    row.npModuleNote = npModuleNote
+
     local function layout()
         local w = type(row.GetWidth) == "function" and row:GetWidth() or 0
         if type(w) ~= "number" or w < 240 then w = 760 end
-        -- Single-row 7 sub-tabs fit comfortably across ~760px
+        -- Single-row 8 sub-tabs fit comfortably across ~760px
         local gap = 4
         local totalGap = gap * (#subButtons - 1)
         local avail = w - 8 - totalGap
-        local weights = { 1.55, 0.85, 0.65, 0.85, 0.78, 1.12, 1.20 }
+        local weights = { 1.38, 0.80, 0.62, 0.78, 0.72, 1.05, 1.15, 1.18 }
         local sumW = 0
         for i = 1, #weights do sumW = sumW + weights[i] end
         local sx = 4
         for i = 1, #subButtons do
             local sb = subButtons[i]
-            local bw = math.floor(avail * (weights[i] / sumW))
+            local bw = math.floor(avail * ((weights[i] or 1) / sumW))
             sb.btn:ClearAllPoints()
             sb.btn:SetPoint("TOPLEFT", row, "TOPLEFT", sx, -4)
             sb.btn:SetWidth(bw)
             sx = sx + bw + gap
         end
 
+        local showNpNote = (activeLooksSubTab == "nameplates" and not nameplatesModuleLoaded())
+        setShownSafe(npModuleNote, showNpNote)
+        local topY = SUBTAB_H + 14
+        if showNpNote then
+            npModuleNote:ClearAllPoints()
+            npModuleNote:SetPoint("TOPLEFT", row, "TOPLEFT", 6, -(SUBTAB_H + 10))
+            npModuleNote:SetWidth(math.max(200, w - 12))
+            topY = SUBTAB_H + 30
+        end
+
         local cols = w >= 520 and 2 or 1
         local cardW = math.floor((w - 8 - (cols - 1) * CARD_GAP_X) / cols)
-        local topY = SUBTAB_H + 14
         local shownCount = 0
         for ck, list in pairs(catCards) do
             local vis = (ck == activeLooksSubTab)
@@ -3663,6 +3815,7 @@ local function buildLooksTabPage(row)
     function row.UpdateLooks()
         local win, _, bnd, _, brd, acc, txt, lbl = activeSurface()
         setShownSafe(combatNote, type(looksPending) == "table")
+        tintText(npModuleNote, lbl)
         for i = 1, #subButtons do
             local sb = subButtons[i]
             local active = sb.cat.key == activeLooksSubTab
@@ -3709,7 +3862,7 @@ local function buildLooksTabPage(row)
                 else
                     setShownSafe(line.matchFs, false)
                 end
-                line.SetOn(activeId == line.id, rowPending(line.kind, line.id), isStaged)
+                line.SetOn(activeId == line.id, rowPending(line.kind, line.id, line.catKey), isStaged)
             end
         end
         layout()
