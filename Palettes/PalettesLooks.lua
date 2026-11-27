@@ -3104,18 +3104,34 @@ local function buildPresetsPage(row)
         swAcc:SetPoint("LEFT", swBand, "RIGHT", 1, 0)
 
         local delBtn = CreateFrame("Button", nil, slotBtn)
-        delBtn:SetSize(18, 18)
-        delBtn:SetPoint("TOPRIGHT", slotBtn, "TOPRIGHT", -3, -3)
+        delBtn:SetSize(20, 20)
+        delBtn:SetPoint("TOPRIGHT", slotBtn, "TOPRIGHT", -2, -2)
+        if type(delBtn.SetFrameLevel) == "function" and type(slotBtn.GetFrameLevel) == "function" then
+            delBtn:SetFrameLevel(slotBtn:GetFrameLevel() + 2)
+        end
+        if type(delBtn.RegisterForClicks) == "function" then
+            delBtn:RegisterForClicks("LeftButtonUp")
+        end
         local delFs = uiFont(delBtn, 11, DIM)
         delFs:SetPoint("CENTER", delBtn, "CENTER", 0, 0)
         delFs:SetText("x")
         setShownSafe(delBtn, false)
 
         delBtn:SetScript("OnClick", function()
+            hideTooltip()
+            if type(ns.staged) == "table" and ns.staged.kind == "mypreset" and ns.staged.id == ("slot-" .. s) then
+                ns.RevertPreview()
+            end
             ns.deleteMyPreset(s)
         end)
-        delBtn:SetScript("OnEnter", function() showTooltip(delBtn, "Delete saved preset") end)
-        delBtn:SetScript("OnLeave", hideTooltip)
+        delBtn:SetScript("OnEnter", function()
+            tintText(delFs, CREAM)
+            showTooltip(delBtn, "Delete saved preset")
+        end)
+        delBtn:SetScript("OnLeave", function()
+            tintText(delFs, DIM)
+            hideTooltip()
+        end)
 
         slotBtn:SetScript("OnClick", function()
             local saved = ns.readMyPresets()[s]
@@ -3133,13 +3149,6 @@ local function buildPresetsPage(row)
                 ns.applyMyPreset(saved)
             end
             refreshLooks()
-        end)
-        slotBtn:SetScript("OnEnter", function()
-            local saved = ns.readMyPresets()[s]
-            if type(saved) == "table" then setShownSafe(delBtn, true) end
-        end)
-        slotBtn:SetScript("OnLeave", function()
-            setShownSafe(delBtn, false)
         end)
 
         mySlots[s] = {
@@ -3350,6 +3359,7 @@ local function buildPresetsPage(row)
                 sl.sub:SetText(partLabel("frame", type(entry.recipe) == "table" and entry.recipe.frame or nil))
                 tintText(sl.sub, lbl)
                 setShownSafe(sl.sub, true)
+                setShownSafe(sl.delBtn, true)
             else
                 if sl.card then sl.card.paint(blend(win, bnd, 0.16), 0.72, brd, 0.50) end
                 sl.name:ClearAllPoints()
