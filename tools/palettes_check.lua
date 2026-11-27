@@ -1393,10 +1393,10 @@ local moods = {
 for i = 1, #moods do
     if not looksSource:find(moods[i], 1, true) then fail("missing preset mood: " .. moods[i]) end
 end
-local OFF_LINE = "Looks: off. Type /looks flagon, trestle, beam, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off."
-local BEAM_LINE = "Looks: Beam is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off."
-local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks flagon, trestle, stream, ledger, crest, slate, harvestide, tidemark, oldroad, vigil, snug, or off."
-local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off."
+local OFF_LINE = "Looks: off. Type /looks flagon, trestle, beam, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off. Roles: healer, dps, tank."
+local BEAM_LINE = "Looks: Beam is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off. Roles: healer, dps, tank."
+local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks flagon, trestle, stream, ledger, crest, slate, harvestide, tidemark, oldroad, vigil, snug, or off. Roles: healer, dps, tank."
+local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off. Roles: healer, dps, tank."
 
 local function piece()
     local w = {}
@@ -2906,6 +2906,127 @@ do
     check(ns.commitStaged(), true, "commitStaged applies all accumulated selections")
     check(#ran, 4, "all 4 staged commits executed on Apply")
     check(ns.staged, nil, "ns.staged cleared after commit")
+end
+
+-- #35: Looks-only Role Presets (Healer, DPS, Tank)
+do
+    check(type(ns.rolePresets) == "table" and #ns.rolePresets, 3, "#35 defines 3 Role Presets")
+    local healer = ns.roleById("healer")
+    local dps = ns.roleById("dps")
+    local tank = ns.roleById("tank")
+    check(healer and healer.frame .. "/" .. healer.focus .. "/" .. healer.tot .. "/" .. healer.party .. "/" .. healer.raid .. "/" .. healer.castbars .. "/" .. healer.actionbars,
+        "stream/slim_ribbon/slim_bar/healer/matte/silk/classic", "#35 Healer exact 7-layer recipe")
+    check(dps and dps.frame .. "/" .. dps.focus .. "/" .. dps.tot .. "/" .. dps.party .. "/" .. dps.raid .. "/" .. dps.castbars .. "/" .. dps.actionbars,
+        "trestle/compact_beam/slim_bar/compact/tight/brushed/flat", "#35 DPS exact 7-layer recipe")
+    check(tank and tank.frame .. "/" .. tank.focus .. "/" .. tank.tot .. "/" .. tank.party .. "/" .. tank.raid .. "/" .. tank.castbars .. "/" .. tank.actionbars,
+        "beam/compact_beam/crisp_square/framed/tiles/brushed/heavy", "#35 Tank exact 7-layer recipe")
+
+    -- Verify Healer party look sets healthText = "deficit" with predictHeals and predictAbsorbs
+    local healerParty = ns.extraLookById("party", "healer")
+    check(healerParty and healerParty.settings and healerParty.settings.healthText, "deficit", "#35 Healer party look uses healthText = deficit")
+    check(healerParty and healerParty.settings and healerParty.settings.predictHeals, true, "#35 Healer party look enables predictHeals")
+    check(healerParty and healerParty.settings and healerParty.settings.predictAbsorbs, true, "#35 Healer party look enables predictAbsorbs")
+
+    -- Presets tab renders 3 Role Preset cards and fits cleanly without vertical scrolling
+    local page = ns.themesPage()
+    local item = page.groups[1].items[1]
+    check(item.height() <= 430, true, "#35 Presets tab height fits cleanly within 430px without scrolling")
+    local row = piece()
+    item.build(row)
+    check(type(row.roleCards) == "table" and #row.roleCards, 3, "#35 Presets tab builds 3 Role Preset cards")
+    check(row.roleCards[1].id, "healer", "#35 card 1 is healer")
+    check(row.roleCards[2].id, "dps", "#35 card 2 is dps")
+    check(row.roleCards[3].id, "tank", "#35 card 3 is tank")
+
+    -- Start from active Core Preset Hearthnight (Ember colour + Beam looks)
+    seedFrames()
+    sets.UnitFrames["party.healthText"] = "percent"
+    sets.UnitFrames["party.height"] = 30
+    sets.UnitFrames["raid.width"] = 70
+    sets.ActionBars["look.border"] = 2
+    account.looks = nil
+    account.lookPicks = nil
+    account.theme = false
+    account.themeChanged = false
+    palDb.palette = "ember"
+    ns.looksSlash("hearthnight")
+    check(palDb.palette, "ember", "#35 Hearthnight sets Ember palette")
+    local tid, tchg = ns.shownTheme()
+    check(tid, "hearthnight", "#35 Hearthnight is active")
+    check(tchg, false, "#35 Hearthnight starts unchanged")
+
+    -- Clicking Healer card stages Looks-only draft without touching Colour
+    local reloadsBefore = reloadAsked or 0
+    row.roleCards[1].button.scripts.OnClick()
+    check(type(ns.staged) == "table" and ns.staged.baseKind, "role", "#35 clicking Healer stages kind role")
+    check(ns.staged.baseId, "healer", "#35 staged role id is healer")
+    check(ns.staged.looksOnly, true, "#35 staged Role Preset is strictly Looks-only (Apply Live)")
+    check(ns.staged.palette, nil, "#35 staged Role Preset never sets palette")
+    check(palDb.palette, "ember", "#35 staging Role Preset leaves active Colour untouched")
+
+    -- Committing staged Role Preset applies all 7 layers live with no reload and marks Core Preset changed
+    said = {}
+    check(ns.commitStaged(), true, "#35 commitStaged applies Role Preset")
+    check(reloadAsked or 0, reloadsBefore, "#35 Role Preset Apply Live never prompts for /reload")
+    check(palDb.palette, "ember", "#35 active Colour stays Ember after applying Healer role")
+    check(liveHas("stream"), true, "#35 Healer applies Stream to Player & Target")
+    check(ns.readLookPick("focus"), "slim_ribbon", "#35 Healer applies slim_ribbon Focus")
+    check(ns.readLookPick("tot"), "slim_bar", "#35 Healer applies slim_bar ToT")
+    check(ns.readLookPick("party"), "healer", "#35 Healer applies healer Party")
+    check(sets.UnitFrames["party.healthText"], "deficit", "#35 Healer writes party.healthText = deficit")
+    check(ns.readLookPick("raid"), "matte", "#35 Healer applies matte Raid")
+    check(ns.readLookPick("castbars"), "silk", "#35 Healer applies silk Cast Bars")
+    check(ns.readLookPick("actionbars"), "classic", "#35 Healer applies classic Action Bars")
+    check(ns.exactRole() and ns.exactRole().id, "healer", "#35 exactRole detects healer")
+    local tid2, tchg2 = ns.shownTheme()
+    check(tid2, "hearthnight", "#35 Hearthnight stays as base theme")
+    check(tchg2, true, "#35 Hearthnight is marked (changed) after applying Role Preset")
+    check(said[#said], "Palettes: Healer role looks applied. Your colours and layout are unchanged.", "#35 Healer prints expected chat message")
+
+    -- /looks DPS (case-insensitive) applies DPS 7-layer bundle live with no reload
+    said = {}
+    ns.looksSlash("DPS")
+    check(reloadAsked or 0, reloadsBefore, "#35 /looks DPS never prompts for /reload")
+    check(palDb.palette, "ember", "#35 /looks DPS keeps Ember palette")
+    check(liveHas("trestle"), true, "#35 /looks DPS applies Trestle")
+    check(ns.readLookPick("focus"), "compact_beam", "#35 /looks DPS applies compact_beam Focus")
+    check(ns.readLookPick("tot"), "slim_bar", "#35 /looks DPS applies slim_bar ToT")
+    check(ns.readLookPick("party"), "compact", "#35 /looks DPS applies compact Party")
+    check(ns.readLookPick("raid"), "tight", "#35 /looks DPS applies tight Raid")
+    check(ns.readLookPick("castbars"), "brushed", "#35 /looks DPS applies brushed Cast Bars")
+    check(ns.readLookPick("actionbars"), "flat", "#35 /looks DPS applies flat Action Bars")
+    check(ns.exactRole() and ns.exactRole().id, "dps", "#35 exactRole detects dps")
+    check(said[#said], "Palettes: DPS role looks applied. Your colours and layout are unchanged.", "#35 /looks DPS prints expected chat message")
+
+    -- /looks tank in combat queues until combat ends (and can be cancelled)
+    looksEnv.InCombatLockdown = function() return true end
+    said = {}
+    ns.looksSlash("tank")
+    check(said[#said], "Palettes: Tank role looks queued until combat ends.", "#35 /looks tank queues in combat")
+    check(ns.looksWaiting(), true, "#35 combat-queued Tank sets looksWaiting")
+    check(ns.exactRole() and ns.exactRole().id, "dps", "#35 combat-queued Tank does not write during combat")
+    check(ns.cancelStylePending(), true, "#35 Undo/cancelStylePending cancels combat-queued role swap")
+    check(ns.looksWaiting(), false, "#35 looksWaiting cleared after cancel")
+    ns.looksSlash("tank")
+    looksEnv.InCombatLockdown = function() return false end
+    ns.finishLooksCombat()
+    check(liveHas("beam"), true, "#35 queued Tank applies Beam when combat ends")
+    check(ns.readLookPick("tot"), "crisp_square", "#35 queued Tank applies crisp_square ToT")
+    check(ns.readLookPick("party"), "framed", "#35 queued Tank applies framed Party")
+    check(ns.readLookPick("raid"), "tiles", "#35 queued Tank applies tiles Raid")
+    check(ns.readLookPick("actionbars"), "heavy", "#35 queued Tank applies heavy Action Bars")
+    check(ns.exactRole() and ns.exactRole().id, "tank", "#35 exactRole detects tank after combat")
+    check(palDb.palette, "ember", "#35 queued Tank preserves Ember palette")
+
+    -- Reset Looks restores pre-Palettes settings across all layers while keeping Colours
+    check(ns.restoreLooksOnly(), true, "#35 Reset Looks restores saved snapshot")
+    check(userRestored(), true, "#35 Reset Looks restores Player/Target frame values")
+    check(sets.UnitFrames["party.healthText"], "percent", "#35 Reset Looks restores party.healthText")
+    check(sets.UnitFrames["party.height"], 30, "#35 Reset Looks restores party.height")
+    check(sets.UnitFrames["raid.width"], 70, "#35 Reset Looks restores raid.width")
+    check(sets.ActionBars["look.border"], 2, "#35 Reset Looks restores ActionBars look.border")
+    check(palDb.palette, "ember", "#35 Reset Looks preserves active Colour palette")
+    check(ns.exactRole(), nil, "#35 exactRole is nil after Reset Looks")
 end
 
 if failures > 0 then

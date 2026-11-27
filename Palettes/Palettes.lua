@@ -3345,6 +3345,32 @@ function ns.stagePick(kind, id, commit, live, label, recipe, catKey)
         return
     end
 
+    -- Role Presets are strictly Looks-only: stage all 7 Looks layers without overwriting Colour.
+    if kind == "role" then
+        local keepPal = draft and draft.baseKind ~= "reset" and draft.palette or nil
+        local keepPalLabel = keepPal and draft.paletteLabel or nil
+        local keepPalCommit = keepPal and draft.paletteCommit or nil
+        if live or (draft and draft.baseKind == "role" and draft.baseId == id and draft.frame == nil and next(draft.looks or {}) == nil) then
+            if keepPal then
+                ns.staged = rebuildStagedSummary({
+                    palette = keepPal, paletteLabel = keepPalLabel, paletteCommit = keepPalCommit,
+                    looks = {}, lookLabels = {}, lookCommits = {},
+                })
+            else
+                ns.staged = nil
+            end
+        else
+            ns.staged = rebuildStagedSummary({
+                baseKind = "role", baseId = id, baseLabel = label or id,
+                baseCommit = commit, recipe = recipe,
+                palette = keepPal, paletteLabel = keepPalLabel, paletteCommit = keepPalCommit,
+                looks = {}, lookLabels = {}, lookCommits = {},
+            })
+        end
+        if type(ns.notePreview) == "function" then ns.notePreview() end
+        return
+    end
+
     -- Individual Colour or Look picks layer onto the existing draft (unless base was a Reset).
     if not draft or draft.baseKind == "reset" then
         draft = { looks = {}, lookLabels = {}, lookCommits = {} }
@@ -3502,8 +3528,8 @@ function ns.commitStaged()
     local hasLookPreview = (staged.frame ~= nil)
         or (type(staged.looks) == "table" and next(staged.looks) ~= nil)
         or staged.kind == "frame" or staged.kind == "look"
-        or staged.baseKind == "theme" or staged.baseKind == "mypreset"
-        or staged.kind == "theme" or staged.kind == "mypreset"
+        or staged.baseKind == "theme" or staged.baseKind == "mypreset" or staged.baseKind == "role"
+        or staged.kind == "theme" or staged.kind == "mypreset" or staged.kind == "role"
     ns.withReloadAction(function()
         if hasLookPreview and type(ns.CommitPreview) == "function" then
             ns.CommitPreview(staged.commit)

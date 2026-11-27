@@ -277,6 +277,50 @@ local THEMES = {
 }
 ns.themes = THEMES
 
+-- Looks-only Role Presets (Issue #35): style all 7 Looks layers live without touching Colours.
+local ROLE_PRESETS = {
+    {
+        id = "healer",
+        name = "Healer",
+        role = "HEALER",
+        focusLine = "Triage & Grid",
+        frame = "stream",
+        focus = "slim_ribbon",
+        tot = "slim_bar",
+        party = "healer",
+        raid = "matte",
+        castbars = "silk",
+        actionbars = "classic",
+    },
+    {
+        id = "dps",
+        name = "DPS",
+        role = "DAMAGER",
+        focusLine = "Interrupts & Space",
+        frame = "trestle",
+        focus = "compact_beam",
+        tot = "slim_bar",
+        party = "compact",
+        raid = "tight",
+        castbars = "brushed",
+        actionbars = "flat",
+    },
+    {
+        id = "tank",
+        name = "Tank",
+        role = "TANK",
+        focusLine = "Threat & Targets",
+        frame = "beam",
+        focus = "compact_beam",
+        tot = "crisp_square",
+        party = "framed",
+        raid = "tiles",
+        castbars = "brushed",
+        actionbars = "heavy",
+    },
+}
+ns.rolePresets = ROLE_PRESETS
+
 -- 7 single-row Looks sub-tab categories (Issue #42).
 local LOOK_CATEGORIES = {
     { key = "player_target", short = "Player & Target", label = "Player & Target" },
@@ -368,7 +412,7 @@ local EXTRA_LOOKS = {
               portrait = "class", portraitLook = "socket", portraitShape = "round",
               portraitRing = "class", portraitRingWidth = "normal", portraitScale = 0.95,
               nameOnBar = false, namePos = "above", tabHeight = 16, bigNumber = true,
-              showPower = true, showPowerText = false, showLevel = false,
+              showPower = true, showPowerText = false, showLevel = false, healthText = "percent",
               showRole = true, predictHeals = true, predictAbsorbs = true, showThreat = true,
               ["tab.own"] = true, ["tab.width"] = "fit", ["tab.slant"] = "frame", ["tab.cornerPx"] = 4, ["tab.shadowPx"] = 2,
               ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 5, ["shell.shadowPx"] = 4,
@@ -379,17 +423,17 @@ local EXTRA_LOOKS = {
           settings = {
               style = "ribbon", width = 168, height = 24, powerHeight = 4, ribbonGap = 1, spacing = 5, slant = false,
               portrait = "none", nameOnBar = true, namePos = "bar", bigNumber = false,
-              showPower = true, showPowerText = false, showLevel = false,
+              showPower = true, showPowerText = false, showLevel = false, healthText = "percent",
               showRole = true, predictHeals = true, predictAbsorbs = false, showThreat = true,
               ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 0,
           } },
         { id = "healer", name = "Healer Grid",
-          desc = "Tall 42px portrait-free bars with incoming heals, absorbs, and threat for fast triage.",
+          desc = "Tall 42px portrait-free bars with deficit HP, incoming heals, absorbs, and threat for fast triage.",
           bestFor = "Healing & Triage, 5-Man Dungeons",
           settings = {
               style = "daylight", width = 184, height = 42, powerHeight = 6, spacing = 6, slant = false,
               portrait = "none", nameOnBar = true, namePos = "bar", bigNumber = false,
-              showPower = true, showPowerText = false, showLevel = false,
+              showPower = true, showPowerText = false, showLevel = false, healthText = "deficit",
               showRole = true, predictHeals = true, predictAbsorbs = true, showThreat = true,
               ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 3, ["shell.shadowPx"] = 2,
           } },
@@ -401,7 +445,7 @@ local EXTRA_LOOKS = {
               portrait = "class", portraitLook = "classic", portraitShape = "square",
               portraitRing = "dark", portraitRingWidth = "thick", portraitScale = 1.0,
               nameOnBar = false, namePos = "above", tabHeight = 17, bigNumber = true,
-              showPower = true, showPowerText = false, showLevel = true,
+              showPower = true, showPowerText = false, showLevel = true, healthText = "percent",
               showRole = true, predictHeals = true, predictAbsorbs = true, showThreat = true,
               ["tab.own"] = true, ["tab.width"] = "full", ["tab.slant"] = "frame", ["tab.cornerPx"] = 3, ["tab.shadowPx"] = 3,
               ["shell.own"] = true, ["shell.borderPx"] = 3, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 6,
@@ -676,6 +720,13 @@ local function themeById(id)
     end
 end
 
+local function roleById(id)
+    if type(id) ~= "string" then return nil end
+    for i = 1, #ROLE_PRESETS do
+        if ROLE_PRESETS[i].id == id then return ROLE_PRESETS[i] end
+    end
+end
+
 local function partLabel(kind, id)
     if type(id) ~= "string" or id == "" or id == "none" then return "—" end
     local row
@@ -698,6 +749,10 @@ end
 
 function ns.themeById(id)
     return themeById(id)
+end
+
+function ns.roleById(id)
+    return roleById(id)
 end
 
 
@@ -1003,10 +1058,11 @@ local function hintLine(name, omit)
         if not omit[ORDER[i].id] then names[#names + 1] = ORDER[i].id end
     end
     names[#names + 1] = "off"
+    local rolesHint = " Roles: healer, dps, tank."
     if name then
-        return "Looks: " .. name .. " is on. Type /looks " .. joinOr(names) .. "."
+        return "Looks: " .. name .. " is on. Type /looks " .. joinOr(names) .. "." .. rolesHint
     end
-    return "Looks: off. Type /looks " .. joinOr(names) .. "."
+    return "Looks: off. Type /looks " .. joinOr(names) .. "." .. rolesHint
 end
 
 local function statusLine()
@@ -1465,7 +1521,8 @@ function ns.syncFramePreview()
     if looksOpen and type(staged) == "table" then
         local deckMode = type(ns.getPreviewDeckMode) == "function" and ns.getPreviewDeckMode() or "player_target"
         local baseTheme = (staged.baseKind == "theme" or staged.kind == "theme") and themeById(staged.baseId or staged.id) or nil
-        local baseRec = (staged.baseKind == "mypreset" or staged.kind == "mypreset") and type(staged.recipe) == "table" and staged.recipe or nil
+        local baseRec = (staged.baseKind == "mypreset" or staged.kind == "mypreset" or staged.baseKind == "role" or staged.kind == "role")
+            and type(staged.recipe) == "table" and staged.recipe or nil
 
         local effFrame = staged.frame
             or (staged.kind == "frame" and staged.id)
@@ -1503,7 +1560,7 @@ end
 -- from somewhere else calls this first, so it reads the saved style.
 function ns.dropFramePreview()
     local staged = ns.staged
-    if type(staged) == "table" and (staged.kind == "frame" or staged.kind == "theme" or staged.kind == "look" or staged.kind == "mypreset" or staged.kind == "multi") then
+    if type(staged) == "table" and (staged.kind == "frame" or staged.kind == "theme" or staged.kind == "look" or staged.kind == "mypreset" or staged.kind == "role" or staged.baseKind == "role" or staged.kind == "multi") then
         ns.staged = nil
         refreshLooks()
     end
@@ -1527,6 +1584,8 @@ local function queueLook(kind, id, name)
     looksPending = { kind = kind, id = id }
     if kind == "theme" then
         say("Palettes: " .. name .. " queued until combat ends.")
+    elseif kind == "role" then
+        say("Palettes: " .. name .. " role looks queued until combat ends.")
     else
         say("Looks: " .. name .. " queued until combat ends.")
     end
@@ -1868,6 +1927,26 @@ function ns.exactTheme(palette, frameId)
     end
 end
 
+function ns.exactRole()
+    local frameId = wornFrame()
+    if not frameId then return nil end
+    local picks = readLookPicks()
+    for i = 1, #ROLE_PRESETS do
+        local role = ROLE_PRESETS[i]
+        if role.frame == frameId then
+            local match = true
+            for c = 1, #EXTRA_CAT_KEYS do
+                local ck = EXTRA_CAT_KEYS[c]
+                if picks[ck] ~= role[ck] then
+                    match = false
+                    break
+                end
+            end
+            if match then return role end
+        end
+    end
+end
+
 function ns.notePalette(id)
     if ns.applyingTheme or ns.clearingTheme then return end
     local exact = ns.exactTheme(id, wornFrame())
@@ -2013,6 +2092,59 @@ local function applyTheme(theme)
     if not frameOk then failFrame(theme.frame) end
     refreshLooks()
 end
+
+local function applyRole(role)
+    if type(role) == "string" then role = roleById(role) end
+    if type(role) ~= "table" then return false end
+    if inCombat() then
+        queueLook("role", role.id, role.name)
+        return false
+    end
+    if not hasWrite() then
+        failFrame(role.frame)
+        return false
+    end
+    local allExtraPairs = {}
+    for i = 1, #EXTRA_CAT_KEYS do
+        local ck = EXTRA_CAT_KEYS[i]
+        if type(role[ck]) == "string" then
+            local list = categoryPairs(ck, role[ck], role.frame)
+            for j = 1, #list do allExtraPairs[#allExtraPairs + 1] = list[j] end
+        end
+    end
+    if #allExtraPairs > 0 then captureExtraForPairs(allExtraPairs) end
+    local undoShot = (not ns.applyingTheme and type(ns.captureUndo) == "function") and ns.captureUndo("looks") or nil
+
+    ns.applyingTheme = true
+    local frameOk = true
+    batch(function()
+        frameOk = applyFrame(role.frame, true)
+        for i = 1, #EXTRA_CAT_KEYS do
+            local ck = EXTRA_CAT_KEYS[i]
+            if type(role[ck]) == "string" then
+                pcall(ns.applyCategoryLook, ck, role[ck], true)
+            end
+        end
+    end)
+    ns.applyingTheme = false
+
+    if undoShot and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
+
+    local exact = ns.exactTheme(ns.screenPalette(), wornFrame())
+    if exact then
+        writeThemeSlot(exact.id, false)
+    else
+        local themeId = ns.readTheme()
+        if themeId then writeThemeSlot(themeId, true) end
+    end
+
+    say("Palettes: " .. role.name .. " role looks applied. Your colours and layout are unchanged.")
+    if not frameOk then failFrame(role.frame) end
+    refreshPage()
+    refreshLooks()
+    return frameOk
+end
+ns.applyRole = applyRole
 
 function ns.restoreColoursOnly()
     ns.coloursOnlyRestore = true
@@ -2176,6 +2308,9 @@ function ns.finishLooksCombat()
     elseif pending.kind == "theme" then
         local theme = themeById(pending.id)
         if theme then applyTheme(theme) end
+    elseif pending.kind == "role" then
+        local role = roleById(pending.id)
+        if role then applyRole(role) end
     end
     refreshLooks()
 end
@@ -2207,9 +2342,9 @@ function ns.looksSlash(msg)
     end
     local beforeLook = ns.lookMark()
     local beforePal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
-    -- A frame look repaints live. A Preset or off changes colours.
+    -- A frame look or role preset repaints live. A Core Preset or off changes colours.
     local arg = string.lower(trim(msg or ""))
-    local looksOnly = resolveFrame(arg) ~= nil
+    local looksOnly = resolveFrame(arg) ~= nil or roleById(arg) ~= nil
     ns.withReloadAction(function()
         run()
         local afterPal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
@@ -2247,6 +2382,11 @@ function looksSlashRun(msg)
         end
         return
     end
+    local role = roleById(arg)
+    if role then
+        applyRole(role)
+        return
+    end
     local frameId = resolveFrame(arg)
     if frameId then
         applyFrame(frameId)
@@ -2267,6 +2407,11 @@ local function rowPending(kind, id)
     if pending.kind == "theme" then
         local theme = themeById(pending.id)
         if theme and ((kind == "frame" and theme.frame == id) or (kind == "theme" and theme.id == id)) then
+            return true
+        end
+    elseif pending.kind == "role" then
+        local role = roleById(pending.id)
+        if role and ((kind == "frame" and role.frame == id) or (kind == "role" and role.id == id)) then
             return true
         end
     end
@@ -2842,9 +2987,33 @@ function ns.jumpToTab(tabName, subTabKey)
     refreshLooks()
 end
 
--- Issue #41: Presets Tab — 6 core themes in 3x2 grid + split Recipe / My Presets footer.
+-- Issue #41 & #35: Presets Tab — 6 core themes in 3x2 grid + Role Presets strip & split Recipe / My Presets footer.
 local PRESET_GRID_CARD_H = 86
-local PRESET_FOOTER_H = 154
+local ROLE_CARD_H = 56
+local ROLE_STRIP_GAP = 6
+local ROLE_GAP_X = 6
+local PRESET_FOOTER_H = 150
+local PRESET_TOTAL_FOOTER_H = ROLE_CARD_H + ROLE_STRIP_GAP + PRESET_FOOTER_H
+
+local ROLE_ICON_PATH = "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES"
+local ROLE_TEX_COORDS = {
+    TANK = { 0, 19 / 64, 22 / 64, 41 / 64 },
+    HEALER = { 20 / 64, 39 / 64, 1 / 64, 20 / 64 },
+    DAMAGER = { 20 / 64, 39 / 64, 22 / 64, 41 / 64 },
+}
+
+local function drawRoleIcon(parent, roleKey)
+    local tex = parent:CreateTexture(nil, "ARTWORK")
+    tex:SetSize(14, 14)
+    if type(tex.SetTexture) == "function" then
+        tex:SetTexture(ROLE_ICON_PATH)
+    end
+    local tc = ROLE_TEX_COORDS[roleKey]
+    if tc and type(tex.SetTexCoord) == "function" then
+        tex:SetTexCoord(tc[1], tc[2], tc[3], tc[4])
+    end
+    return tex
+end
 
 local function buildPresetsPage(row)
     if row.made or type(CreateFrame) ~= "function" then return end
@@ -3012,7 +3181,128 @@ local function buildPresetsPage(row)
         cards[#cards + 1] = line
     end
 
-    -- Two-Column Footer Split: Left = Preset Recipe Card, Right = My Presets (2x2)
+    -- Left Footer Top: 3-column Looks-only Role Presets strip (Healer, DPS, Tank)
+    local roleCards = {}
+    row.roleCards = roleCards
+    for i = 1, #ROLE_PRESETS do
+        local role = ROLE_PRESETS[i]
+        local hold = CreateFrame("Button", nil, row)
+        hold:SetHeight(ROLE_CARD_H)
+        local card = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(hold) or nil
+
+        local icon = drawRoleIcon(hold, role.role)
+        local nameFs = uiFont(hold, 11, CREAM)
+        nameFs:SetText(role.name)
+        if type(nameFs.SetWordWrap) == "function" then nameFs:SetWordWrap(false) end
+
+        local badge = CreateFrame("Frame", nil, hold)
+        badge:SetHeight(14)
+        local badgeCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(badge) or nil
+        local badgeFs = uiFont(badge, 8, AMBER_INK)
+        badgeFs:SetText("")
+        badgeFs:SetPoint("CENTER", badge, "CENTER", 0, 0)
+        setShownSafe(badge, false)
+
+        local focusFs = uiFont(hold, 10, DIM)
+        focusFs:SetText(role.focusLine)
+        if type(focusFs.SetWordWrap) == "function" then focusFs:SetWordWrap(false) end
+
+        local cue = hold:CreateTexture(nil, "OVERLAY")
+        cue:SetWidth(3)
+        cue:SetPoint("TOPLEFT", hold, "TOPLEFT", 0, 0)
+        cue:SetPoint("BOTTOMLEFT", hold, "BOTTOMLEFT", 0, 0)
+        setShownSafe(cue, false)
+
+        local rLine = {
+            id = role.id, kind = "role", role = role,
+            button = hold, card = card, icon = icon,
+            name = nameFs, focusFs = focusFs,
+            badge = badge, badgeCard = badgeCard, badgeFs = badgeFs, cue = cue,
+        }
+
+        local function paintRoleCard()
+            local win, _, bnd, _, brd, acc, txt, lbl = activeSurface()
+            local rest = blend(win, bnd, 0.28)
+            local hover = blend(win, bnd, 0.52)
+            local fill, edge, fa, ea = rest, brd, 0.90, 0.60
+            local active = rLine.markStaged or rLine.markOn or rLine.markPending
+            if active then
+                fill = blend(win, acc, 0.20)
+                edge = acc
+                fa, ea = 0.98, rLine.markStaged and 1.0 or 0.92
+            elseif rLine.hover then
+                fill = hover
+                edge = blend(brd, acc, 0.55)
+                fa, ea = 0.94, 0.85
+            end
+            if card then card.paint(fill, fa, edge, ea) end
+            tintText(nameFs, txt)
+            tintText(focusFs, active and txt or lbl)
+            setShownSafe(cue, false)
+            if active then
+                if type(cue.SetColorTexture) == "function" then
+                    cue:SetColorTexture(acc[1], acc[2], acc[3], 1)
+                end
+                setShownSafe(cue, true)
+            end
+            setShownSafe(badge, false)
+            if rLine.markPending then
+                badgeFs:SetText("WAIT")
+                badge:SetWidth(34)
+                if badgeCard then badgeCard.paint(AMBER_BG, 1, AMBER_BG, 1) end
+                tintText(badgeFs, AMBER_INK)
+                setShownSafe(badge, true)
+            elseif rLine.markStaged then
+                badgeFs:SetText("PREVIEW")
+                badge:SetWidth(46)
+                if badgeCard then badgeCard.paint(AMBER_BG, 1, AMBER_BG, 1) end
+                tintText(badgeFs, AMBER_INK)
+                setShownSafe(badge, true)
+            elseif rLine.markOn then
+                badgeFs:SetText("APPLIED")
+                badge:SetWidth(44)
+                if badgeCard then badgeCard.paint(acc, 1, acc, 1) end
+                tintText(badgeFs, AMBER_INK)
+                setShownSafe(badge, true)
+            end
+        end
+
+        function rLine.SetOn(on, pending, staged)
+            rLine.markOn = on and true or false
+            rLine.markPending = pending and true or false
+            rLine.markStaged = staged and true or false
+            paintRoleCard()
+        end
+        function rLine.SetHover(on)
+            rLine.hover = on and true or false
+            paintRoleCard()
+        end
+
+        hold:SetScript("OnClick", function()
+            local activeRole = ns.exactRole()
+            local pending = rowPending("role", role.id)
+            local live = activeRole and activeRole.id == role.id and not pending
+            ns.setLooksOpen(true)
+            if type(ns.stagePick) == "function" then
+                ns.stagePick("role", role.id, function() applyRole(role) end, live, role.name .. " Role", role)
+            else
+                applyRole(role)
+            end
+            refreshLooks()
+        end)
+        hold:SetScript("OnEnter", function()
+            rLine.SetHover(true)
+            showTooltip(hold, role.name .. " Role (Looks-only — keeps your active Colour)\n" .. role.focusLine .. " · Applies live with no /reload")
+        end)
+        hold:SetScript("OnLeave", function()
+            rLine.SetHover(false)
+            hideTooltip()
+        end)
+
+        roleCards[#roleCards + 1] = rLine
+    end
+
+    -- Two-Column Footer Split: Left = Role Presets + Preset Recipe Card, Right = My Presets (2x2)
     local recipeBox = CreateFrame("Frame", nil, row)
     recipeBox:SetHeight(PRESET_FOOTER_H)
     local recipeCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(recipeBox) or nil
@@ -3075,7 +3365,7 @@ local function buildPresetsPage(row)
 
     -- Right Column: My Presets (2x2 grid, 4 slots)
     local myBox = CreateFrame("Frame", nil, row)
-    myBox:SetHeight(PRESET_FOOTER_H)
+    myBox:SetHeight(PRESET_TOTAL_FOOTER_H)
     local myCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(myBox) or nil
     local myTitle = uiFont(myBox, 12, CREAM)
     myTitle:SetText("My Presets")
@@ -3084,7 +3374,7 @@ local function buildPresetsPage(row)
     local mySlots = {}
     for s = 1, MY_PRESET_SLOTS do
         local slotBtn = CreateFrame("Button", nil, myBox)
-        slotBtn:SetHeight(52)
+        slotBtn:SetHeight(76)
         local sCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(slotBtn) or nil
         local sName = uiFont(slotBtn, 11, CREAM)
         if type(sName.SetWordWrap) == "function" then sName:SetWordWrap(false) end
@@ -3199,8 +3489,30 @@ local function buildPresetsPage(row)
         local footerY = 4 + gridRows * (PRESET_GRID_CARD_H + CARD_GAP_Y) + 8
         local halfW = math.floor((w - 8 - CARD_GAP_X) / 2)
 
+        -- Left Footer Top: 3-column Role Presets strip
+        local roleCols = #roleCards
+        local roleCardW = math.floor((halfW - (roleCols - 1) * ROLE_GAP_X) / roleCols)
+        for i = 1, roleCols do
+            local r = roleCards[i]
+            local rx = 4 + (i - 1) * (roleCardW + ROLE_GAP_X)
+            r.button:ClearAllPoints()
+            r.button:SetPoint("TOPLEFT", row, "TOPLEFT", rx, -footerY)
+            r.button:SetWidth(roleCardW)
+            r.icon:ClearAllPoints()
+            r.icon:SetPoint("TOPLEFT", r.button, "TOPLEFT", 8, -8)
+            r.name:ClearAllPoints()
+            r.name:SetPoint("LEFT", r.icon, "RIGHT", 4, 0)
+            r.name:SetWidth(math.max(32, roleCardW - 72))
+            r.badge:ClearAllPoints()
+            r.badge:SetPoint("TOPRIGHT", r.button, "TOPRIGHT", -6, -7)
+            r.focusFs:ClearAllPoints()
+            r.focusFs:SetPoint("BOTTOMLEFT", r.button, "BOTTOMLEFT", 8, 8)
+            r.focusFs:SetPoint("RIGHT", r.button, "RIGHT", -8, 0)
+        end
+
+        local recipeY = footerY + ROLE_CARD_H + ROLE_STRIP_GAP
         recipeBox:ClearAllPoints()
-        recipeBox:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -footerY)
+        recipeBox:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -recipeY)
         recipeBox:SetWidth(halfW)
         recipeTitle:ClearAllPoints()
         recipeTitle:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -8)
@@ -3217,7 +3529,7 @@ local function buildPresetsPage(row)
             local lr = math.floor(idx / 4)
             local lc = idx - lr * 4
             local lx = 10 + lc * (pillW + 5)
-            local ly = 84 + lr * 33
+            local ly = 80 + lr * 33
             lb.btn:ClearAllPoints()
             lb.btn:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", lx, -ly)
             lb.btn:SetWidth(pillW)
@@ -3238,14 +3550,14 @@ local function buildPresetsPage(row)
             local sr = math.floor(idx / 2)
             local sc = idx - sr * 2
             local sx = 10 + sc * (slotW + 6)
-            local sy = 32 + sr * 58
+            local sy = 32 + sr * 84
             sl.btn:ClearAllPoints()
             sl.btn:SetPoint("TOPLEFT", myBox, "TOPLEFT", sx, -sy)
             sl.btn:SetWidth(slotW)
         end
 
         combatNote:ClearAllPoints()
-        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 6, -(footerY + PRESET_FOOTER_H + 6))
+        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 6, -(footerY + PRESET_TOTAL_FOOTER_H + 4))
     end
 
     function row.UpdateLooks()
@@ -3257,6 +3569,10 @@ local function buildPresetsPage(row)
         local staged = ns.staged
         local stagedThemeId = (type(staged) == "table" and (staged.baseKind == "theme" or staged.kind == "theme"))
             and (staged.baseId or staged.id) or nil
+        local stagedRoleId = (type(staged) == "table" and (staged.baseKind == "role" or staged.kind == "role"))
+            and (staged.baseId or staged.id) or nil
+        local stagedRole = stagedRoleId and roleById(stagedRoleId) or nil
+        local activeRole = ns.exactRole()
 
         for i = 1, #cards do
             local line = cards[i]
@@ -3266,16 +3582,34 @@ local function buildPresetsPage(row)
             line.SetOn(on, pending, isStaged)
         end
 
+        for i = 1, #roleCards do
+            local rLine = roleCards[i]
+            local pending = rowPending("role", rLine.id)
+            local on = (activeRole ~= nil and activeRole.id == rLine.id and not pending)
+            local isStaged = (stagedRoleId == rLine.id)
+            rLine.SetOn(on, pending, isStaged)
+        end
+
         -- Update Preset Recipe card
         if recipeCard then recipeCard.paint(bg, 0.92, brd, 0.70) end
         local focusTheme = (stagedThemeId and themeById(stagedThemeId))
             or (shownId and themeById(shownId))
             or THEMES[1]
         local hasStagedTweaks = type(staged) == "table" and (staged.palette ~= nil or staged.frame ~= nil or (type(staged.looks) == "table" and next(staged.looks) ~= nil))
-        local isModified = (shownId ~= nil and changed == true and stagedThemeId == nil) or (stagedThemeId ~= nil and hasStagedTweaks)
-        if isModified then
+        local isModified = (shownId ~= nil and changed == true and stagedThemeId == nil)
+            or (stagedThemeId ~= nil and hasStagedTweaks)
+            or (stagedRole ~= nil and shownId ~= nil)
+        if stagedRole and not shownId then
+            recipeTitle:SetText(stagedRole.name .. " Role Recipe")
+            recipeDesc:SetText("Applies " .. stagedRole.name .. " looks live across all 7 layers without changing your Colour.")
+            setShownSafe(recipeQuickSave, false)
+        elseif isModified then
             recipeTitle:SetText("Custom (based on " .. (focusTheme and focusTheme.name or "Preset") .. ")")
-            recipeDesc:SetText("Modified from " .. (focusTheme and focusTheme.name or "Preset") .. ". Click any layer below to tweak or save to My Presets.")
+            if stagedRole then
+                recipeDesc:SetText("Staging " .. stagedRole.name .. " role looks over " .. (focusTheme and focusTheme.name or "Preset") .. " (keeps your active Colour).")
+            else
+                recipeDesc:SetText("Modified from " .. (focusTheme and focusTheme.name or "Preset") .. ". Click any layer below to tweak or save to My Presets.")
+            end
             setShownSafe(recipeQuickSave, true)
             if quickSaveCard then quickSaveCard.paint(bnd, 0.95, acc, 0.85) end
             tintText(quickSaveFs, acc)
@@ -3287,7 +3621,22 @@ local function buildPresetsPage(row)
         tintText(recipeTitle, txt)
         tintText(recipeDesc, lbl)
 
-        local baseRec = (stagedThemeId and focusTheme) or (isModified and ns.currentRecipe()) or focusTheme or ns.currentRecipe()
+        local curRec = ns.currentRecipe()
+        local baseRec
+        if stagedRole then
+            baseRec = {
+                palette = curRec.palette,
+                frame = stagedRole.frame,
+                focus = stagedRole.focus,
+                tot = stagedRole.tot,
+                party = stagedRole.party,
+                raid = stagedRole.raid,
+                castbars = stagedRole.castbars,
+                actionbars = stagedRole.actionbars,
+            }
+        else
+            baseRec = (stagedThemeId and focusTheme) or (isModified and curRec) or focusTheme or curRec
+        end
         local rec = {
             palette = (type(staged) == "table" and staged.palette) or baseRec.palette,
             frame = (type(staged) == "table" and staged.frame) or baseRec.frame,
@@ -3408,7 +3757,7 @@ function ns.themesPage()
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
                         height = function()
-                            return 4 + 2 * (PRESET_GRID_CARD_H + CARD_GAP_Y) + 8 + PRESET_FOOTER_H + 16
+                            return 4 + 2 * (PRESET_GRID_CARD_H + CARD_GAP_Y) + 8 + PRESET_TOTAL_FOOTER_H + 12
                         end,
                     },
                 },
@@ -3680,7 +4029,7 @@ local function buildLooksTabPage(row)
         local staged = ns.staged
         local stagedTheme = (type(staged) == "table" and (staged.baseKind == "theme" or staged.kind == "theme"))
             and themeById(staged.baseId or staged.id) or nil
-        local stagedRec = (type(staged) == "table" and (staged.baseKind == "mypreset" or staged.kind == "mypreset") and type(staged.recipe) == "table")
+        local stagedRec = (type(staged) == "table" and (staged.baseKind == "mypreset" or staged.kind == "mypreset" or staged.baseKind == "role" or staged.kind == "role") and type(staged.recipe) == "table")
             and staged.recipe or nil
         local stagedPT = (type(staged) == "table" and staged.frame)
             or (type(staged) == "table" and staged.kind == "frame" and staged.id)
