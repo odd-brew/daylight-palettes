@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0] - 2026-11-27
+
+### Added
+- **Nameplates (8th Looks Category & 9th Preset Layer):** Added **Nameplates** to the single-row **Looks** sub-tab bar (shortening `Player & Target` to `Player/Target` with tooltip so all 8 tabs fit cleanly) with 5 distinct, combat-color-immune silhouettes (**Daylight Standard**, **Razor Strip**, **Sculpted Plate**, **Crisp Flat**, and **Triage Bar**).
+- **9-Layer Preset Recipes & My Presets:** Assigned a matching Nameplate look to all 6 core presets (**Hearthnight** → Sculpted Plate, **Harvestide** → Daylight Standard, **Tidemark** → Razor Strip, **Old Road** → Sculpted Plate, **Vigil** → Triage Bar, **Snug** → Daylight Standard), expanded the **Preset Recipe** card to a 3×3 grid (9 layers), and saved/restored the 9th layer in **My Presets**.
+- **Live DaylightUI Nameplates Preview Deck:** Added **Nameplates** to the Preview Deck selector with bidirectional Looks sub-tab sync, rendering DaylightUI's real live Enemy Target and Friendly nameplate samples side-by-side (with a safe fallback strip when `DaylightUI_Nameplates` is not loaded/enabled).
+- **Daylight Standard Across Every Looks Category:** Added a **Daylight Standard** option in the first position of all 8 Looks categories so any individual layer can be restored to DaylightUI's native defaults without resetting the rest of your setup.
+- **Safety, Snapshots & `/looks`:** Full pre-write Nameplates snapshots for **Reset Looks**, **Restore Daylight**, and **Undo**, combat lockdown queuing (`finishLooksCombat`), module-absent safety guard, and `/looks` support for nameplate look names (`standard`, `razor`, `sculpted`, `flat`, `triage`).
+
+### Fixed
+- **Preview Deck helper text:** Shortened the Preview Deck footer hint so it no longer collides with the `Zoom` slider at ~760px width.
+
 ## [0.7.1] - 2026-11-26
 
 ### Fixed

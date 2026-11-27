@@ -1310,8 +1310,8 @@ do
     end
 end
 
-if not toc:find("## Version: 0.7.1", 1, true) then
-    fail("version stays 0.7.1")
+if not toc:find("## Version: 0.8.0", 1, true) then
+    fail("version stays 0.8.0")
 end
 if not toc:find("frame looks", 1, true) or toc:find("glow styles", 1, true) then
     fail("toc notes must cover frame looks and not glow styles")
@@ -1991,11 +1991,14 @@ ns.looksGuard = nil
 if type(body) == "table" and type(body.build) == "function" then
     local built, buildErr = pcall(body.build, row)
     if not built then fail("looks tab did not build: " .. tostring(buildErr)) end
-    check(type(row.lines) == "table" and #row.lines or 0, 35, "all 7 Looks categories register 35 option cards")
+    check(type(row.lines) == "table" and #row.lines or 0, 46, "all 8 Looks categories register 46 option cards")
+    check(row.lines[1] and row.lines[1].id, "daylight_standard", "frame row 1 is daylight_standard")
+    check(row.lines[1] and row.lines[1].kind, "frame", "frame row 1 is a frame")
     for i = 1, #FRAME_IDS do
-        check(row.lines[i] and row.lines[i].id, FRAME_IDS[i], "frame row " .. i .. " is " .. FRAME_IDS[i])
-        check(row.lines[i] and row.lines[i].kind, "frame", "frame row " .. i .. " is a frame")
-        check(type(row.lines[i].button) == "table" and type(row.lines[i].button.scripts.OnClick), "function", "frame row " .. i .. " is a button")
+        local ln = row.lines[i + 1]
+        check(ln and ln.id, FRAME_IDS[i], "frame row " .. (i + 1) .. " is " .. FRAME_IDS[i])
+        check(ln and ln.kind, "frame", "frame row " .. (i + 1) .. " is a frame")
+        check(type(ln.button) == "table" and type(ln.button.scripts.OnClick), "function", "frame row " .. (i + 1) .. " is a button")
     end
     for i = 1, #row.lines do
         if row.lines[i].kind == "glow" then fail("looks tab must have no glow rows") end
@@ -2007,11 +2010,11 @@ if type(body) == "table" and type(body.build) == "function" then
         fail("looks tab must have no glow heading or glow hint")
     end
     for i = 1, #frameLines do
-        check(row.lines[i].desc.words, frameLines[i], "frame row " .. i .. " reads the spec one-liner")
+        check(row.lines[i + 1].desc.words, frameLines[i], "frame row " .. (i + 1) .. " reads the spec one-liner")
     end
-    check(row.lines[2].desc.words, "Slim slanted bar with hung power rail and top name tab to save vertical screen space.", "Trestle ships the spec wording")
+    check(row.lines[3].desc.words, "Slim slanted bar with hung power rail and top name tab to save vertical screen space.", "Trestle ships the spec wording")
     if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
-    local active = row.lines[1]
+    local active = row.lines[2]
     active.SetOn(true, false)
     check(active.key.shown, false, "the picked row hides its key")
     check(active.check.texture, "Interface\\Buttons\\UI-CheckBox-Check", "the check is the game texture")
@@ -2029,7 +2032,7 @@ if type(body) == "table" and type(body.build) == "function" then
     check(type(active.washColor) == "table", true, "hover still paints the row highlight")
     active.SetHover(false)
 
-    local flagonRow, trestleRow, beamRow = row.lines[1], row.lines[2], row.lines[3]
+    local flagonRow, trestleRow, beamRow = row.lines[2], row.lines[3], row.lines[4]
     local function unitShows(id, unit)
         local n = 0
         for key, value in pairs(ns.frameValues(id)) do
@@ -2829,17 +2832,17 @@ do
     check(#scroll.points, before, "leaving the page does not move the scroll")
 end
 
--- Issues #41-#44 regression checks
+-- Issues #34, #41-#44 regression checks
 do
-    -- #41: 6 core presets exact 8-layer recipes
+    -- #41 & #34: 6 core presets exact 9-layer recipes
     check(#ns.themes, 6, "#41 six core presets")
     local wantRecipes = {
-        hearthnight = { "ember", "beam", "compact_beam", "compact_pill", "framed", "framed", "molten", "classic" },
-        harvestide = { "vanilla", "stream", "slim_ribbon", "compact_pill", "standard", "tiles", "silk", "classic" },
-        tidemark = { "tide", "slate", "minimal_slate", "slim_bar", "compact", "tight", "tide", "flat" },
-        oldroad = { "forever", "crest", "compact_beam", "crisp_square", "framed", "framed", "brushed", "heavy" },
-        vigil = { "paladin", "stream", "slim_ribbon", "compact_pill", "healer", "matte", "silk", "circle" },
-        snug = { "gilded", "flagon", "match", "compact_pill", "standard", "tiles", "flow", "circle" },
+        hearthnight = { "ember", "beam", "compact_beam", "compact_pill", "framed", "framed", "molten", "classic", "sculpted" },
+        harvestide = { "vanilla", "stream", "slim_ribbon", "compact_pill", "standard", "tiles", "silk", "classic", "standard" },
+        tidemark = { "tide", "slate", "minimal_slate", "slim_bar", "compact", "tight", "tide", "flat", "razor" },
+        oldroad = { "forever", "crest", "compact_beam", "crisp_square", "framed", "framed", "brushed", "heavy", "sculpted" },
+        vigil = { "paladin", "stream", "slim_ribbon", "compact_pill", "healer", "matte", "silk", "circle", "triage" },
+        snug = { "gilded", "flagon", "match", "compact_pill", "standard", "tiles", "flow", "circle", "standard" },
     }
     for i = 1, #ns.themes do
         local t = ns.themes[i]
@@ -2854,24 +2857,129 @@ do
             check(t.raid, w[6], t.id .. " raid")
             check(t.castbars, w[7], t.id .. " castbars")
             check(t.actionbars, w[8], t.id .. " actionbars")
+            check(t.nameplates, w[9], t.id .. " nameplates")
         end
     end
 
-    -- #41: My Presets 4-slot save/read/delete
+    -- #41 & #34: My Presets 4-slot save/read/delete preserves 9th (nameplates) layer
     check(ns.saveMyPreset(1, "Raid Tank"), true, "#41 save My Preset slot 1")
     local savedSlots = ns.readMyPresets()
     check(type(savedSlots[1]) == "table" and savedSlots[1].name, "Raid Tank", "#41 read My Preset slot 1")
+    check(type(savedSlots[1].recipe) == "table" and type(savedSlots[1].recipe.nameplates), "string", "#34 My Preset saves 9th nameplates layer")
     check(ns.deleteMyPreset(1), true, "#41 delete My Preset slot 1")
     check(ns.readMyPresets()[1], nil, "#41 My Preset slot 1 cleared")
 
-    -- #42: 7 Looks categories, ToT tooltip, bidirectional Preview Deck sync
-    check(#ns.lookCategories, 7, "#42 seven Looks sub-tab categories")
+    -- #42 & #34: 8 Looks categories, Player/Target & Nameplates sub-tabs, ToT tooltip, bidirectional Preview Deck sync
+    check(#ns.lookCategories, 8, "#34 eight Looks sub-tab categories")
+    check(ns.lookCategories[1].short, "Player/Target", "#34 first Looks sub-tab shortened to Player/Target")
     check(ns.lookCategories[3].short, "ToT", "#42 third Looks sub-tab is ToT")
     check(ns.lookCategories[3].tooltip, "Target of Target", "#42 ToT has Target of Target tooltip")
+    check(ns.lookCategories[8].key, "nameplates", "#34 eighth Looks sub-tab is nameplates")
+    check(ns.lookCategories[8].short, "Nameplates", "#34 eighth Looks sub-tab label is Nameplates")
+    ns.setLooksSubTab("nameplates", false)
+    check(ns.getLooksSubTab(), "nameplates", "#34 setLooksSubTab switches to nameplates")
+    check(ns.getPreviewDeckMode(), "nameplates", "#34 nameplates sub-tab syncs Preview Deck mode")
     ns.setLooksSubTab("focus", false)
     check(ns.getLooksSubTab(), "focus", "#42 setLooksSubTab switches to focus")
     check(ns.getPreviewDeckMode(), "focus", "#42 sub-tab syncs Preview Deck mode")
     ns.setLooksSubTab("player_target", false)
+
+    -- Every Looks category includes a "Daylight Standard" option in the first position
+    check(ns.frameById("daylight_standard") and ns.frameById("daylight_standard").name, "Daylight Standard", "player_target has Daylight Standard option")
+    for i = 2, #ns.lookCategories do
+        local ck = ns.lookCategories[i].key
+        local list = ns.extraLooks and ns.extraLooks[ck] or {}
+        check(list[1] and list[1].id, "standard", ck .. " first option is standard")
+        check(list[1] and list[1].name, "Daylight Standard", ck .. " first option is Daylight Standard")
+    end
+
+    -- #34: 5 curated Nameplate looks & strict Combat-Color Immunity
+    local npList = ns.extraLooks and ns.extraLooks.nameplates or {}
+    check(#npList, 5, "#34 five curated Nameplate looks")
+    local forbiddenCombatKeys = {
+        healthColor = true, healthCustom = true, healthGradient = true,
+        threat = true, threatFill = true, threatAggro = true, threatWarn = true, threatLost = true,
+        threatBar = true, threatBorder = true, threatGlow = true,
+        castColor = true, castFill = true, castGradient = true,
+        nameColor = true, bossBar = true, rareBar = true, questBar = true, casterBar = true,
+        ["friendly.healthColor"] = true, ["friendly.healthCustom"] = true, ["friendly.healthGradient"] = true,
+    }
+    local wantNpIds = { "standard", "razor", "sculpted", "flat", "triage" }
+    for i = 1, #wantNpIds do
+        local opt = npList[i]
+        check(opt and opt.id, wantNpIds[i], "#34 nameplate look " .. i .. " is " .. wantNpIds[i])
+        if opt and type(opt.settings) == "table" then
+            for k in pairs(opt.settings) do
+                if forbiddenCombatKeys[k] then
+                    fail("#34 nameplate look " .. opt.id .. " must not override combat color key: " .. k)
+                end
+            end
+        end
+    end
+
+    -- #34: Nameplates snapshot, apply, Undo, Reset Looks, combat queue, /looks, and module-absent safety
+    local npOrig = {
+        width = 170, height = 16, slant = true, backAlpha = 0.80,
+        ["media.health"] = "daylight", ["media.cast"] = "daylight",
+        castHeight = 14, castIcon = false, castIconPos = "outleft",
+        nameSize = 13, percent = true, healthFormat = "percent", percentSign = true,
+        targetStyle = "outline", targetAccent = true, targetScale = true, ["target.scale"] = 1.15, targetArrows = "none",
+        ["friendly.height"] = 4, ["friendly.percent"] = false,
+    }
+    for k, v in pairs(npOrig) do sets.Nameplates[k] = v end
+    local npModEnabled = true
+    ui.GetModule = function(_, name)
+        if name == "Nameplates" and npModEnabled then return { name = "Nameplates", enabled = true } end
+        return nil
+    end
+
+    account.looks = nil
+    check(ns.nameplatesModuleLoaded(), true, "#34 nameplatesModuleLoaded is true when module enabled")
+    check(ns.applyCategoryLook("nameplates", "sculpted", true), true, "#34 applyCategoryLook writes Sculpted Plate")
+    check(sets.Nameplates.width, 204, "#34 Sculpted Plate sets width to 204")
+    check(sets.Nameplates.height, 24, "#34 Sculpted Plate sets height to 24")
+    check(sets.Nameplates["media.health"], "brushed", "#34 Sculpted Plate sets brushed texture")
+    check(sets.Nameplates.castHeight, 20, "#34 Sculpted Plate sets castHeight to 20")
+    check(sets.Nameplates.targetStyle, "glow", "#34 Sculpted Plate sets targetStyle to glow")
+    check(type(account.looks) == "table" and type(account.looks.nameplateValues) == "table" and account.looks.nameplateValues.width, 170, "#34 pre-write nameplate snapshot saved")
+
+    -- Reset Looks restores original Nameplates values cleanly
+    ns.restoreLooksOnly()
+    check(sets.Nameplates.width, 170, "#34 Reset Looks restores Nameplates width")
+    check(sets.Nameplates.height, 16, "#34 Reset Looks restores Nameplates height")
+    check(sets.Nameplates["media.health"], "daylight", "#34 Reset Looks restores Nameplates texture")
+    check(sets.Nameplates.castIcon, false, "#34 Reset Looks restores Nameplates castIcon")
+
+    -- /looks supports nameplate look names and Undo restores them
+    ns.looksSlash("razor")
+    check(sets.Nameplates.height, 8, "#34 /looks razor applies Razor Strip height")
+    check(sets.Nameplates.castIcon, false, "#34 /looks razor sets compact cast bar")
+    ns.looksSlash("triage")
+    check(sets.Nameplates.height, 21, "#34 /looks triage applies noticeably taller Triage Bar height")
+    check(sets.Nameplates["media.health"], "silk", "#34 /looks triage applies silk bar texture")
+    check(sets.Nameplates["friendly.percent"], true, "#34 /looks triage enables friendly % health")
+    local undoBefore = ns.captureUndo("look")
+    ns.applyCategoryLook("nameplates", "flat", true)
+    check(sets.Nameplates["media.health"], "glass", "#34 Crisp Flat applies glass texture")
+    ns.applyUndoShot(undoBefore)
+    check(sets.Nameplates["media.health"], "silk", "#34 Undo restores previous Nameplates look")
+
+    -- Combat lockdown queues Nameplate look until combat ends
+    looksEnv.InCombatLockdown = function() return true end
+    check(ns.applyCategoryLook("nameplates", "razor", true), false, "#34 combat lockdown blocks immediate nameplate write")
+    check(sets.Nameplates["media.health"], "silk", "#34 combat lockdown leaves Nameplates unchanged")
+    looksEnv.InCombatLockdown = function() return false end
+    ns.finishLooksCombat()
+    check(sets.Nameplates.height, 8, "#34 finishLooksCombat applies queued Razor Strip nameplate look")
+
+    -- Module-absent safety: skips writes cleanly without error
+    npModEnabled = false
+    check(ns.nameplatesModuleLoaded(), false, "#34 nameplatesModuleLoaded is false when module absent")
+    check(ns.applyCategoryLook("nameplates", "sculpted", true), false, "#34 applyCategoryLook skips safely when Nameplates absent")
+    check(sets.Nameplates.height, 8, "#34 absent Nameplates module prevents writes")
+    npModEnabled = true
+    ns.restoreLooksOnly()
+    ui.GetModule = nil
 
     -- #43: Non-destructive Reset staging & Cancel Preview + Live vs Reload flag
     local beforePal = palDb.palette
