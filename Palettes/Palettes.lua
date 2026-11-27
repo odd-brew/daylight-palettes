@@ -2264,6 +2264,46 @@ end
 
 ns.blendColor = blendColor
 
+local DECK_MODES = {
+    { key = "player_target", label = "Player & Target", page = "UnitFrames.player" },
+    { key = "focus", label = "Focus", page = "UnitFrames.focus" },
+    { key = "tot", label = "Target of Target", page = "UnitFrames.targettarget" },
+    { key = "party", label = "Party", page = "UnitFrames.party" },
+    { key = "raid", label = "Raid", page = "UnitFrames.raid" },
+    { key = "castbars", label = "Cast Bars", page = "UnitFrames.castbars" },
+    { key = "actionbars", label = "Action Bars", page = nil },
+}
+
+local previewDeckMode = "player_target"
+local previewDeckRefresh = nil
+
+function ns.getPreviewDeckMode()
+    return previewDeckMode
+end
+
+function ns.setPreviewDeckMode(modeKey, fromSubTab)
+    local found = false
+    for i = 1, #DECK_MODES do
+        if DECK_MODES[i].key == modeKey then found = true; break end
+    end
+    if not found then return end
+    previewDeckMode = modeKey
+    if not fromSubTab then
+        local d = dui()
+        local panel = type(d) == "table" and d.OptionsPanel
+        local pf = type(panel) == "table" and type(panel.PageFrame) == "function" and panel.PageFrame("Palettes.main")
+        local tab = type(pf) == "table" and type(pf.tab) == "string" and pf.tab or "Presets"
+        if tab == "Looks" and type(ns.setLooksSubTab) == "function" then
+            pcall(ns.setLooksSubTab, modeKey, true)
+        end
+    end
+    if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
+    if type(previewDeckRefresh) == "function" then pcall(previewDeckRefresh) end
+    local d = dui()
+    local panel = type(d) == "table" and d.OptionsPanel
+    if type(panel) == "table" and type(panel.Refresh) == "function" then pcall(panel.Refresh) end
+end
+
 local function makePlayerSample(parent)
     local d = dui()
     local opts = type(d) == "table" and d.Options
@@ -2275,13 +2315,92 @@ local function makePlayerSample(parent)
     local okSP, playerS = pcall(ufPlayer.sample, container)
     if not okSP or type(playerS) ~= "table" or type(playerS.frame) ~= "table" then return nil end
 
-    local targetS
-    local okT, ufTarget = pcall(opts.GetPage, "UnitFrames.target")
-    if okT and type(ufTarget) == "table" and type(ufTarget.sample) == "function" then
-        local okST, ts = pcall(ufTarget.sample, container)
-        if okST and type(ts) == "table" and type(ts.frame) == "table" then
-            targetS = ts
+    local function trySample(pageId)
+        if not pageId then return nil end
+        local okPg, pg = pcall(opts.GetPage, pageId)
+        if okPg and type(pg) == "table" and type(pg.sample) == "function" then
+            local okS, s = pcall(pg.sample, container)
+            if okS and type(s) == "table" and type(s.frame) == "table" then return s end
         end
+        return nil
+    end
+
+    local targetS = trySample("UnitFrames.target")
+    local extraSamples = {}
+    local function getExtraSample(modeKey, pageId)
+        if extraSamples[modeKey] == nil then
+            extraSamples[modeKey] = trySample(pageId) or false
+        end
+        return extraSamples[modeKey] or nil
+    end
+
+    -- Preview Deck header bar: mode selector button + amber PREVIEWING pill
+    local HEADER_H = 24
+    local header = CreateFrame("Frame", nil, container)
+    header:SetHeight(HEADER_H)
+    local headerCard = ns.makeRoundCard(header)
+
+    local modeBtn = CreateFrame("Button", nil, header)
+    modeBtn:SetSize(156, 20)
+    modeBtn:SetPoint("LEFT", header, "LEFT", 6, 0)
+    local modeCard = ns.makeRoundCard(modeBtn)
+    local modeText = blankText(modeBtn)
+    modeText:SetPoint("CENTER", modeBtn, "CENTER", 0, 0)
+    modeBtn:SetScript("OnClick", function()
+        local idx = 1
+        for i = 1, #DECK_MODES do
+            if DECK_MODES[i].key == previewDeckMode then idx = i; break end
+        end
+        local nextMode = DECK_MODES[(idx % #DECK_MODES) + 1]
+        ns.setPreviewDeckMode(nextMode.key, false)
+    end)
+
+    local statusPill = CreateFrame("Frame", nil, header)
+    statusPill:SetHeight(18)
+    statusPill:SetPoint("RIGHT", header, "RIGHT", -6, 0)
+    local statusCard = ns.makeRoundCard(statusPill)
+    local statusText = blankText(statusPill)
+    statusText:SetPoint("CENTER", statusPill, "CENTER", 0, 0)
+
+    -- Live Action Bars preview strip reflecting the active/staged ActionBars look settings
+    local abPreview = CreateFrame("Frame", nil, container)
+    abPreview:SetHeight(56)
+    local abSlots = {}
+    local abKeys = { "1", "2", "3", "4", "5", "Q", "E", "R" }
+    local abIcons = {
+        "Interface\\Icons\\Spell_Holy_FlashHeal",
+        "Interface\\Icons\\Spell_Fire_FireBolt",
+        "Interface\\Icons\\Ability_Warrior_ShieldWall",
+        "Interface\\Icons\\Spell_Frost_FrostBolt02",
+        "Interface\\Icons\\Ability_Rogue_Sprint",
+        "Interface\\Icons\\Spell_Nature_Lightning",
+        "Interface\\Icons\\Ability_Hunter_AimedShot",
+        "Interface\\Icons\\Spell_Shadow_ShadowBolt",
+    }
+    for i = 1, #abKeys do
+        local slot = CreateFrame("Frame", nil, abPreview)
+        slot:SetSize(38, 38)
+        local shadow = slot:CreateTexture(nil, "BACKGROUND", nil, -6)
+        local outer = slot:CreateTexture(nil, "BORDER", nil, 0)
+        local roundCard = ns.makeRoundCard(slot)
+        local icon = slot:CreateTexture(nil, "ARTWORK", nil, 0)
+        if type(icon.SetTexture) == "function" then icon:SetTexture(abIcons[i]) end
+        local mask = type(slot.CreateMaskTexture) == "function" and slot:CreateMaskTexture() or nil
+        local kf = blankText(slot)
+        kf:SetPoint("TOPRIGHT", slot, "TOPRIGHT", -3, -3)
+        kf:SetText(abKeys[i])
+        abSlots[i] = {
+            frame = slot, shadow = shadow, outer = outer, roundCard = roundCard,
+            icon = icon, mask = mask, masked = false, text = kf,
+        }
+    end
+    if abPreview.Hide then abPreview:Hide() end
+
+    local function modeLabel(key)
+        for i = 1, #DECK_MODES do
+            if DECK_MODES[i].key == key then return DECK_MODES[i].label end
+        end
+        return "Player & Target"
     end
 
     local function showDeckOnTab()
@@ -2289,33 +2408,223 @@ local function makePlayerSample(parent)
         if type(panel) ~= "table" or type(panel.PageFrame) ~= "function" then return true end
         local pf = panel.PageFrame("Palettes.main")
         local tab = type(pf) == "table" and type(pf.tab) == "string" and pf.tab or "Presets"
-        return tab == "Presets" or tab == "Looks"
+        return tab == "Presets" or tab == "Colours" or tab == "Looks"
     end
+
+    local function hideAllSamples()
+        if playerS.frame.Hide then playerS.frame:Hide() end
+        if targetS and targetS.frame.Hide then targetS.frame:Hide() end
+        if abPreview.Hide then abPreview:Hide() end
+        for _, s in pairs(extraSamples) do
+            if type(s) == "table" and s.frame and s.frame.Hide then s.frame:Hide() end
+        end
+    end
+
+    local function readActionBarLook()
+        local shape = (type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.shape"))) or "square"
+        local borderStyle = (type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.borderStyle"))) or "daylight"
+        local border = tonumber(type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.border"))) or 2
+        local corners = (type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.corners"))) or "round"
+        local shadowOn = (type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.shadow"))) ~= false
+        local zoom = tonumber(type(d.Get) == "function" and select(2, pcall(d.Get, d, "ActionBars", "look.zoom"))) or 0.06
+        return shape, borderStyle, border, corners, shadowOn, zoom
+    end
+
+    local function paintHeader()
+        local staged = ns.staged
+        local pid = (type(staged) == "table" and type(staged.palette) == "string" and staged.palette)
+            or (type(staged) == "table" and staged.kind == "palette" and staged.id)
+            or (type(staged) == "table" and staged.kind == "theme" and type(ns.themePaletteId) == "function" and ns.themePaletteId(staged.id))
+            or currentId()
+        local p = ns.byId[pid]
+        local win = (p and p.window) or { 0.08, 0.10, 0.08 }
+        local bnd = (p and p.band) or { 0.14, 0.18, 0.14 }
+        local brd = (p and p.border) or { 0.22, 0.28, 0.22 }
+        local acc = (p and p.c2) or { 0.91, 0.63, 0.29 }
+        local txt = (p and p.text) or { 0.92, 0.90, 0.86 }
+        headerCard.paint(bnd, 0.92, brd, 0.75)
+        modeCard.paint(win, 0.95, acc, 0.70)
+        modeText:SetText("Preview: " .. modeLabel(previewDeckMode) .. " v")
+        if type(modeText.SetTextColor) == "function" then modeText:SetTextColor(txt[1], txt[2], txt[3], 1) end
+
+        if type(staged) == "table" then
+            local name = staged.label or staged.id or "Change"
+            statusText:SetText("PREVIEWING: " .. tostring(name) .. " — Unsaved")
+            local sw = 180
+            if type(statusText.GetStringWidth) == "function" then
+                local g = statusText:GetStringWidth()
+                if type(g) == "number" and g > 40 then sw = g + 16 end
+            end
+            statusPill:SetWidth(sw)
+            statusCard.paint({ 0.85, 0.47, 0.02 }, 1, { 0.95, 0.62, 0.10 }, 1)
+            if type(statusText.SetTextColor) == "function" then statusText:SetTextColor(0.07, 0.05, 0.02, 1) end
+        else
+            statusText:SetText("Live · Saved")
+            statusPill:SetWidth(92)
+            statusCard.paint(win, 0.80, brd, 0.65)
+            if type(statusText.SetTextColor) == "function" then statusText:SetTextColor(acc[1], acc[2], acc[3], 1) end
+        end
+
+        -- Paint Action Bars preview slots using live look.shape / borderStyle / border / corners / shadow / zoom
+        local shape, borderStyle, borderPx, corners, shadowOn, zoom = readActionBarLook()
+        local isShaped = (shape ~= "square")
+        local inset = (borderStyle == "none") and 0 or math.max(1, math.min(6, borderPx))
+        local media = type(d.MEDIA) == "string" and d.MEDIA or "Interface\\AddOns\\DaylightUI\\Media\\"
+        local shapeTex = isShaped and (media .. "shape-" .. shape .. ".png") or nil
+        local shadowTex = isShaped and (media .. "shape-" .. shape .. "-shadow.png") or nil
+        local z = math.max(0, math.min(0.4, zoom)) / 2
+
+        for i = 1, #abSlots do
+            local sl = abSlots[i]
+            local rimCol = (i == 2) and acc or ((borderStyle == "daylight") and bnd or brd)
+            -- Shadow
+            if sl.shadow.ClearAllPoints then sl.shadow:ClearAllPoints() end
+            sl.shadow:SetPoint("TOPLEFT", sl.frame, "TOPLEFT", -3, 3)
+            sl.shadow:SetPoint("BOTTOMRIGHT", sl.frame, "BOTTOMRIGHT", 3, -3)
+            if shadowOn then
+                if shadowTex and type(sl.shadow.SetTexture) == "function" then
+                    sl.shadow:SetTexture(shadowTex)
+                    if type(sl.shadow.SetVertexColor) == "function" then sl.shadow:SetVertexColor(0, 0, 0, 0.65) end
+                elseif type(sl.shadow.SetColorTexture) == "function" then
+                    sl.shadow:SetColorTexture(0, 0, 0, 0.55)
+                end
+                if sl.shadow.Show then sl.shadow:Show() end
+            else
+                if sl.shadow.Hide then sl.shadow:Hide() end
+            end
+
+            -- Shape mask vs rounded/square border
+            if isShaped and sl.mask and shapeTex then
+                if sl.roundCard.fill.Hide then sl.roundCard.fill:Hide() end
+                if sl.roundCard.line.Hide then sl.roundCard.line:Hide() end
+                if type(sl.outer.SetTexture) == "function" then
+                    sl.outer:SetTexture(shapeTex)
+                    if type(sl.outer.SetVertexColor) == "function" then sl.outer:SetVertexColor(rimCol[1], rimCol[2], rimCol[3], 1) end
+                end
+                sl.outer:ClearAllPoints()
+                sl.outer:SetAllPoints(sl.frame)
+                if borderStyle == "none" then
+                    if sl.outer.Hide then sl.outer:Hide() end
+                elseif sl.outer.Show then
+                    sl.outer:Show()
+                end
+                if type(sl.mask.SetTexture) == "function" then
+                    pcall(sl.mask.SetTexture, sl.mask, shapeTex, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+                end
+                sl.mask:ClearAllPoints()
+                sl.mask:SetAllPoints(sl.icon)
+                if not sl.masked and type(sl.icon.AddMaskTexture) == "function" then
+                    if pcall(sl.icon.AddMaskTexture, sl.icon, sl.mask) then sl.masked = true end
+                end
+            else
+                if sl.masked and sl.mask and type(sl.icon.RemoveMaskTexture) == "function" then
+                    pcall(sl.icon.RemoveMaskTexture, sl.icon, sl.mask)
+                    sl.masked = false
+                end
+                if corners == "round" and borderStyle ~= "none" then
+                    if sl.outer.Hide then sl.outer:Hide() end
+                    if sl.roundCard.fill.Show then sl.roundCard.fill:Show() end
+                    if sl.roundCard.line.Show then sl.roundCard.line:Show() end
+                    sl.roundCard.paint(rimCol, 0.96, (i == 2) and acc or brd, 0.95)
+                else
+                    if sl.roundCard.fill.Hide then sl.roundCard.fill:Hide() end
+                    if sl.roundCard.line.Hide then sl.roundCard.line:Hide() end
+                    sl.outer:ClearAllPoints()
+                    sl.outer:SetAllPoints(sl.frame)
+                    if borderStyle == "none" then
+                        if sl.outer.Hide then sl.outer:Hide() end
+                    else
+                        if type(sl.outer.SetColorTexture) == "function" then
+                            sl.outer:SetColorTexture(rimCol[1], rimCol[2], rimCol[3], 1)
+                        end
+                        if sl.outer.Show then sl.outer:Show() end
+                    end
+                end
+            end
+
+            sl.icon:ClearAllPoints()
+            sl.icon:SetPoint("TOPLEFT", sl.frame, "TOPLEFT", inset, -inset)
+            sl.icon:SetPoint("BOTTOMRIGHT", sl.frame, "BOTTOMRIGHT", -inset, inset)
+            if type(sl.icon.SetTexCoord) == "function" then
+                sl.icon:SetTexCoord(z, 1 - z, z, 1 - z)
+            end
+            if type(sl.text.SetTextColor) == "function" then
+                sl.text:SetTextColor(txt[1], txt[2], txt[3], 1)
+            end
+        end
+    end
+
+    previewDeckRefresh = paintHeader
 
     return {
         frame = container,
-        hint = targetS
-            and "Live preview of your Player and Target frames. Pick a preset or look below, then click Apply."
-            or "Live preview of your Player frame. Pick a preset or look below, then click Apply.",
+        hint = "Live preview deck. Click the Preview selector to switch frames, pick a preset or look below, then click Apply.",
         zoomRange = playerS.zoomRange,
         Zoom = playerS.Zoom,
         SetZoom = function(v)
             if type(playerS.SetZoom) == "function" then pcall(playerS.SetZoom, v) end
             if targetS and type(targetS.SetZoom) == "function" then pcall(targetS.SetZoom, v) end
+            for _, s in pairs(extraSamples) do
+                if type(s) == "table" and type(s.SetZoom) == "function" then pcall(s.SetZoom, v) end
+            end
         end,
         Refresh = function(w, room)
             if not showDeckOnTab() then
-                if playerS.frame.Hide then playerS.frame:Hide() end
-                if targetS and targetS.frame.Hide then targetS.frame:Hide() end
+                hideAllSamples()
+                if header.Hide then header:Hide() end
                 return 0
             end
+            if header.Show then header:Show() end
+            header:ClearAllPoints()
+            header:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+            header:SetWidth(w)
+            paintHeader()
+            hideAllSamples()
+            local topOffset = HEADER_H + 6
+            local subRoom = type(room) == "number" and math.max(40, room - topOffset) or room
+
+            if previewDeckMode == "actionbars" then
+                if abPreview.Show then abPreview:Show() end
+                abPreview:ClearAllPoints()
+                abPreview:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -topOffset)
+                abPreview:SetWidth(w)
+                local totalW = #abSlots * 38 + (#abSlots - 1) * 8
+                local startX = math.max(8, math.floor((w - totalW) / 2))
+                for i = 1, #abSlots do
+                    abSlots[i].frame:ClearAllPoints()
+                    abSlots[i].frame:SetPoint("TOPLEFT", abPreview, "TOPLEFT", startX + (i - 1) * 46, -9)
+                end
+                local h = topOffset + 56
+                container:SetSize(w, h)
+                return h
+            end
+
+            if previewDeckMode ~= "player_target" then
+                local pageId = nil
+                for i = 1, #DECK_MODES do
+                    if DECK_MODES[i].key == previewDeckMode then pageId = DECK_MODES[i].page; break end
+                end
+                local sampleObj = getExtraSample(previewDeckMode, pageId)
+                if sampleObj then
+                    if sampleObj.frame.Show then sampleObj.frame:Show() end
+                    if type(sampleObj.f) == "table" and sampleObj.f.Show then sampleObj.f:Show() end
+                    local okR, sh = pcall(sampleObj.Refresh, w, subRoom)
+                    sh = (okR and type(sh) == "number" and sh > 0) and sh or 60
+                    sampleObj.frame:ClearAllPoints()
+                    sampleObj.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -topOffset)
+                    local h = topOffset + sh
+                    container:SetSize(w, h)
+                    return h
+                end
+            end
+
             if playerS.frame.Show then playerS.frame:Show() end
             if targetS then
                 if targetS.frame.Show then targetS.frame:Show() end
                 local gap = 16
                 local half = math.max(120, math.floor((w - gap) / 2))
-                local hp = playerS.Refresh(half, room) or 0
-                local ht = targetS.Refresh(half, room) or 0
+                local hp = playerS.Refresh(half, subRoom) or 0
+                local ht = targetS.Refresh(half, subRoom) or 0
                 local function centerOffsetFromTop(sampleObj, boxH)
                     local f = sampleObj.f
                     if type(f) == "table" and type(f.GetPoint) == "function" then
@@ -2328,8 +2637,8 @@ local function makePlayerSample(parent)
                 local pCenter = centerOffsetFromTop(playerS, hp)
                 local tCenter = centerOffsetFromTop(targetS, ht)
                 local alignY = math.max(pCenter, tCenter)
-                local pTop = math.floor(alignY - pCenter + 0.5)
-                local tTop = math.floor(alignY - tCenter + 0.5)
+                local pTop = topOffset + math.floor(alignY - pCenter + 0.5)
+                local tTop = topOffset + math.floor(alignY - tCenter + 0.5)
                 local h = math.max(pTop + hp, tTop + ht)
                 container:SetSize(w, h)
                 playerS.frame:ClearAllPoints()
@@ -2338,10 +2647,10 @@ local function makePlayerSample(parent)
                 targetS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", half + gap, -tTop)
                 return h
             end
-            local h = playerS.Refresh(w, room) or 0
+            local h = topOffset + (playerS.Refresh(w, subRoom) or 0)
             container:SetSize(w, h)
             playerS.frame:ClearAllPoints()
-            playerS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+            playerS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -topOffset)
             return h
         end,
         Parts = function() return {} end,
@@ -2432,6 +2741,7 @@ local function buildList(row)
     local CARD_H = 44
     local CARD_GAP_X = 8
     local CARD_GAP_Y = 6
+    local CAT_TOP = -4
     local GRID_TOP = -36
 
     for g = 1, #ns.groups do
@@ -2486,7 +2796,7 @@ local function buildList(row)
                         if type(d) == "table" and type(d.Set) == "function" then
                             d:Set("Palettes", "palette", id)
                         end
-                    end, live)
+                    end, live, name)
                 else
                     local d = dui()
                     if type(d) == "table" and type(d.Set) == "function" then d:Set("Palettes", "palette", id) end
@@ -2528,8 +2838,9 @@ local function buildList(row)
         local w = rowWidth() - 8
         local cols = w >= 600 and 3 or 2
         local cardW = math.floor((w - (cols - 1) * CARD_GAP_X) / cols)
+
         local cx = 4
-        local cy = -4
+        local cy = CAT_TOP
         for i = 1, #catButtons do
             local cb = catButtons[i].button
             cb:ClearAllPoints()
@@ -2581,7 +2892,23 @@ local function buildList(row)
 
     function row.palettesRefresh()
         local id = currentId()
-        local p = ns.byId[id]
+        local staged = ns.staged
+        local stagedPalId = nil
+        if type(staged) == "table" then
+            if type(staged.palette) == "string" then
+                stagedPalId = staged.palette
+            elseif staged.kind == "palette" and type(staged.id) == "string" then
+                stagedPalId = staged.id
+            elseif staged.kind == "reset" and (staged.id == "Colours" or staged.id == "Presets") then
+                stagedPalId = "off"
+            end
+        end
+        local previewId = stagedPalId or id
+        local p = ns.byId[previewId] or ns.byId[id]
+        if editorOn == true and type(customDraft) == "table" and type(ns.deriveCustom) == "function" then
+            local okD, derived = pcall(ns.deriveCustom, customDraft)
+            if okD and type(derived) == "table" then p = derived end
+        end
         local textColor = p and p.text or offColor("text") or { 0.9, 0.9, 0.9 }
         local labelColor = p and p.label or textColor
         local accent = p and p.c2 or offColor("c2") or textColor
@@ -2620,20 +2947,20 @@ local function buildList(row)
 
         for i = 1, #entries do
             local entry = entries[i]
-            local staged = ns.staged
-            local on = entry.id == id
-            if type(staged) == "table" and staged.kind == "palette" then
-                on = staged.id == entry.id
-            end
+            local isApplied = entry.id == id
+            local isStaged = (stagedPalId ~= nil and stagedPalId == entry.id)
             local waiting = waitingPick and entry.id == pending
-            local hot = entry.hot and not on and not waiting
+            local hot = entry.hot and not isApplied and not isStaged and not waiting
             local rowPalette = ns.byId[entry.id]
             local cueColor = (rowPalette and rowPalette.c2) or accent
             local nameColor = textColor
             local moodColor = labelColor
-            local markColor = waiting and labelColor or accent
+            local markColor = waiting and labelColor or (isStaged and { 0.95, 0.62, 0.10 } or cueColor)
 
-            if on or waiting then
+            if isStaged then
+                entry.card.paint(blendColor(window, cueColor, 0.20), 0.98, cueColor, 1.0)
+                nameColor = textColor
+            elseif isApplied or waiting then
                 entry.card.paint(blendColor(window, cueColor, 0.16), 0.96, cueColor, 0.95)
                 nameColor, markColor = textColor, cueColor
             elseif hot then
@@ -2642,7 +2969,7 @@ local function buildList(row)
                 entry.card.paint(cardSurface, 0.86, border, 0.55)
             end
 
-            if on and entry.check and type(entry.check.SetVertexColor) == "function" then
+            if isApplied and entry.check and type(entry.check.SetVertexColor) == "function" then
                 entry.check:SetVertexColor(markColor[1], markColor[2], markColor[3], 1)
             end
             uiFont(entry.nameText, ink, 12, nameColor)
@@ -2653,7 +2980,9 @@ local function buildList(row)
             if entry.check and entry.check.Hide then entry.check:Hide() end
             if waiting then
                 entry.onText:SetText("PENDING")
-            elseif on then
+            elseif isStaged then
+                entry.onText:SetText("PREVIEW")
+            elseif isApplied then
                 entry.onText:SetText("")
                 if entry.check and entry.check.Show then entry.check:Show() end
             else
@@ -2939,14 +3268,136 @@ local function undoClick()
     end
 end
 
--- A row click previews. Apply is what writes the pick.
-function ns.stagePick(kind, id, commit, live)
-    if live or (type(ns.staged) == "table" and ns.staged.kind == kind and ns.staged.id == id) then
-        ns.staged = nil
-    else
-        ns.staged = { kind = kind, id = id, commit = commit }
+local function rebuildStagedSummary(draft)
+    local count = 0
+    local singleKind, singleId, singleLabel, singleCat = nil, nil, nil, nil
+    if draft.baseKind then
+        count = count + 1
+        singleKind, singleId, singleLabel = draft.baseKind, draft.baseId, draft.baseLabel
     end
+    if draft.palette ~= nil then
+        count = count + 1
+        singleKind, singleId, singleLabel = "palette", draft.palette, draft.paletteLabel or draft.palette
+    end
+    if draft.frame ~= nil then
+        count = count + 1
+        singleKind, singleId, singleLabel = "frame", draft.frame, draft.frameLabel or draft.frame
+    end
+    if type(draft.looks) == "table" then
+        for ck, optId in pairs(draft.looks) do
+            count = count + 1
+            singleKind, singleId, singleCat = "look", optId, ck
+            singleLabel = (type(draft.lookLabels) == "table" and draft.lookLabels[ck]) or optId
+        end
+    end
+    if count == 0 then return nil end
+    draft.count = count
+    if count == 1 then
+        draft.kind = singleKind
+        draft.id = singleId
+        draft.catKey = singleCat
+        draft.label = singleLabel or singleId
+    else
+        draft.kind = draft.baseKind or "multi"
+        draft.id = draft.baseId or "multi"
+        draft.catKey = nil
+        if draft.baseKind and draft.baseLabel then
+            draft.label = draft.baseLabel .. " + " .. tostring(count - 1) .. " tweak" .. ((count - 1) == 1 and "" or "s")
+        else
+            draft.label = tostring(count) .. " changes"
+        end
+    end
+    local needsReload = (draft.palette ~= nil)
+        or (draft.baseKind == "theme")
+        or (draft.baseKind == "mypreset")
+        or (draft.baseKind == "reset" and draft.baseId ~= "Looks")
+    draft.looksOnly = not needsReload
+    draft.commit = function()
+        if type(draft.baseCommit) == "function" then draft.baseCommit() end
+        if type(draft.paletteCommit) == "function" then draft.paletteCommit() end
+        if type(draft.frameCommit) == "function" then draft.frameCommit() end
+        if type(draft.lookCommits) == "table" then
+            for _, fn in pairs(draft.lookCommits) do
+                if type(fn) == "function" then fn() end
+            end
+        end
+    end
+    return draft
+end
+
+-- A row click previews and accumulates into ns.staged across tabs & sub-menus.
+-- Apply commits every staged selection at once.
+function ns.stagePick(kind, id, commit, live, label, recipe, catKey)
+    local draft = type(ns.staged) == "table" and ns.staged or nil
+
+    -- Presets, My Presets, and Resets replace the staged draft base.
+    if kind == "theme" or kind == "mypreset" or kind == "reset" then
+        if live or (draft and draft.baseKind == kind and draft.baseId == id and draft.count == 1) then
+            ns.staged = nil
+        else
+            ns.staged = rebuildStagedSummary({
+                baseKind = kind, baseId = id, baseLabel = label or id,
+                baseCommit = commit, recipe = recipe,
+                looks = {}, lookLabels = {}, lookCommits = {},
+            })
+        end
+        if type(ns.notePreview) == "function" then ns.notePreview() end
+        return
+    end
+
+    -- Individual Colour or Look picks layer onto the existing draft (unless base was a Reset).
+    if not draft or draft.baseKind == "reset" then
+        draft = { looks = {}, lookLabels = {}, lookCommits = {} }
+    else
+        draft.looks = draft.looks or {}
+        draft.lookLabels = draft.lookLabels or {}
+        draft.lookCommits = draft.lookCommits or {}
+    end
+
+    if kind == "palette" then
+        if live or draft.palette == id then
+            draft.palette = nil
+            draft.paletteLabel = nil
+            draft.paletteCommit = nil
+        else
+            draft.palette = id
+            draft.paletteLabel = label or id
+            draft.paletteCommit = commit
+        end
+    elseif kind == "frame" then
+        if live or draft.frame == id then
+            draft.frame = nil
+            draft.frameLabel = nil
+            draft.frameCommit = nil
+        else
+            draft.frame = id
+            draft.frameLabel = label or id
+            draft.frameCommit = commit
+        end
+    elseif kind == "look" and type(catKey) == "string" then
+        if live or draft.looks[catKey] == id then
+            draft.looks[catKey] = nil
+            draft.lookLabels[catKey] = nil
+            draft.lookCommits[catKey] = nil
+        else
+            draft.looks[catKey] = id
+            draft.lookLabels[catKey] = label or id
+            draft.lookCommits[catKey] = commit
+        end
+    end
+
+    ns.staged = rebuildStagedSummary(draft)
     if type(ns.notePreview) == "function" then ns.notePreview() end
+end
+
+function ns.cancelStaged()
+    if type(ns.staged) ~= "table" then return false end
+    ns.staged = nil
+    if type(ns.RevertPreview) == "function" then pcall(ns.RevertPreview) end
+    if type(ns.notePreview) == "function" then ns.notePreview() end
+    if refreshList then refreshList() end
+    if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
+    return true
 end
 
 local RELOAD_WHICH = "PALETTES_RELOAD"
@@ -3045,15 +3496,21 @@ function ns.commitStaged()
     local staged = ns.staged
     if type(staged) ~= "table" or type(staged.commit) ~= "function" then return false end
     ns.staged = nil
-    -- Frame looks repaint Player and Target live. Only colours need a reload.
-    local looksOnly = staged.kind == "frame"
+    -- Frame and extra looks repaint live. Only colours/presets/full-reset need a reload.
+    local looksOnly = staged.looksOnly == true
+    local isReset = staged.kind == "reset" or staged.baseKind == "reset"
+    local hasLookPreview = (staged.frame ~= nil)
+        or (type(staged.looks) == "table" and next(staged.looks) ~= nil)
+        or staged.kind == "frame" or staged.kind == "look"
+        or staged.baseKind == "theme" or staged.baseKind == "mypreset"
+        or staged.kind == "theme" or staged.kind == "mypreset"
     ns.withReloadAction(function()
-        if (staged.kind == "frame" or staged.kind == "theme") and type(ns.CommitPreview) == "function" then
+        if hasLookPreview and type(ns.CommitPreview) == "function" then
             ns.CommitPreview(staged.commit)
         else
             staged.commit()
         end
-        if not looksOnly then ns.requestReload() end
+        if not looksOnly and not isReset then ns.requestReload() end
     end)
     if type(ns.notePreview) == "function" then ns.notePreview() end
     if refreshList then refreshList() end
@@ -3106,6 +3563,16 @@ local function runTabReset(tab)
     if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
 end
 
+-- Issue #43: Per-tab Reset buttons stage their reset non-destructively into the Preview Deck first.
+function ns.stageTabReset(tab)
+    local lbl = resetLabel(tab)
+    ns.stagePick("reset", tab, function()
+        runTabReset(tab)
+    end, false, lbl)
+    if refreshList then refreshList() end
+    if type(ns.refreshLooks) == "function" then ns.refreshLooks() end
+end
+
 ns.runTabReset = runTabReset
 
 local function currentTab(panel)
@@ -3117,6 +3584,7 @@ end
 
 local resetButtons
 local applyButton
+local cancelButton
 local previewNote
 
 -- Apply sits on the window. Daylight's scroll (and its backdrop) otherwise
@@ -3166,17 +3634,16 @@ function ns.liftPageScroll(panel)
         local n = scroll:GetFrameLevel()
         if type(n) == "number" then level = n + 5 end
     end
-    if type(applyButton) == "table" then
-        if type(applyButton.SetFrameLevel) == "function" then
-            applyButton:SetFrameLevel(level)
-        end
-        if type(applyButton.SetFrameStrata) == "function" and type(scroll.GetFrameStrata) == "function" then
+    local function raiseBtn(btn)
+        if type(btn) ~= "table" then return end
+        if type(btn.SetFrameLevel) == "function" then btn:SetFrameLevel(level) end
+        if type(btn.SetFrameStrata) == "function" and type(scroll.GetFrameStrata) == "function" then
             local strata = scroll:GetFrameStrata()
-            if type(strata) == "string" and strata ~= "" then
-                applyButton:SetFrameStrata(strata)
-            end
+            if type(strata) == "string" and strata ~= "" then btn:SetFrameStrata(strata) end
         end
     end
+    raiseBtn(applyButton)
+    raiseBtn(cancelButton)
     if type(previewNote) == "table" and type(applyButton) == "table"
         and type(previewNote.SetParent) == "function" then
         local parent
@@ -3203,7 +3670,7 @@ local function placeChrome(panel)
         ns.staged = nil
         if type(ns.notePreview) == "function" then pcall(ns.notePreview) end
     end
-    if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, onPage and (tab == "Looks" or tab == "Presets")) end
+    if type(ns.setLooksOpen) == "function" then pcall(ns.setLooksOpen, onPage) end
     local editor = ns.coloursResetHidden()
     if type(resetButtons) == "table" then
         for i = 1, #TAB_ORDER do
@@ -3217,13 +3684,29 @@ local function placeChrome(panel)
             end
         end
     end
-    local preview = onPage and type(ns.staged) == "table"
+    local staged = ns.staged
+    local preview = onPage and type(staged) == "table"
     if type(applyButton) == "table" then
+        if preview then
+            local looksOnly = staged.looksOnly == true or staged.kind == "frame" or staged.kind == "look"
+            local label = looksOnly and "Apply Live" or "Apply (Reloads UI)"
+            buttonWords(applyButton, label)
+            if applyButton.FitWidth then applyButton.FitWidth(looksOnly and 96 or 144) end
+        end
         if applyButton.SetShown then applyButton:SetShown(preview)
         elseif preview and applyButton.Show then applyButton:Show()
         elseif applyButton.Hide then applyButton:Hide() end
     end
+    if type(cancelButton) == "table" then
+        if cancelButton.SetShown then cancelButton:SetShown(preview)
+        elseif preview and cancelButton.Show then cancelButton:Show()
+        elseif cancelButton.Hide then cancelButton:Hide() end
+    end
     if type(previewNote) == "table" then
+        if preview and previewNote.SetText then
+            local nm = staged.label or staged.id or "your pick"
+            previewNote:SetText("Previewing: " .. tostring(nm) .. " — Unsaved")
+        end
         if previewNote.SetShown then previewNote:SetShown(preview)
         elseif preview and previewNote.Show then previewNote:Show()
         elseif previewNote.Hide then previewNote:Hide() end
@@ -3266,6 +3749,27 @@ local function placeUndo(panel)
     end
 end
 
+local previewRefreshing = false
+ns.panelRefreshDepth = 0
+ns.panelRefreshDirty = false
+
+function ns.withSuppressedPanelRefresh(fn)
+    ns.panelRefreshDepth = (ns.panelRefreshDepth or 0) + 1
+    local ok, err = pcall(fn)
+    ns.panelRefreshDepth = math.max(0, (ns.panelRefreshDepth or 1) - 1)
+    if ns.panelRefreshDepth == 0 and ns.panelRefreshDirty then
+        ns.panelRefreshDirty = false
+        local d = dui()
+        local panel = type(d) == "table" and d.OptionsPanel
+        if type(panel) == "table" and type(panel.Refresh) == "function" and not previewRefreshing then
+            previewRefreshing = true
+            pcall(panel.Refresh)
+            previewRefreshing = false
+        end
+    end
+    if not ok then error(err, 0) end
+end
+
 syncUndo = function()
     local panel = type(DaylightUI) == "table" and DaylightUI.OptionsPanel
     if type(panel) ~= "table" then return end
@@ -3280,6 +3784,10 @@ syncUndo = function()
         local refresh = panel.Refresh
         if type(refresh) == "function" then
             panel.Refresh = function(...)
+                if (ns.panelRefreshDepth or 0) > 0 then
+                    ns.panelRefreshDirty = true
+                    return
+                end
                 local a, b, c, d = refresh(...)
                 syncUndo()
                 return a, b, c, d
@@ -3313,8 +3821,8 @@ syncUndo = function()
             if type(button) == "table" then
                 if button.FitWidth then button.FitWidth(150) end
                 button:SetScript("OnClick", function()
-                    if not pcall(runTabReset, name) then
-                        say("Palettes: something went wrong, and nothing was restored.")
+                    if not pcall(ns.stageTabReset, name) then
+                        say("Palettes: something went wrong, and nothing was staged.")
                     end
                 end)
                 resetButtons[name] = button
@@ -3334,7 +3842,7 @@ syncUndo = function()
         end
         applyButton = widgets.Button(frame, "Apply", 24)
         if type(applyButton) == "table" then
-            if applyButton.FitWidth then applyButton.FitWidth(72) end
+            if applyButton.FitWidth then applyButton.FitWidth(144) end
             applyButton:SetScript("OnClick", function()
                 if not pcall(ns.commitStaged) then
                     say("Palettes: something went wrong, and the pick was not applied.")
@@ -3342,6 +3850,17 @@ syncUndo = function()
             end)
             if applyButton.ClearAllPoints then applyButton:ClearAllPoints() end
             applyButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -16, 14)
+
+            cancelButton = widgets.Button(frame, "Cancel Preview", 24)
+            if type(cancelButton) == "table" then
+                if cancelButton.FitWidth then cancelButton.FitWidth(112) end
+                cancelButton:SetScript("OnClick", function()
+                    pcall(ns.cancelStaged)
+                end)
+                if cancelButton.ClearAllPoints then cancelButton:ClearAllPoints() end
+                cancelButton:SetPoint("RIGHT", applyButton, "LEFT", -8, 0)
+            end
+
             if type(frame.CreateFontString) == "function" then
                 previewNote = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             end
@@ -3351,7 +3870,7 @@ syncUndo = function()
                     previewNote:SetParent(applyButton)
                 end
                 if previewNote.ClearAllPoints then previewNote:ClearAllPoints() end
-                previewNote:SetPoint("RIGHT", applyButton, "LEFT", -10, 0)
+                previewNote:SetPoint("RIGHT", cancelButton or applyButton, "LEFT", -10, 0)
             end
         end
     end
@@ -3377,16 +3896,22 @@ syncUndo = function()
     placeChrome(panel)
 end
 
-local previewRefreshing = false
 local previewPalId = nil
 local function syncColorPreview()
     local staged = ns.staged
     local wantId = nil
     if type(staged) == "table" then
-        if staged.kind == "palette" then
+        if type(staged.palette) == "string" then
+            wantId = staged.palette
+        elseif staged.kind == "palette" then
             wantId = staged.id
-        elseif staged.kind == "theme" and type(ns.themePaletteId) == "function" then
-            wantId = ns.themePaletteId(staged.id)
+        elseif (staged.baseKind == "theme" or staged.kind == "theme") and type(ns.themePaletteId) == "function" then
+            wantId = ns.themePaletteId(staged.baseId or staged.id)
+        elseif (staged.baseKind == "mypreset" or staged.kind == "mypreset") and type(staged.recipe) == "table" then
+            wantId = staged.recipe.palette
+        elseif (staged.baseKind == "reset" or staged.kind == "reset")
+            and ((staged.baseId or staged.id) == "Colours" or (staged.baseId or staged.id) == "Presets") then
+            wantId = "off"
         end
     end
     if wantId == previewPalId then return end
@@ -3395,7 +3920,7 @@ local function syncColorPreview()
     local prevApplying = ns.applyingTheme
     local savedHistory = history.current
     ns.applyingTheme = true
-    if wantId and known(wantId) then
+    if wantId and (wantId == "off" or known(wantId)) then
         pcall(apply, wantId, false, true)
     else
         local liveId = currentId()
@@ -3408,17 +3933,12 @@ local function syncColorPreview()
 end
 
 ns.notePreview = function()
-    if syncUndo then syncUndo() end
-    pcall(syncColorPreview)
-    if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
-    if previewRefreshing then return end
-    local d = dui()
-    local panel = type(d) == "table" and d.OptionsPanel
-    if type(panel) == "table" and type(panel.Refresh) == "function" then
-        previewRefreshing = true
-        pcall(panel.Refresh)
-        previewRefreshing = false
-    end
+    ns.withSuppressedPanelRefresh(function()
+        if syncUndo then syncUndo() end
+        pcall(syncColorPreview)
+        if type(ns.syncFramePreview) == "function" then pcall(ns.syncFramePreview) end
+        ns.panelRefreshDirty = true
+    end)
 end
 
 refreshList = function()

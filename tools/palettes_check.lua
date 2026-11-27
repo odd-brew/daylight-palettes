@@ -1310,8 +1310,8 @@ do
     end
 end
 
-if not toc:find("## Version: 0.6.0", 1, true) then
-    fail("version stays 0.6.0")
+if not toc:find("## Version: 0.7.0", 1, true) then
+    fail("version stays 0.7.0")
 end
 if not toc:find("frame looks", 1, true) or toc:find("glow styles", 1, true) then
     fail("toc notes must cover frame looks and not glow styles")
@@ -1333,13 +1333,13 @@ if not looksSource:find("A Preset on the Presets tab sets both.", 1, true) then
     fail("missing the looks intro")
 end
 local frameLines = {
-    "A small boss and a deep cup, the name cut into the lip.",
-    "A full portrait on a named board, with power hung as a rail.",
-    "Sturdy Daylight bars with a full-width dark name tab and an angled 2.0 portrait socket.",
-    "Slim Ribbon bar with a floating name row, thin power underline, and a rounded 2.0 portrait sized to the bar stack.",
-    "Portrait-free square bars with a floating name above, crisp corners, and dual health and power numbers.",
-    "Tall hero bars with a 3D classic portrait, thick class ring, fitted tab, and bold health number.",
-    "Low-profile, portrait-free Ribbon bar with sharp corners and a thin power strip.",
+    "Slanted bar with round class socket and flowing health FX for smooth combat feedback.",
+    "Slim slanted bar with hung power rail and top name tab to save vertical screen space.",
+    "Tall slanted bar with angled portrait and big HP numbers for instant peripheral reads.",
+    "Slim slanted ribbon with floating name and class-ring portrait to cut mid-screen bulk.",
+    "Square portrait-free bar with dual health and power readouts for clean resource tracking.",
+    "Tall hero bar with 3D portrait, thick class ring, and big numbers for classic presence.",
+    "Flat 22px portrait-free strip with hairline power bar for the smallest combat footprint.",
 }
 for i = 1, #frameLines do
     if not looksSource:find(frameLines[i], 1, true) then fail("missing frame one-liner: " .. frameLines[i]) end
@@ -1383,24 +1383,20 @@ if not main:find('blurb = "Colors and frame looks for Daylight. Class and combat
     fail("plugin blurb must cover colors and frame looks")
 end
 local moods = {
-    "A winter hearth of campfire gold on a dark, named beam.",
-    "Harvest light on dark oak and pewter, along a slim ribbon bar.",
-    "Cool sea-green at the waterline on a low-profile slate bar.",
-    "Near-black soot and weathered bronze on a sturdy beam.",
-    "Rose on warm plum-brown, with a slim ribbon bar and round portrait.",
-    "A deep gold cup with a rounded portrait in the quiet corner.",
-    "A named work board with a full portrait and hung power rail.",
-    "Storm-grey water in a deep, portrait-free square basin.",
-    "A walnut beam with a full-width tab, like a high-backed bench by the fire.",
-    "Deep carmine night on a sturdy beam, after the room has gone quiet.",
+    "Warm ember frames and fiery casts for high-focus combat.",
+    "Warm classic ribbons and soft bars for relaxed sessions.",
+    "Portrait-free, razor-thin frames for maximum screen view.",
+    "Tall 3D hero portraits and heavy steel for classic weight.",
+    "Triage-ready party grids, vertical raid bars, medallions.",
+    "Gilded trim with animated flow bars and round buttons.",
 }
 for i = 1, #moods do
     if not looksSource:find(moods[i], 1, true) then fail("missing preset mood: " .. moods[i]) end
 end
-local OFF_LINE = "Looks: off. Type /looks flagon, trestle, beam, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
-local BEAM_LINE = "Looks: Beam is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
-local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks flagon, trestle, stream, ledger, crest, slate, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
-local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bellows, drawwell, settle, afterhours, or off."
+local OFF_LINE = "Looks: off. Type /looks flagon, trestle, beam, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off."
+local BEAM_LINE = "Looks: Beam is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off."
+local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks flagon, trestle, stream, ledger, crest, slate, harvestide, tidemark, oldroad, vigil, snug, or off."
+local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off."
 
 local function piece()
     local w = {}
@@ -1995,7 +1991,7 @@ ns.looksGuard = nil
 if type(body) == "table" and type(body.build) == "function" then
     local built, buildErr = pcall(body.build, row)
     if not built then fail("looks tab did not build: " .. tostring(buildErr)) end
-    check(type(row.lines) == "table" and #row.lines or 0, 7, "only the seven frame looks are rows")
+    check(type(row.lines) == "table" and #row.lines or 0, 35, "all 7 Looks categories register 35 option cards")
     for i = 1, #FRAME_IDS do
         check(row.lines[i] and row.lines[i].id, FRAME_IDS[i], "frame row " .. i .. " is " .. FRAME_IDS[i])
         check(row.lines[i] and row.lines[i].kind, "frame", "frame row " .. i .. " is a frame")
@@ -2011,9 +2007,9 @@ if type(body) == "table" and type(body.build) == "function" then
         fail("looks tab must have no glow heading or glow hint")
     end
     for i = 1, #frameLines do
-        check(row.lines[i].desc.words, frameLines[i], "frame row " .. i .. " reads the mock one-liner")
+        check(row.lines[i].desc.words, frameLines[i], "frame row " .. i .. " reads the spec one-liner")
     end
-    check(row.lines[2].desc.words, "A full portrait on a named board, with power hung as a rail.", "Trestle ships the mock wording")
+    check(row.lines[2].desc.words, "Slim slanted bar with hung power rail and top name tab to save vertical screen space.", "Trestle ships the spec wording")
     if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
     local active = row.lines[1]
     active.SetOn(true, false)
@@ -2313,21 +2309,19 @@ local themeBody = themeGroups[1].items[1]
 if type(themeBody) == "table" and type(themeBody.build) == "function" then
     local builtTheme, themeErr = pcall(themeBody.build, themeRow)
     if not builtTheme then fail("themes tab did not build: " .. tostring(themeErr)) end
-    check(type(themeRow.lines) == "table" and #themeRow.lines or 0, 10, "ten theme rows")
+    check(type(themeRow.lines) == "table" and #themeRow.lines or 0, 6, "six core theme rows")
     local hearth = themeRow.lines[1]
-    local lastTheme = themeRow.lines[10]
+    local lastTheme = themeRow.lines[6]
     check(hearth.baseName, "Hearthnight", "theme order still starts with Hearthnight")
-    check(lastTheme.baseName, "After Hours", "theme order still ends with After Hours")
+    check(lastTheme.baseName, "Snug", "theme order ends with Snug")
     check(hearth.palettePill and hearth.palettePill.words, "Ember", "hearthnight's palette pill")
     check(hearth.lookPill and hearth.lookPill.words, "Beam", "hearthnight's frame pill")
-    check(lastTheme.palettePill and lastTheme.palettePill.words, "Carmine Night", "after hours' palette pill")
-    check(lastTheme.lookPill and lastTheme.lookPill.words, "Beam", "after hours' frame pill")
+    check(lastTheme.palettePill and lastTheme.palettePill.words, "Gilded", "snug's palette pill")
+    check(lastTheme.lookPill and lastTheme.lookPill.words, "Flagon", "snug's frame pill")
     local pills = {
         { "Hearthnight", "Ember", "Beam" }, { "Harvestide", "Vanilla", "Stream" },
-        { "Tidemark", "Tide", "Slate" }, { "Old Road", "Forever", "Beam" },
+        { "Tidemark", "Tide", "Slate" }, { "Old Road", "Forever", "Crest" },
         { "Vigil", "Paladin", "Stream" }, { "Snug", "Gilded", "Flagon" },
-        { "Bellows", "Forgeglow", "Trestle" }, { "Drawwell", "Shaman", "Ledger" },
-        { "Settle", "Azeroth", "Beam" }, { "After Hours", "Carmine Night", "Beam" },
     }
     for i = 1, #pills do
         local line = themeRow.lines[i]
@@ -2337,11 +2331,11 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     end
     local crestUsed = false
     for i = 1, #ns.themes do if ns.themes[i].frame == "crest" then crestUsed = true end end
-    check(crestUsed, false, "Crest is on the Looks tab only")
+    check(crestUsed, true, "Old Road showcases Crest on the Presets tab")
     for i = 1, #ns.themes do
         check(ns.frameById(ns.themes[i].frame) ~= nil, true, ns.themes[i].id .. " names one of the seven looks")
     end
-    check(hearth.mood, "A winter hearth of campfire gold on a dark, named beam.", "hearthnight keeps its mood")
+    check(hearth.mood, "Warm ember frames and fiery casts for high-focus combat.", "hearthnight uses its new mood")
     check(type(hearth.preview) == "table" and #hearth.preview or 0, 3, "a theme row shows three swatches")
     check(hearth.preview[1], ns.byId.ember.background, "the first swatch is the palette background")
     check(hearth.preview[2], ns.byId.ember.band, "the second swatch is the band")
@@ -2351,7 +2345,7 @@ if type(themeBody) == "table" and type(themeBody.build) == "function" then
     account.themeChanged = true
     palDb.palette = "tide"
     if type(themeRow.UpdateLooks) == "function" then themeRow.UpdateLooks() end
-    check(hearth.name.words, "Hearthnight (changed)", "a changed theme still renames the row")
+    check(themeRow.recipeTitle and themeRow.recipeTitle.words, "Custom (based on Hearthnight)", "a changed theme updates the recipe title")
     check(hearth.palettePill.words, "Ember", "changed leaves the palette pill")
     check(hearth.lookPill.words, "Beam", "changed leaves the frame pill")
     hearth.SetOn(true, false)
@@ -2833,6 +2827,85 @@ do
     local before = #scroll.points
     check(ns.liftPageScroll(panel), nil, "other pages keep Daylight's scroll")
     check(#scroll.points, before, "leaving the page does not move the scroll")
+end
+
+-- Issues #41-#44 regression checks
+do
+    -- #41: 6 core presets exact 8-layer recipes
+    check(#ns.themes, 6, "#41 six core presets")
+    local wantRecipes = {
+        hearthnight = { "ember", "beam", "compact_beam", "compact_pill", "framed", "framed", "molten", "classic" },
+        harvestide = { "vanilla", "stream", "slim_ribbon", "compact_pill", "standard", "tiles", "silk", "classic" },
+        tidemark = { "tide", "slate", "minimal_slate", "slim_bar", "compact", "tight", "tide", "flat" },
+        oldroad = { "forever", "crest", "compact_beam", "crisp_square", "framed", "framed", "brushed", "heavy" },
+        vigil = { "paladin", "stream", "slim_ribbon", "compact_pill", "healer", "matte", "silk", "circle" },
+        snug = { "gilded", "flagon", "match", "compact_pill", "standard", "tiles", "flow", "circle" },
+    }
+    for i = 1, #ns.themes do
+        local t = ns.themes[i]
+        local w = wantRecipes[t.id]
+        check(type(w) == "table", true, "#41 known preset " .. tostring(t.id))
+        if w then
+            check(t.palette, w[1], t.id .. " palette")
+            check(t.frame, w[2], t.id .. " frame")
+            check(t.focus, w[3], t.id .. " focus")
+            check(t.tot, w[4], t.id .. " tot")
+            check(t.party, w[5], t.id .. " party")
+            check(t.raid, w[6], t.id .. " raid")
+            check(t.castbars, w[7], t.id .. " castbars")
+            check(t.actionbars, w[8], t.id .. " actionbars")
+        end
+    end
+
+    -- #41: My Presets 4-slot save/read/delete
+    check(ns.saveMyPreset(1, "Raid Tank"), true, "#41 save My Preset slot 1")
+    local savedSlots = ns.readMyPresets()
+    check(type(savedSlots[1]) == "table" and savedSlots[1].name, "Raid Tank", "#41 read My Preset slot 1")
+    check(ns.deleteMyPreset(1), true, "#41 delete My Preset slot 1")
+    check(ns.readMyPresets()[1], nil, "#41 My Preset slot 1 cleared")
+
+    -- #42: 7 Looks categories, ToT tooltip, bidirectional Preview Deck sync
+    check(#ns.lookCategories, 7, "#42 seven Looks sub-tab categories")
+    check(ns.lookCategories[3].short, "ToT", "#42 third Looks sub-tab is ToT")
+    check(ns.lookCategories[3].tooltip, "Target of Target", "#42 ToT has Target of Target tooltip")
+    ns.setLooksSubTab("focus", false)
+    check(ns.getLooksSubTab(), "focus", "#42 setLooksSubTab switches to focus")
+    check(ns.getPreviewDeckMode(), "focus", "#42 sub-tab syncs Preview Deck mode")
+    ns.setLooksSubTab("player_target", false)
+
+    -- #43: Non-destructive Reset staging & Cancel Preview + Live vs Reload flag
+    local beforePal = palDb.palette
+    ns.stageTabReset("Colours")
+    check(type(ns.staged) == "table" and ns.staged.kind, "reset", "#43 Reset Colours stages non-destructively")
+    check(ns.staged.looksOnly, false, "#43 Reset Colours requires reload")
+    check(palDb.palette, beforePal, "#43 Reset Colours does not overwrite SavedVariables until Apply")
+    check(ns.cancelStaged(), true, "#43 Cancel Preview clears staged reset")
+    check(ns.staged, nil, "#43 ns.staged is nil after cancel")
+
+    ns.stageTabReset("Looks")
+    check(type(ns.staged) == "table" and ns.staged.looksOnly, true, "#43 Reset Looks is live-apply")
+    ns.cancelStaged()
+
+    -- Real Preview Deck shown on Presets, Colours, and Looks tabs
+    if not main:find('tab == "Presets" or tab == "Colours" or tab == "Looks"', 1, true) then
+        fail("real Preview Deck must show on Presets, Colours, and Looks tabs")
+    end
+
+    -- Multi-tab accumulated staging: Preset -> Colour tweak -> Looks tweak -> single Apply commits all
+    local ran = {}
+    ns.stagePick("theme", "oldroad", function() ran[#ran + 1] = "theme:oldroad" end, false, "Old Road")
+    ns.stagePick("palette", "tide", function() ran[#ran + 1] = "palette:tide" end, false, "Tide")
+    ns.stagePick("frame", "beam", function() ran[#ran + 1] = "frame:beam" end, false, "Beam")
+    ns.stagePick("look", "healer", function() ran[#ran + 1] = "party:healer" end, false, "Healer Grid", nil, "party")
+    check(type(ns.staged) == "table" and ns.staged.count, 4, "multi-tab staging accumulates Preset + Colour + 2 Looks")
+    check(ns.staged.baseId, "oldroad", "staged draft retains base preset")
+    check(ns.staged.palette, "tide", "staged draft retains colour tweak")
+    check(ns.staged.frame, "beam", "staged draft retains frame tweak")
+    check(ns.staged.looks and ns.staged.looks.party, "healer", "staged draft retains extra look tweak")
+    check(ns.staged.looksOnly, false, "multi-tab draft with preset/colour requires reload")
+    check(ns.commitStaged(), true, "commitStaged applies all accumulated selections")
+    check(#ran, 4, "all 4 staged commits executed on Apply")
+    check(ns.staged, nil, "ns.staged cleared after commit")
 end
 
 if failures > 0 then

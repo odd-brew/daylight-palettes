@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0] - 2026-11-26
+
+### Added
+- **6 Core Presets & My Presets (4 slots):** Curated **Presets** down to 6 distinct full-UI recipes (**Hearthnight**, **Harvestide**, **Tidemark**, **Old Road** featuring `Crest`, **Vigil**, and **Snug**) in a 3×2 grid, paired with an 8-layer **Preset Recipe** card and a 2×2 **My Presets** save/load strip for your own combinations.
+- **7 Looks Categories & Live Previews:** Expanded **Looks** into 7 single-row sub-tabs (**Player & Target**, **Focus**, **ToT**, **Party**, **Raid**, **Cast Bars**, **Action Bars**) synced bidirectionally with the Preview Deck, with dynamic `Currently: [Look]` Match labels and a live 8-icon Action Bars preview that renders DaylightUI's real button shapes (`circle`, `shield`), borders, corners, shadows, and icon zoom.
+- **Live Preview Deck on Colours:** Replaced the mock mini-strip on the **Colours** tab with the full live DaylightUI Preview Deck used on Presets and Looks.
+- **Multi-Tab Staging & Safe Reset:** Selections now accumulate across **Presets**, **Colours**, and all **Looks** sub-tabs so you can start from a preset or colour, tweak individual frame looks across tabs, and commit everything together with a single **Apply Live** or **Apply (Reloads UI)** click—or back out cleanly with **Cancel Preview** or **Undo**. Reset buttons now stage a non-destructive preview before applying.
+
+### Fixed
+- **Eliminated client lockups on preset/look preview:** Coalesced DaylightUI `OptionsPanel.Refresh` calls during batched preview writes and scoped Preview Deck refreshes to the active mode, resolving the multi-minute client freeze when clicking presets or frame looks.
+- **ToT preview visibility:** Fixed Target of Target previews rendering blank by ensuring valid power bar height and explicit frame visibility on live sample frames.
+
 ## [0.6.0] - 2026-11-26
 
 ### Added
