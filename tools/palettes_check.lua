@@ -1992,10 +1992,13 @@ if type(body) == "table" and type(body.build) == "function" then
     local built, buildErr = pcall(body.build, row)
     if not built then fail("looks tab did not build: " .. tostring(buildErr)) end
     check(type(row.lines) == "table" and #row.lines or 0, 46, "all 8 Looks categories register 46 option cards")
+    check(row.lines[1] and row.lines[1].id, "daylight_standard", "frame row 1 is daylight_standard")
+    check(row.lines[1] and row.lines[1].kind, "frame", "frame row 1 is a frame")
     for i = 1, #FRAME_IDS do
-        check(row.lines[i] and row.lines[i].id, FRAME_IDS[i], "frame row " .. i .. " is " .. FRAME_IDS[i])
-        check(row.lines[i] and row.lines[i].kind, "frame", "frame row " .. i .. " is a frame")
-        check(type(row.lines[i].button) == "table" and type(row.lines[i].button.scripts.OnClick), "function", "frame row " .. i .. " is a button")
+        local ln = row.lines[i + 1]
+        check(ln and ln.id, FRAME_IDS[i], "frame row " .. (i + 1) .. " is " .. FRAME_IDS[i])
+        check(ln and ln.kind, "frame", "frame row " .. (i + 1) .. " is a frame")
+        check(type(ln.button) == "table" and type(ln.button.scripts.OnClick), "function", "frame row " .. (i + 1) .. " is a button")
     end
     for i = 1, #row.lines do
         if row.lines[i].kind == "glow" then fail("looks tab must have no glow rows") end
@@ -2007,11 +2010,11 @@ if type(body) == "table" and type(body.build) == "function" then
         fail("looks tab must have no glow heading or glow hint")
     end
     for i = 1, #frameLines do
-        check(row.lines[i].desc.words, frameLines[i], "frame row " .. i .. " reads the spec one-liner")
+        check(row.lines[i + 1].desc.words, frameLines[i], "frame row " .. (i + 1) .. " reads the spec one-liner")
     end
-    check(row.lines[2].desc.words, "Slim slanted bar with hung power rail and top name tab to save vertical screen space.", "Trestle ships the spec wording")
+    check(row.lines[3].desc.words, "Slim slanted bar with hung power rail and top name tab to save vertical screen space.", "Trestle ships the spec wording")
     if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
-    local active = row.lines[1]
+    local active = row.lines[2]
     active.SetOn(true, false)
     check(active.key.shown, false, "the picked row hides its key")
     check(active.check.texture, "Interface\\Buttons\\UI-CheckBox-Check", "the check is the game texture")
@@ -2029,7 +2032,7 @@ if type(body) == "table" and type(body.build) == "function" then
     check(type(active.washColor) == "table", true, "hover still paints the row highlight")
     active.SetHover(false)
 
-    local flagonRow, trestleRow, beamRow = row.lines[1], row.lines[2], row.lines[3]
+    local flagonRow, trestleRow, beamRow = row.lines[2], row.lines[3], row.lines[4]
     local function unitShows(id, unit)
         local n = 0
         for key, value in pairs(ns.frameValues(id)) do
@@ -2881,12 +2884,13 @@ do
     check(ns.getPreviewDeckMode(), "focus", "#42 sub-tab syncs Preview Deck mode")
     ns.setLooksSubTab("player_target", false)
 
-    -- Every Looks category includes a "Daylight Standard" option to reset that category to DaylightUI defaults
+    -- Every Looks category includes a "Daylight Standard" option in the first position
     check(ns.frameById("daylight_standard") and ns.frameById("daylight_standard").name, "Daylight Standard", "player_target has Daylight Standard option")
     for i = 2, #ns.lookCategories do
         local ck = ns.lookCategories[i].key
-        local std = ns.extraLookById(ck, "standard")
-        check(std and std.name, "Daylight Standard", ck .. " has Daylight Standard option")
+        local list = ns.extraLooks and ns.extraLooks[ck] or {}
+        check(list[1] and list[1].id, "standard", ck .. " first option is standard")
+        check(list[1] and list[1].name, "Daylight Standard", ck .. " first option is Daylight Standard")
     end
 
     -- #34: 5 curated Nameplate looks & strict Combat-Color Immunity

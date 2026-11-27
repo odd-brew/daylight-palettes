@@ -98,6 +98,7 @@ local LOOK_SPECS = {
 }
 
 local FRAMES = {
+    { id = "daylight_standard", name = "Daylight Standard", isDefault = true, desc = "Restores DaylightUI's native 187x43 slanted Player & Target frames with global border settings.", bestFor = "Daylight Default" },
     { id = "flagon", name = "Flagon", desc = "Slanted bar with round class socket and flowing health FX for smooth combat feedback.", bestFor = "All-Rounder, Solo Leveling" },
     { id = "trestle", name = "Trestle", desc = "Slim slanted bar with hung power rail and top name tab to save vertical screen space.", bestFor = "DPS, 5-Man Dungeons" },
     { id = "beam", name = "Beam", desc = "Tall slanted bar with angled portrait and big HP numbers for instant peripheral reads.", bestFor = "Tanking, Dungeons & Raids" },
@@ -105,7 +106,6 @@ local FRAMES = {
     { id = "ledger", name = "Ledger", desc = "Square portrait-free bar with dual health and power readouts for clean resource tracking.", bestFor = "Mana Management, Raiding" },
     { id = "crest", name = "Crest", desc = "Tall hero bar with 3D portrait, thick class ring, and big numbers for classic presence.", bestFor = "Solo Questing, Tanking" },
     { id = "slate", name = "Slate", desc = "Flat 22px portrait-free strip with hairline power bar for the smallest combat footprint.", bestFor = "20/40-Man Raiding, Minimalists" },
-    { id = "daylight_standard", name = "Daylight Standard", isDefault = true, desc = "Restores DaylightUI's native 187x43 slanted Player & Target frames with global border settings.", bestFor = "Daylight Default" },
 }
 
 -- Only these two frames are ever written. Everything else DaylightUI keeps is the player's.
@@ -311,6 +311,17 @@ local CASTBAR_UNITS = { "playerCastbar", "targetCastbar", "focusCastbar", "party
 
 local EXTRA_LOOKS = {
     focus = {
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 153x34 slanted Focus frame with round portrait and global border settings.",
+          bestFor = "Daylight Default",
+          settings = {
+              style = "daylight", width = 153, height = 34, powerHeight = 7, slant = true,
+              portrait = "class", portraitLook = "socket", portraitShape = "round",
+              portraitRing = "class", portraitRingWidth = "normal", portraitScale = 1.0,
+              nameOnBar = false, namePos = "bar", tabHeight = 16, bigNumber = false,
+              showPower = true, showPowerText = false, showLevel = true,
+              ["tab.own"] = false, ["shell.own"] = false,
+          } },
         { id = "match", name = "Match Player & Target", isMatch = true,
           desc = "Mirrors your active Player & Target style so focus stays visually unified with targets.",
           bestFor = "All-Rounder, Visual Consistency" },
@@ -347,19 +358,16 @@ local EXTRA_LOOKS = {
               showPower = true, showPowerText = false, showLevel = false,
               ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 0,
           } },
-        { id = "standard", name = "Daylight Standard",
-          desc = "Restores DaylightUI's native 153x34 slanted Focus frame with round portrait and global border settings.",
-          bestFor = "Daylight Default",
-          settings = {
-              style = "daylight", width = 153, height = 34, powerHeight = 7, slant = true,
-              portrait = "class", portraitLook = "socket", portraitShape = "round",
-              portraitRing = "class", portraitRingWidth = "normal", portraitScale = 1.0,
-              nameOnBar = false, namePos = "bar", tabHeight = 16, bigNumber = false,
-              showPower = true, showPowerText = false, showLevel = true,
-              ["tab.own"] = false, ["shell.own"] = false,
-          } },
     },
     tot = {
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 94x22 slanted Target of Target frame with global border settings.",
+          bestFor = "Daylight Default",
+          settings = {
+              width = 94, height = 22, slant = true, showPower = false, powerHeight = 4,
+              portrait = "none", namePos = "bar", showPercent = false,
+              ["shell.own"] = false,
+          } },
         { id = "match", name = "Match Player & Target", isMatch = true,
           desc = "Copies your Player & Target border and slant for a seamless target cluster.",
           bestFor = "All-Rounder, Visual Consistency" },
@@ -386,14 +394,6 @@ local EXTRA_LOOKS = {
               width = 124, height = 22, slant = false, showPower = false, powerHeight = 4,
               portrait = "class", namePos = "bar", showPercent = true,
               ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 2,
-          } },
-        { id = "standard", name = "Daylight Standard",
-          desc = "Restores DaylightUI's native 94x22 slanted Target of Target frame with global border settings.",
-          bestFor = "Daylight Default",
-          settings = {
-              width = 94, height = 22, slant = true, showPower = false, powerHeight = 4,
-              portrait = "none", namePos = "bar", showPercent = false,
-              ["shell.own"] = false,
           } },
     },
     party = {
@@ -445,6 +445,16 @@ local EXTRA_LOOKS = {
           } },
     },
     raid = {
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 72x28 Raid grid with 3px power strip and global border settings.",
+          bestFor = "Daylight Default",
+          settings = {
+              width = 72, height = 28, spacing = 2, groupSpacing = 4, slant = false,
+              showPower = true, powerHeight = 3, namePos = "bar", nameAlign = "center",
+              showPercent = false, showRole = true, predictHeals = true, predictAbsorbs = true,
+              showThreat = true, showDispel = true, ["media.health"] = "general",
+              ["shell.own"] = false,
+          } },
         { id = "tiles", name = "Daylight Tiles",
           desc = "Balanced rounded tiles with power strips, role icons, and dispels for 20-man raids.",
           bestFor = "20-Man Raiding, All-Rounder",
@@ -485,18 +495,16 @@ local EXTRA_LOOKS = {
               showThreat = true, showDispel = true, ["media.health"] = "brushed",
               ["shell.own"] = true, ["shell.borderPx"] = 3, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 5,
           } },
-        { id = "standard", name = "Daylight Standard",
-          desc = "Restores DaylightUI's native 72x28 Raid grid with 3px power strip and global border settings.",
-          bestFor = "Daylight Default",
-          settings = {
-              width = 72, height = 28, spacing = 2, groupSpacing = 4, slant = false,
-              showPower = true, powerHeight = 3, namePos = "bar", nameAlign = "center",
-              showPercent = false, showRole = true, predictHeals = true, predictAbsorbs = true,
-              showThreat = true, showDispel = true, ["media.health"] = "general",
-              ["shell.own"] = false,
-          } },
     },
     castbars = {
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 27px slanted Cast Bar with global bar texture and border settings.",
+          bestFor = "Daylight Default",
+          settings = {
+              height = 27, slant = true, showIcon = false, ["media.bar"] = "general",
+              ["barFx.style"] = "none", ["barFx.speed"] = 1.0, ["barFx.strength"] = 0.5, ["barFx.colors"] = "bar",
+              ["shell.own"] = false,
+          } },
         { id = "matte", name = "Clean Matte",
           desc = "Flat 16px iconless bar with zero FX for distraction-free spell timing.",
           bestFor = "Minimalists, Raiding",
@@ -545,16 +553,15 @@ local EXTRA_LOOKS = {
               ["barFx.style"] = "embers", ["barFx.speed"] = 1.15, ["barFx.strength"] = 1.1, ["barFx.colors"] = "accent",
               ["shell.own"] = true, ["shell.borderPx"] = 4, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 6,
           } },
-        { id = "standard", name = "Daylight Standard",
-          desc = "Restores DaylightUI's native 27px slanted Cast Bar with global bar texture and border settings.",
-          bestFor = "Daylight Default",
-          settings = {
-              height = 27, slant = true, showIcon = false, ["media.bar"] = "general",
-              ["barFx.style"] = "none", ["barFx.speed"] = 1.0, ["barFx.strength"] = 0.5, ["barFx.colors"] = "bar",
-              ["shell.own"] = false,
-          } },
     },
     actionbars = {
+        { id = "standard", name = "Daylight Standard",
+          desc = "Restores DaylightUI's native 3px rounded square Action Bar buttons with zero icon crop.",
+          bestFor = "Daylight Default",
+          settings = {
+              ["look.shape"] = "square", ["look.borderStyle"] = "daylight", ["look.border"] = 3,
+              ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0,
+          } },
         { id = "classic", name = "Daylight Classic",
           desc = "Rounded square buttons with 2px border and soft shadow for clear keybind separation.",
           bestFor = "All-Rounder, Dungeons & Questing",
@@ -596,13 +603,6 @@ local EXTRA_LOOKS = {
           settings = {
               ["look.shape"] = "shield", ["look.borderStyle"] = "daylight", ["look.border"] = 2,
               ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0.10,
-          } },
-        { id = "standard", name = "Daylight Standard",
-          desc = "Restores DaylightUI's native 3px rounded square Action Bar buttons with zero icon crop.",
-          bestFor = "Daylight Default",
-          settings = {
-              ["look.shape"] = "square", ["look.borderStyle"] = "daylight", ["look.border"] = 3,
-              ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0,
           } },
     },
     nameplates = {
