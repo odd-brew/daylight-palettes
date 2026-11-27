@@ -2924,10 +2924,10 @@ do
     account.looks = nil
     check(ns.nameplatesModuleLoaded(), true, "#34 nameplatesModuleLoaded is true when module enabled")
     check(ns.applyCategoryLook("nameplates", "sculpted", true), true, "#34 applyCategoryLook writes Sculpted Plate")
-    check(sets.Nameplates.width, 188, "#34 Sculpted Plate sets width to 188")
-    check(sets.Nameplates.height, 20, "#34 Sculpted Plate sets height to 20")
+    check(sets.Nameplates.width, 204, "#34 Sculpted Plate sets width to 204")
+    check(sets.Nameplates.height, 24, "#34 Sculpted Plate sets height to 24")
     check(sets.Nameplates["media.health"], "brushed", "#34 Sculpted Plate sets brushed texture")
-    check(sets.Nameplates.castHeight, 18, "#34 Sculpted Plate sets castHeight to 18")
+    check(sets.Nameplates.castHeight, 20, "#34 Sculpted Plate sets castHeight to 20")
     check(sets.Nameplates.targetStyle, "glow", "#34 Sculpted Plate sets targetStyle to glow")
     check(type(account.looks) == "table" and type(account.looks.nameplateValues) == "table" and account.looks.nameplateValues.width, 170, "#34 pre-write nameplate snapshot saved")
 
@@ -2940,9 +2940,10 @@ do
 
     -- /looks supports nameplate look names and Undo restores them
     ns.looksSlash("razor")
-    check(sets.Nameplates.height, 10, "#34 /looks razor applies Razor Strip height")
+    check(sets.Nameplates.height, 8, "#34 /looks razor applies Razor Strip height")
     check(sets.Nameplates.castIcon, false, "#34 /looks razor sets compact cast bar")
     ns.looksSlash("triage")
+    check(sets.Nameplates.height, 21, "#34 /looks triage applies noticeably taller Triage Bar height")
     check(sets.Nameplates["media.health"], "silk", "#34 /looks triage applies silk bar texture")
     check(sets.Nameplates["friendly.percent"], true, "#34 /looks triage enables friendly % health")
     local undoBefore = ns.captureUndo("look")
@@ -2957,13 +2958,13 @@ do
     check(sets.Nameplates["media.health"], "silk", "#34 combat lockdown leaves Nameplates unchanged")
     looksEnv.InCombatLockdown = function() return false end
     ns.finishLooksCombat()
-    check(sets.Nameplates.height, 10, "#34 finishLooksCombat applies queued Razor Strip nameplate look")
+    check(sets.Nameplates.height, 8, "#34 finishLooksCombat applies queued Razor Strip nameplate look")
 
     -- Module-absent safety: skips writes cleanly without error
     npModEnabled = false
     check(ns.nameplatesModuleLoaded(), false, "#34 nameplatesModuleLoaded is false when module absent")
     check(ns.applyCategoryLook("nameplates", "sculpted", true), false, "#34 applyCategoryLook skips safely when Nameplates absent")
-    check(sets.Nameplates.height, 10, "#34 absent Nameplates module prevents writes")
+    check(sets.Nameplates.height, 8, "#34 absent Nameplates module prevents writes")
     npModEnabled = true
     ns.restoreLooksOnly()
     ui.GetModule = nil

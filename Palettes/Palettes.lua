@@ -2272,7 +2272,7 @@ local DECK_MODES = {
     { key = "raid", label = "Raid", page = "UnitFrames.raid" },
     { key = "castbars", label = "Cast Bars", page = "UnitFrames.castbars" },
     { key = "actionbars", label = "Action Bars", page = nil },
-    { key = "nameplates", label = "Nameplates", page = nil },
+    { key = "nameplates", label = "Nameplates", page = "Nameplates.plates" },
 }
 
 local previewDeckMode = "player_target"
@@ -2399,13 +2399,13 @@ local function makePlayerSample(parent)
 
     -- Live Nameplates preview strip: Target casting interruptible spell + Secondary Enemy + Friendly plate.
     -- Semantic reaction/cast colors remain fixed (combat-color immune); frame chrome updates live with ns.staged.
-    local NP_PREVIEW_H = 78
+    local NP_PREVIEW_H = 88
     local npPreview = CreateFrame("Frame", nil, container)
     npPreview:SetHeight(NP_PREVIEW_H)
 
-    local function makeMockPlate(nameStr, pctVal, fillCol, isTarget, isFriendly)
+    local function makeMockPlate(nameStr, lvlStr, pctVal, fillCol, isTarget, isFriendly)
         local wrap = CreateFrame("Frame", nil, npPreview)
-        wrap:SetSize(160, 56)
+        wrap:SetSize(180, 66)
 
         local nameFs = blankText(wrap)
         nameFs:SetText(nameStr)
@@ -2419,6 +2419,9 @@ local function makePlayerSample(parent)
         local borderTex = barHost:CreateTexture(nil, "BORDER", nil, 0)
         local bgTex = barHost:CreateTexture(nil, "ARTWORK", nil, 0)
         local fillTex = barHost:CreateTexture(nil, "ARTWORK", nil, 2)
+        local lvlFs = blankText(barHost)
+        lvlFs:SetPoint("LEFT", barHost, "LEFT", 4, 0)
+        lvlFs:SetText(lvlStr or "")
         local pctFs = blankText(barHost)
         pctFs:SetPoint("RIGHT", barHost, "RIGHT", -4, 0)
 
@@ -2457,18 +2460,18 @@ local function makePlayerSample(parent)
         return {
             wrap = wrap, nameFs = nameFs, barHost = barHost,
             shadow = shadow, rim = rim, roundCard = roundCard, borderTex = borderTex,
-            bgTex = bgTex, fillTex = fillTex, pctFs = pctFs,
+            bgTex = bgTex, fillTex = fillTex, lvlFs = lvlFs, pctFs = pctFs,
             arrowL = arrowL, arrowR = arrowR,
             castHost = castHost, castBg = castBg, castFill = castFill,
             castIconBox = castIconBox, castIconTex = castIconTex, castText = castText, castTime = castTime,
-            pctVal = pctVal, fillCol = fillCol, isTarget = isTarget, isFriendly = isFriendly,
+            lvlStr = lvlStr, pctVal = pctVal, fillCol = fillCol, isTarget = isTarget, isFriendly = isFriendly,
         }
     end
 
     local npPlates = {
-        makeMockPlate("Shadowweaver", 0.72, { 0.78, 0.22, 0.20 }, true, false),
-        makeMockPlate("Boneguard", 0.48, { 0.78, 0.24, 0.20 }, false, false),
-        makeMockPlate("Aelindra", 0.94, { 0.26, 0.72, 0.34 }, false, true),
+        makeMockPlate("Shadowweaver", "25", 0.72, { 0.78, 0.22, 0.20 }, true, false),
+        makeMockPlate("Boneguard", "24", 0.48, { 0.78, 0.24, 0.20 }, false, false),
+        makeMockPlate("Aelindra", nil, 0.94, { 0.26, 0.72, 0.34 }, false, true),
     }
     if npPreview.Hide then npPreview:Hide() end
 
@@ -2656,16 +2659,17 @@ local function makePlayerSample(parent)
             end
         end
 
-        -- Paint mock overhead Nameplates reflecting active/staged Nameplates look
+        -- Paint mock overhead Nameplates reflecting active/staged Nameplates look (fallback when module absent)
         local npSet, npPrev = resolveNameplateLook()
         local npBorderPx = math.max(1, math.min(4, tonumber(npPrev.borderPx) or 2))
         local npRound = (npPrev.corner == "round")
         local npShadow = (npPrev.shadow ~= false)
-        local npBarW = math.max(110, math.min(180, math.floor((tonumber(npSet.width) or 170) * 0.88)))
-        local npBarH = math.max(8, math.min(22, tonumber(npSet.height) or 16))
-        local npCastH = math.max(8, math.min(18, tonumber(npSet.castHeight) or 14))
+        local npBarW = math.max(106, math.min(186, math.floor((tonumber(npSet.width) or 170) * 0.88)))
+        local npBarH = math.max(8, math.min(24, tonumber(npSet.height) or 16))
+        local npCastH = math.max(9, math.min(20, tonumber(npSet.castHeight) or 14))
         local npCastIcon = (npSet.castIcon ~= false)
         local npShowPct = (npSet.percent ~= false)
+        local npShowLvl = (npSet.level ~= false)
         local npPctSign = (npSet.percentSign ~= false)
         local npTargetStyle = npSet.targetStyle or "outline"
         local npTargetArrows = npSet.targetArrows or "none"
@@ -2677,10 +2681,11 @@ local function makePlayerSample(parent)
         for i = 1, #npPlates do
             local pl = npPlates[i]
             local bw = pl.isTarget and math.floor(npBarW * 1.08) or (pl.isFriendly and math.floor(npBarW * 0.86) or npBarW)
-            local bh = pl.isFriendly and math.max(8, math.min(16, tonumber(npSet["friendly.height"]) or math.max(8, npBarH - 4))) or npBarH
+            local bh = pl.isFriendly and math.max(8, math.min(18, tonumber(npSet["friendly.height"]) or math.max(8, npBarH - 4))) or npBarH
             pl.barHost:SetSize(bw, bh)
+            local nameGap = (pl.isTarget and npTargetStyle == "glow") and (npBorderPx + 6) or (npBorderPx + 4)
             pl.nameFs:ClearAllPoints()
-            pl.nameFs:SetPoint("BOTTOM", pl.barHost, "TOP", 0, 3)
+            pl.nameFs:SetPoint("BOTTOM", pl.barHost, "TOP", 0, nameGap)
             if type(pl.nameFs.SetTextColor) == "function" then
                 if pl.isFriendly then
                     pl.nameFs:SetTextColor(0.45, 0.88, 0.55, 1)
@@ -2752,6 +2757,17 @@ local function makePlayerSample(parent)
                 end
             elseif type(pl.fillTex.SetColorTexture) == "function" then
                 pl.fillTex:SetColorTexture(pl.fillCol[1], pl.fillCol[2], pl.fillCol[3], 1)
+            end
+
+            -- Level badge (enemy plates when level is enabled)
+            if pl.lvlFs then
+                if not pl.isFriendly and pl.lvlStr and npShowLvl and bh >= 12 then
+                    pl.lvlFs:SetText(pl.lvlStr)
+                    if type(pl.lvlFs.SetTextColor) == "function" then pl.lvlFs:SetTextColor(1, 0.85, 0.25, 0.95) end
+                    if pl.lvlFs.Show then pl.lvlFs:Show() end
+                else
+                    if pl.lvlFs.Hide then pl.lvlFs:Hide() end
+                end
             end
 
             -- Health percent text
@@ -2861,6 +2877,39 @@ local function makePlayerSample(parent)
             end
 
             if previewDeckMode == "nameplates" then
+                local npEnemyS = getExtraSample("nameplates", "Nameplates.plates")
+                if npEnemyS then
+                    local npFriendS = getExtraSample("nameplates_friendly", "Nameplates.friendly")
+                    if npEnemyS.frame.Show then npEnemyS.frame:Show() end
+                    if npFriendS then
+                        if npFriendS.frame.Show then npFriendS.frame:Show() end
+                        local gap = 16
+                        local half = math.max(160, math.floor((w - gap) / 2))
+                        local okE, he = pcall(npEnemyS.Refresh, half, subRoom)
+                        local okF, hf = pcall(npFriendS.Refresh, half, subRoom)
+                        he = (okE and type(he) == "number" and he > 0) and he or 80
+                        hf = (okF and type(hf) == "number" and hf > 0) and hf or 50
+                        local maxH = math.max(he, hf)
+                        local eTop = topOffset + math.floor((maxH - he) / 2)
+                        local fTop = topOffset + math.floor((maxH - hf) / 2)
+                        local h = topOffset + maxH
+                        container:SetSize(w, h)
+                        npEnemyS.frame:ClearAllPoints()
+                        npEnemyS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -eTop)
+                        npFriendS.frame:ClearAllPoints()
+                        npFriendS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", half + gap, -fTop)
+                        return h
+                    end
+                    local okE, he = pcall(npEnemyS.Refresh, w, subRoom)
+                    he = (okE and type(he) == "number" and he > 0) and he or 80
+                    npEnemyS.frame:ClearAllPoints()
+                    npEnemyS.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -topOffset)
+                    local h = topOffset + he
+                    container:SetSize(w, h)
+                    return h
+                end
+
+                -- Fallback mock strip when DaylightUI_Nameplates is not loaded/enabled
                 if npPreview.Show then npPreview:Show() end
                 npPreview:ClearAllPoints()
                 npPreview:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -topOffset)
