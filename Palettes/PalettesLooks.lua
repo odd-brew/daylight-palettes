@@ -650,7 +650,7 @@ local EXTRA_LOOKS = {
               width = 160, height = 12, slant = false, backAlpha = 0.95,
               ["media.health"] = "glass", ["media.cast"] = "glass",
               castHeight = 12, castIcon = true, castIconPos = "outleft",
-              nameSize = 12, percent = true, healthFormat = "percent", percentSign = false,
+              nameSize = 12, percent = true, healthFormat = "percent", percentSign = false, healthSize = 0,
               level = false, eliteDragon = false,
               targetStyle = "outline", targetAccent = true, targetScale = true, ["target.scale"] = 1.12, targetArrows = "none",
           } },

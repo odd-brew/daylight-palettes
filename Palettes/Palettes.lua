@@ -2835,7 +2835,7 @@ local function makePlayerSample(parent)
 
     return {
         frame = container,
-        hint = "Live preview deck. Click the Preview selector to switch frames, pick a preset or look below, then click Apply.",
+        hint = "Click the Preview selector to switch frames, pick a look below, then click Apply.",
         zoomRange = playerS.zoomRange,
         Zoom = playerS.Zoom,
         SetZoom = function(v)
