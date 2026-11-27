@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.1] - 2026-11-26
+
+### Fixed
+- **My Presets delete button:** Fixed the `x` delete button on saved **My Presets** slots flickering its tooltip on hover and failing to delete when clicked. The delete button now stays visible on populated slots, highlights on hover, and cleanly deletes the preset (and reverts any staged preview of that slot).
+
 ## [0.7.0] - 2026-11-26
 
 ### Added
