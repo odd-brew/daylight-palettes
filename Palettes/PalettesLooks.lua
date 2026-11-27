@@ -277,7 +277,19 @@ local THEMES = {
 }
 ns.themes = THEMES
 
--- Looks-only Role Presets (Issue #35): style all 7 Looks layers live without touching Colours.
+-- Role Layouts (Issue #35 v2): spatial frame positions + all 7 Looks layers live without touching Colours.
+-- Reference coordinates match DaylightUI Profiles.PRESET_SCREEN (1705.6 x 1066) CENTER offsets from UIParent CENTER.
+local ROLE_REF_SCREEN = { 1705.6, 1066 }
+local ROLE_MOVER_KEYS = {
+    "unitframes.player",
+    "unitframes.target",
+    "unitframes.focus",
+    "unitframes.targettarget",
+    "unitframes.party",
+    "unitframes.raid",
+}
+ns.roleMoverKeys = ROLE_MOVER_KEYS
+
 local ROLE_PRESETS = {
     {
         id = "healer",
@@ -291,6 +303,20 @@ local ROLE_PRESETS = {
         raid = "matte",
         castbars = "silk",
         actionbars = "classic",
+        -- Mirrors DaylightUI Profiles.PRESET_POSITIONS.Healer with Focus tucked beside the triage grid.
+        positions = {
+            ["unitframes.player"] = { -351.8, -143.9 },
+            ["unitframes.target"] = { 351.8, -143.9 },
+            ["unitframes.focus"] = { -351.8, -214.0 },
+            ["unitframes.targettarget"] = { 304.5, -208.5 },
+            ["unitframes.party"] = { 0, -253 },
+            ["unitframes.raid"] = { 0, -253 },
+        },
+        over = {
+            under = "unitframes.raid",
+            rise = 228,
+            keys = { "unitframes.player", "unitframes.target", "unitframes.focus", "unitframes.targettarget" },
+        },
     },
     {
         id = "dps",
@@ -304,6 +330,15 @@ local ROLE_PRESETS = {
         raid = "tight",
         castbars = "brushed",
         actionbars = "flat",
+        -- Lower/wider Player & Target for open center floor, Focus above Target for kicks, compact group far-left.
+        positions = {
+            ["unitframes.player"] = { -268, -296 },
+            ["unitframes.target"] = { 268, -296 },
+            ["unitframes.focus"] = { 268, -212 },
+            ["unitframes.targettarget"] = { 442, -296 },
+            ["unitframes.party"] = { -756, 120 },
+            ["unitframes.raid"] = { -756, 120 },
+        },
     },
     {
         id = "tank",
@@ -317,6 +352,15 @@ local ROLE_PRESETS = {
         raid = "tiles",
         castbars = "brushed",
         actionbars = "heavy",
+        -- Tight center-left/right Player & Target, ToT & Focus clustered beside Target, Party/Raid docked left.
+        positions = {
+            ["unitframes.player"] = { -210, -240 },
+            ["unitframes.target"] = { 210, -240 },
+            ["unitframes.focus"] = { 392, -172 },
+            ["unitframes.targettarget"] = { 392, -240 },
+            ["unitframes.party"] = { -730, 80 },
+            ["unitframes.raid"] = { -730, 80 },
+        },
     },
 }
 ns.rolePresets = ROLE_PRESETS
@@ -810,7 +854,33 @@ local function copyValues(values)
     if any then return out end
 end
 
--- The restore snapshot: glow, outline, and every frame value Palettes may write.
+local function copyPosValue(v)
+    if v == false then return false end
+    if type(v) == "table" and type(v[1]) == "number" and type(v[2]) == "number" then
+        local out = { v[1], v[2] }
+        if type(v.at) == "string" then out.at = v.at end
+        if type(v.ax) == "number" then out.ax = v.ax end
+        if type(v.ay) == "number" then out.ay = v.ay end
+        return out
+    end
+end
+
+local function copyPositionsTable(tbl)
+    if type(tbl) ~= "table" then return nil end
+    local out, any = {}, false
+    for k, v in pairs(tbl) do
+        if type(k) == "string" then
+            local c = copyPosValue(v)
+            if c ~= nil then
+                out[k] = c
+                any = true
+            end
+        end
+    end
+    if any then return out end
+end
+
+-- The restore snapshot: glow, outline, frame values, and mover positions Palettes may write.
 -- 0.4.2 also saved the frame style string. Nothing writes look.style now, so it is dropped.
 local function copyShot(shot)
     if type(shot) ~= "table" then return nil end
@@ -820,6 +890,7 @@ local function copyShot(shot)
         frameValues = copyValues(shot.frameValues),
         extraUnitValues = copyValues(shot.extraUnitValues),
         actionBarValues = copyValues(shot.actionBarValues),
+        moverPositions = copyPositionsTable(shot.moverPositions),
     }
 end
 ns.copyLooksShot = copyShot
@@ -1132,8 +1203,111 @@ local function mergeSnapshot(add)
                 if out.actionBarValues[k] == nil then out.actionBarValues[k] = v end
             end
         end
+        if type(add.moverPositions) == "table" then
+            out.moverPositions = out.moverPositions or {}
+            for k, v in pairs(add.moverPositions) do
+                if out.moverPositions[k] == nil then out.moverPositions[k] = copyPosValue(v) end
+            end
+        end
     end
     storeSnapshot(out)
+end
+
+local function readPositionsTable()
+    local d = DaylightUI
+    local db = type(d) == "table" and d.DB
+    if type(db) == "table" and type(db.Positions) == "function" then
+        local ok, pos = pcall(db.Positions)
+        if ok and type(pos) == "table" then return pos end
+    end
+end
+
+-- Mirrors DaylightUI Profiles.fitToScreen so role coordinates adapt cleanly across screen widths/heights.
+local function fitRolePositions(role)
+    if type(role) ~= "table" or type(role.positions) ~= "table" then return {} end
+    local refW, refH = ROLE_REF_SCREEN[1], ROLE_REF_SCREEN[2]
+    local w, h = refW, refH
+    if type(UIParent) == "table" and type(UIParent.GetWidth) == "function" and type(UIParent.GetHeight) == "function" then
+        local okW, uw = pcall(UIParent.GetWidth, UIParent)
+        local okH, uh = pcall(UIParent.GetHeight, UIParent)
+        if okW and type(uw) == "number" and uw > 100 then w = uw end
+        if okH and type(uh) == "number" and uh > 100 then h = uh end
+    end
+    local narrower = w < refW - 1
+    local out = {}
+    for k, v in pairs(role.positions) do
+        local x, y = v[1], v[2]
+        if narrower then x = x * w / refW end
+        if h < refH then y = y + (refH - h) / 2 end
+        out[k] = { x, y }
+    end
+    local over = role.over
+    if narrower and type(over) == "table" and type(over.keys) == "table" and out[over.under] then
+        local first = out[over.keys[1]]
+        if first then
+            local lift = out[over.under][2] + over.rise - first[2]
+            if lift > 0 then
+                for i = 1, #over.keys do
+                    local mk = over.keys[i]
+                    if out[mk] then out[mk][2] = out[mk][2] + lift end
+                end
+            end
+        end
+    end
+    return out
+end
+
+local function capturePositionsForKeys(keys)
+    local pos = readPositionsTable()
+    if type(pos) ~= "table" or type(keys) ~= "table" then return end
+    local addPos, any = {}, false
+    for i = 1, #keys do
+        local k = keys[i]
+        local cur = copyPosValue(pos[k])
+        addPos[k] = cur ~= nil and cur or false
+        any = true
+    end
+    if any then mergeSnapshot({ moverPositions = addPos }) end
+end
+
+local function readCurrentMoverPositions()
+    local saved = readSnapshot()
+    if type(saved) ~= "table" or type(saved.moverPositions) ~= "table" then return nil end
+    local pos = readPositionsTable()
+    if type(pos) ~= "table" then return nil end
+    local out, any = {}, false
+    for k in pairs(saved.moverPositions) do
+        local cur = copyPosValue(pos[k])
+        out[k] = cur ~= nil and cur or false
+        any = true
+    end
+    if any then return out end
+end
+
+local function writeMoverPositions(posMap)
+    if type(posMap) ~= "table" then return true end
+    local pos = readPositionsTable()
+    if type(pos) ~= "table" then return false end
+    local d = DaylightUI
+    local movers = type(d) == "table" and d.Movers or nil
+    local hasGet = type(movers) == "table" and type(movers.Get) == "function"
+    local hasApply = type(movers) == "table" and type(movers.Apply) == "function"
+    for k, v in pairs(posMap) do
+        if v == false then
+            pos[k] = nil
+        else
+            local c = copyPosValue(v)
+            if c then pos[k] = c end
+        end
+        if hasApply and (not hasGet or movers.Get(k)) then
+            pcall(movers.Apply, k)
+        end
+    end
+    local db = type(d) == "table" and d.DB or nil
+    if type(db) == "table" and type(db.Keep) == "function" then
+        pcall(db.Keep)
+    end
+    return true
 end
 
 local function extraLookById(catKey, id)
@@ -1585,7 +1759,7 @@ local function queueLook(kind, id, name)
     if kind == "theme" then
         say("Palettes: " .. name .. " queued until combat ends.")
     elseif kind == "role" then
-        say("Palettes: " .. name .. " role looks queued until combat ends.")
+        say("Palettes: " .. name .. " role layout & looks queued until combat ends.")
     else
         say("Looks: " .. name .. " queued until combat ends.")
     end
@@ -1979,6 +2153,7 @@ function ns.captureUndo(kind)
         frameValues = readFrameValues(),
         extraUnitValues = extraU,
         actionBarValues = extraAB,
+        moverPositions = readCurrentMoverPositions(),
         lookPicks = copyLookPicks(),
         theme = themeId or false,
         themeChanged = changed == true,
@@ -1990,6 +2165,7 @@ function ns.applyUndoShot(shot)
     if shot.kind == "theme" or shot.kind == "frame" or shot.kind == "look" or shot.kind == "looks" or shot.kind == "full" then
         if type(shot.frameValues) == "table" then writeFrameValues(shot.frameValues) end
         restoreExtraValues(shot.extraUnitValues, shot.actionBarValues)
+        if type(shot.moverPositions) == "table" then writeMoverPositions(shot.moverPositions) end
         if type(shot.lookPicks) == "table" then
             local slot, account, onlyOn = activeSlot()
             local target = (onlyOn and type(slot) == "table") and slot or account
@@ -2113,6 +2289,7 @@ local function applyRole(role)
         end
     end
     if #allExtraPairs > 0 then captureExtraForPairs(allExtraPairs) end
+    if type(role.positions) == "table" then capturePositionsForKeys(ROLE_MOVER_KEYS) end
     local undoShot = (not ns.applyingTheme and type(ns.captureUndo) == "function") and ns.captureUndo("looks") or nil
 
     ns.applyingTheme = true
@@ -2124,6 +2301,9 @@ local function applyRole(role)
             if type(role[ck]) == "string" then
                 pcall(ns.applyCategoryLook, ck, role[ck], true)
             end
+        end
+        if type(role.positions) == "table" then
+            writeMoverPositions(fitRolePositions(role))
         end
     end)
     ns.applyingTheme = false
@@ -2138,7 +2318,7 @@ local function applyRole(role)
         if themeId then writeThemeSlot(themeId, true) end
     end
 
-    say("Palettes: " .. role.name .. " role looks applied. Your colours and layout are unchanged.")
+    say("Palettes: " .. role.name .. " role layout & looks applied. Your colours are unchanged.")
     if not frameOk then failFrame(role.frame) end
     refreshPage()
     refreshLooks()
@@ -2154,7 +2334,7 @@ function ns.restoreColoursOnly()
     end
 end
 
--- Puts back only what Palettes saved: frame values, extra category values, plus any pre-update glow snapshot.
+-- Puts back only what Palettes saved: frame values, extra category values, mover positions, plus any pre-update glow snapshot.
 local function restoreSaved(saved)
     local frameOk, glowOk = true, true
     local hadFrames = type(saved.frameValues) == "table"
@@ -2162,6 +2342,9 @@ local function restoreSaved(saved)
     if hadFrames then frameOk = writeFrameValues(saved.frameValues) end
     if type(saved.extraUnitValues) == "table" or type(saved.actionBarValues) == "table" then
         restoreExtraValues(saved.extraUnitValues, saved.actionBarValues)
+    end
+    if type(saved.moverPositions) == "table" then
+        writeMoverPositions(saved.moverPositions)
     end
     if hadGlow then glowOk = writeGlowValue(saved.glow, saved.light) end
     local slot, account, onlyOn = activeSlot()
@@ -2987,13 +3170,14 @@ function ns.jumpToTab(tabName, subTabKey)
     refreshLooks()
 end
 
--- Issue #41 & #35: Presets Tab — 6 core themes in 3x2 grid + Role Presets strip & split Recipe / My Presets footer.
+-- Issue #41 & #35: Presets Tab — 6 core themes in 3x2 grid + Role Layouts strip & split Recipe / My Presets footer.
 local PRESET_GRID_CARD_H = 86
-local ROLE_CARD_H = 56
+local ROLE_HEAD_H = 16
+local ROLE_CARD_H = 52
 local ROLE_STRIP_GAP = 6
 local ROLE_GAP_X = 6
-local PRESET_FOOTER_H = 150
-local PRESET_TOTAL_FOOTER_H = ROLE_CARD_H + ROLE_STRIP_GAP + PRESET_FOOTER_H
+local PRESET_FOOTER_H = 148
+local PRESET_TOTAL_FOOTER_H = ROLE_HEAD_H + ROLE_CARD_H + ROLE_STRIP_GAP + PRESET_FOOTER_H
 
 local ROLE_ICON_PATH = "Interface\\LFGFrame\\UI-LFG-ICON-PORTRAITROLES"
 local ROLE_TEX_COORDS = {
@@ -3181,7 +3365,15 @@ local function buildPresetsPage(row)
         cards[#cards + 1] = line
     end
 
-    -- Left Footer Top: 3-column Looks-only Role Presets strip (Healer, DPS, Tank)
+    -- Left Footer Top: Role Layouts header + 3-column strip (Healer, DPS, Tank)
+    local roleHeader = uiFont(row, 11, CREAM)
+    roleHeader:SetText("Role Layouts")
+    row.roleHeader = roleHeader
+    local roleHint = uiFont(row, 9, DIM)
+    roleHint:SetText("Styles + frame positions · keeps your colours")
+    if type(roleHint.SetWordWrap) == "function" then roleHint:SetWordWrap(false) end
+    row.roleHint = roleHint
+
     local roleCards = {}
     row.roleCards = roleCards
     for i = 1, #ROLE_PRESETS do
@@ -3292,7 +3484,7 @@ local function buildPresetsPage(row)
         end)
         hold:SetScript("OnEnter", function()
             rLine.SetHover(true)
-            showTooltip(hold, role.name .. " Role (Looks-only — keeps your active Colour)\n" .. role.focusLine .. " · Applies live with no /reload")
+            showTooltip(hold, role.name .. " Role Layout (Looks + frame positions — keeps your active Colour)\n" .. role.focusLine .. " · Applies live with no /reload")
         end)
         hold:SetScript("OnLeave", function()
             rLine.SetHover(false)
@@ -3486,40 +3678,46 @@ local function buildPresetsPage(row)
         end
 
         local gridRows = math.ceil(#cards / cols)
-        local footerY = 4 + gridRows * (PRESET_GRID_CARD_H + CARD_GAP_Y) + 8
+        local footerY = 4 + gridRows * (PRESET_GRID_CARD_H + CARD_GAP_Y) + 6
         local halfW = math.floor((w - 8 - CARD_GAP_X) / 2)
 
-        -- Left Footer Top: 3-column Role Presets strip
+        -- Left Footer Top: Role Layouts header + 3-column strip
+        roleHeader:ClearAllPoints()
+        roleHeader:SetPoint("TOPLEFT", row, "TOPLEFT", 6, -footerY)
+        roleHint:ClearAllPoints()
+        roleHint:SetPoint("TOPRIGHT", row, "TOPLEFT", 4 + halfW - 2, -(footerY + 1))
+
+        local roleCardsY = footerY + ROLE_HEAD_H
         local roleCols = #roleCards
         local roleCardW = math.floor((halfW - (roleCols - 1) * ROLE_GAP_X) / roleCols)
         for i = 1, roleCols do
             local r = roleCards[i]
             local rx = 4 + (i - 1) * (roleCardW + ROLE_GAP_X)
             r.button:ClearAllPoints()
-            r.button:SetPoint("TOPLEFT", row, "TOPLEFT", rx, -footerY)
+            r.button:SetPoint("TOPLEFT", row, "TOPLEFT", rx, -roleCardsY)
             r.button:SetWidth(roleCardW)
             r.icon:ClearAllPoints()
-            r.icon:SetPoint("TOPLEFT", r.button, "TOPLEFT", 8, -8)
+            r.icon:SetPoint("TOPLEFT", r.button, "TOPLEFT", 8, -7)
             r.name:ClearAllPoints()
             r.name:SetPoint("LEFT", r.icon, "RIGHT", 4, 0)
             r.name:SetWidth(math.max(32, roleCardW - 72))
             r.badge:ClearAllPoints()
-            r.badge:SetPoint("TOPRIGHT", r.button, "TOPRIGHT", -6, -7)
+            r.badge:SetPoint("TOPRIGHT", r.button, "TOPRIGHT", -6, -6)
             r.focusFs:ClearAllPoints()
-            r.focusFs:SetPoint("BOTTOMLEFT", r.button, "BOTTOMLEFT", 8, 8)
+            r.focusFs:SetPoint("BOTTOMLEFT", r.button, "BOTTOMLEFT", 8, 7)
             r.focusFs:SetPoint("RIGHT", r.button, "RIGHT", -8, 0)
         end
 
-        local recipeY = footerY + ROLE_CARD_H + ROLE_STRIP_GAP
+        local recipeY = roleCardsY + ROLE_CARD_H + ROLE_STRIP_GAP
         recipeBox:ClearAllPoints()
         recipeBox:SetPoint("TOPLEFT", row, "TOPLEFT", 4, -recipeY)
         recipeBox:SetWidth(halfW)
         recipeTitle:ClearAllPoints()
-        recipeTitle:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -8)
+        recipeTitle:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -7)
         recipeQuickSave:ClearAllPoints()
-        recipeQuickSave:SetPoint("TOPRIGHT", recipeBox, "TOPRIGHT", -8, -6)
+        recipeQuickSave:SetPoint("TOPRIGHT", recipeBox, "TOPRIGHT", -8, -5)
         recipeDesc:ClearAllPoints()
-        recipeDesc:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -26)
+        recipeDesc:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -24)
         recipeDesc:SetWidth(math.max(120, halfW - 20))
 
         local pillW = math.floor((halfW - 20 - 3 * 5) / 4)
@@ -3529,7 +3727,7 @@ local function buildPresetsPage(row)
             local lr = math.floor(idx / 4)
             local lc = idx - lr * 4
             local lx = 10 + lc * (pillW + 5)
-            local ly = 80 + lr * 33
+            local ly = 78 + lr * 33
             lb.btn:ClearAllPoints()
             lb.btn:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", lx, -ly)
             lb.btn:SetWidth(pillW)
@@ -3550,20 +3748,23 @@ local function buildPresetsPage(row)
             local sr = math.floor(idx / 2)
             local sc = idx - sr * 2
             local sx = 10 + sc * (slotW + 6)
-            local sy = 32 + sr * 84
+            local sy = 32 + sr * 88
             sl.btn:ClearAllPoints()
             sl.btn:SetPoint("TOPLEFT", myBox, "TOPLEFT", sx, -sy)
             sl.btn:SetWidth(slotW)
+            sl.btn:SetHeight(80)
         end
 
         combatNote:ClearAllPoints()
-        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 6, -(footerY + PRESET_TOTAL_FOOTER_H + 4))
+        combatNote:SetPoint("TOPLEFT", row, "TOPLEFT", 6, -(footerY + PRESET_TOTAL_FOOTER_H + 3))
     end
 
     function row.UpdateLooks()
         local win, bg, bnd, _, brd, acc, txt, lbl = activeSurface()
         local waiting = type(looksPending) == "table"
         setShownSafe(combatNote, waiting)
+        tintText(roleHeader, txt)
+        tintText(roleHint, lbl)
 
         local shownId, changed, pendingTheme = ns.shownTheme()
         local staged = ns.staged
@@ -3600,13 +3801,13 @@ local function buildPresetsPage(row)
             or (stagedThemeId ~= nil and hasStagedTweaks)
             or (stagedRole ~= nil and shownId ~= nil)
         if stagedRole and not shownId then
-            recipeTitle:SetText(stagedRole.name .. " Role Recipe")
-            recipeDesc:SetText("Applies " .. stagedRole.name .. " looks live across all 7 layers without changing your Colour.")
+            recipeTitle:SetText(stagedRole.name .. " Role Layout")
+            recipeDesc:SetText("Applies " .. stagedRole.name .. " frame positions and 7-layer looks live without changing your Colour.")
             setShownSafe(recipeQuickSave, false)
         elseif isModified then
             recipeTitle:SetText("Custom (based on " .. (focusTheme and focusTheme.name or "Preset") .. ")")
             if stagedRole then
-                recipeDesc:SetText("Staging " .. stagedRole.name .. " role looks over " .. (focusTheme and focusTheme.name or "Preset") .. " (keeps your active Colour).")
+                recipeDesc:SetText("Staging " .. stagedRole.name .. " role layout & looks over " .. (focusTheme and focusTheme.name or "Preset") .. " (keeps your active Colour).")
             else
                 recipeDesc:SetText("Modified from " .. (focusTheme and focusTheme.name or "Preset") .. ". Click any layer below to tweak or save to My Presets.")
             end
@@ -3757,7 +3958,7 @@ function ns.themesPage()
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
                         height = function()
-                            return 4 + 2 * (PRESET_GRID_CARD_H + CARD_GAP_Y) + 8 + PRESET_TOTAL_FOOTER_H + 12
+                            return 4 + 2 * (PRESET_GRID_CARD_H + CARD_GAP_Y) + 6 + PRESET_TOTAL_FOOTER_H + 10
                         end,
                     },
                 },

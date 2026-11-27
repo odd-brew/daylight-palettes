@@ -2908,9 +2908,27 @@ do
     check(ns.staged, nil, "ns.staged cleared after commit")
 end
 
--- #35: Looks-only Role Presets (Healer, DPS, Tank)
+-- #35: Role Layouts (Healer, DPS, Tank) — Spatial Positions + 7-Layer Looks
 do
-    check(type(ns.rolePresets) == "table" and #ns.rolePresets, 3, "#35 defines 3 Role Presets")
+    -- Wire DaylightUI.DB.Positions / Movers mocks for spatial layout testing
+    local mockPositions = {
+        ["unitframes.player"] = { -190, -280 },
+        ["unitframes.target"] = { 190, -280 },
+    }
+    local moverApplied = {}
+    local dbKept = 0
+    local prevDB = ui.DB
+    local prevMovers = ui.Movers
+    ui.DB = {
+        Positions = function() return mockPositions end,
+        Keep = function() dbKept = dbKept + 1 end,
+    }
+    ui.Movers = {
+        Get = function(k) return { key = k } end,
+        Apply = function(k) moverApplied[k] = (moverApplied[k] or 0) + 1 end,
+    }
+
+    check(type(ns.rolePresets) == "table" and #ns.rolePresets, 3, "#35 defines 3 Role Layouts")
     local healer = ns.roleById("healer")
     local dps = ns.roleById("dps")
     local tank = ns.roleById("tank")
@@ -2927,18 +2945,20 @@ do
     check(healerParty and healerParty.settings and healerParty.settings.predictHeals, true, "#35 Healer party look enables predictHeals")
     check(healerParty and healerParty.settings and healerParty.settings.predictAbsorbs, true, "#35 Healer party look enables predictAbsorbs")
 
-    -- Presets tab renders 3 Role Preset cards and fits cleanly without vertical scrolling
+    -- Presets tab renders Role Layouts header + hint + 3 cards and fits within 430px without scrolling
     local page = ns.themesPage()
     local item = page.groups[1].items[1]
     check(item.height() <= 430, true, "#35 Presets tab height fits cleanly within 430px without scrolling")
     local row = piece()
     item.build(row)
-    check(type(row.roleCards) == "table" and #row.roleCards, 3, "#35 Presets tab builds 3 Role Preset cards")
+    check(row.roleHeader and row.roleHeader.words, "Role Layouts", "#35 Presets tab labels strip Role Layouts")
+    check(row.roleHint and row.roleHint.words, "Styles + frame positions · keeps your colours", "#35 Presets tab shows Role Layouts hint")
+    check(type(row.roleCards) == "table" and #row.roleCards, 3, "#35 Presets tab builds 3 Role Layout cards")
     check(row.roleCards[1].id, "healer", "#35 card 1 is healer")
     check(row.roleCards[2].id, "dps", "#35 card 2 is dps")
     check(row.roleCards[3].id, "tank", "#35 card 3 is tank")
 
-    -- Start from active Core Preset Hearthnight (Ember colour + Beam looks)
+    -- Start from active Core Preset Hearthnight (Ember colour + Beam looks); Core Presets do NOT move frames
     seedFrames()
     sets.UnitFrames["party.healthText"] = "percent"
     sets.UnitFrames["party.height"] = 30
@@ -2951,24 +2971,27 @@ do
     palDb.palette = "ember"
     ns.looksSlash("hearthnight")
     check(palDb.palette, "ember", "#35 Hearthnight sets Ember palette")
+    check(mockPositions["unitframes.player"][1], -190, "#35 Core Preset leaves player position untouched")
+    check(mockPositions["unitframes.party"], nil, "#35 Core Preset leaves party position unset")
     local tid, tchg = ns.shownTheme()
     check(tid, "hearthnight", "#35 Hearthnight is active")
     check(tchg, false, "#35 Hearthnight starts unchanged")
 
-    -- Clicking Healer card stages Looks-only draft without touching Colour
+    -- Clicking Healer card stages Looks+Layout draft without touching Colour
     local reloadsBefore = reloadAsked or 0
     row.roleCards[1].button.scripts.OnClick()
     check(type(ns.staged) == "table" and ns.staged.baseKind, "role", "#35 clicking Healer stages kind role")
     check(ns.staged.baseId, "healer", "#35 staged role id is healer")
-    check(ns.staged.looksOnly, true, "#35 staged Role Preset is strictly Looks-only (Apply Live)")
-    check(ns.staged.palette, nil, "#35 staged Role Preset never sets palette")
-    check(palDb.palette, "ember", "#35 staging Role Preset leaves active Colour untouched")
+    check(ns.staged.looksOnly, true, "#35 staged Role Layout is Apply Live (no /reload)")
+    check(ns.staged.palette, nil, "#35 staged Role Layout never sets palette")
+    check(palDb.palette, "ember", "#35 staging Role Layout leaves active Colour untouched")
 
-    -- Committing staged Role Preset applies all 7 layers live with no reload and marks Core Preset changed
+    -- Committing staged Healer applies 7 looks + lower-center triage positions live with no reload
     said = {}
-    check(ns.commitStaged(), true, "#35 commitStaged applies Role Preset")
-    check(reloadAsked or 0, reloadsBefore, "#35 Role Preset Apply Live never prompts for /reload")
-    check(palDb.palette, "ember", "#35 active Colour stays Ember after applying Healer role")
+    moverApplied = {}
+    check(ns.commitStaged(), true, "#35 commitStaged applies Healer Role Layout")
+    check(reloadAsked or 0, reloadsBefore, "#35 Role Layout Apply Live never prompts for /reload")
+    check(palDb.palette, "ember", "#35 active Colour stays Ember after applying Healer")
     check(liveHas("stream"), true, "#35 Healer applies Stream to Player & Target")
     check(ns.readLookPick("focus"), "slim_ribbon", "#35 Healer applies slim_ribbon Focus")
     check(ns.readLookPick("tot"), "slim_bar", "#35 Healer applies slim_bar ToT")
@@ -2977,13 +3000,21 @@ do
     check(ns.readLookPick("raid"), "matte", "#35 Healer applies matte Raid")
     check(ns.readLookPick("castbars"), "silk", "#35 Healer applies silk Cast Bars")
     check(ns.readLookPick("actionbars"), "classic", "#35 Healer applies classic Action Bars")
+    check(mockPositions["unitframes.party"][1], 0, "#35 Healer centers Party X")
+    check(mockPositions["unitframes.party"][2], -253, "#35 Healer places Party in lower-center triage zone")
+    check(mockPositions["unitframes.raid"][1], 0, "#35 Healer centers Raid X")
+    check(mockPositions["unitframes.raid"][2], -253, "#35 Healer places Raid in lower-center triage zone")
+    check(mockPositions["unitframes.player"][1], -351.8, "#35 Healer widens Player outward")
+    check(mockPositions["unitframes.target"][1], 351.8, "#35 Healer widens Target outward")
+    check(moverApplied["unitframes.party"] >= 1 and moverApplied["unitframes.raid"] >= 1, true, "#35 Healer calls Movers.Apply on moved frames")
+    check(dbKept >= 1, true, "#35 Role Layout persists positions via DB.Keep")
     check(ns.exactRole() and ns.exactRole().id, "healer", "#35 exactRole detects healer")
     local tid2, tchg2 = ns.shownTheme()
     check(tid2, "hearthnight", "#35 Hearthnight stays as base theme")
-    check(tchg2, true, "#35 Hearthnight is marked (changed) after applying Role Preset")
-    check(said[#said], "Palettes: Healer role looks applied. Your colours and layout are unchanged.", "#35 Healer prints expected chat message")
+    check(tchg2, true, "#35 Hearthnight is marked (changed) after applying Role Layout")
+    check(said[#said], "Palettes: Healer role layout & looks applied. Your colours are unchanged.", "#35 Healer prints expected chat message")
 
-    -- /looks DPS (case-insensitive) applies DPS 7-layer bundle live with no reload
+    -- /looks DPS (case-insensitive) applies DPS 7-layer bundle + open-floor spatial layout live
     said = {}
     ns.looksSlash("DPS")
     check(reloadAsked or 0, reloadsBefore, "#35 /looks DPS never prompts for /reload")
@@ -2995,16 +3026,21 @@ do
     check(ns.readLookPick("raid"), "tight", "#35 /looks DPS applies tight Raid")
     check(ns.readLookPick("castbars"), "brushed", "#35 /looks DPS applies brushed Cast Bars")
     check(ns.readLookPick("actionbars"), "flat", "#35 /looks DPS applies flat Action Bars")
+    check(mockPositions["unitframes.player"][1], -268, "#35 DPS moves Player lower/wider")
+    check(mockPositions["unitframes.focus"][1], 268, "#35 DPS places Focus prominently above Target")
+    check(mockPositions["unitframes.party"][1], -756, "#35 DPS docks Party to far left edge")
+    check(mockPositions["unitframes.raid"][1], -756, "#35 DPS docks Raid to far left edge")
     check(ns.exactRole() and ns.exactRole().id, "dps", "#35 exactRole detects dps")
-    check(said[#said], "Palettes: DPS role looks applied. Your colours and layout are unchanged.", "#35 /looks DPS prints expected chat message")
+    check(said[#said], "Palettes: DPS role layout & looks applied. Your colours are unchanged.", "#35 /looks DPS prints expected chat message")
 
-    -- /looks tank in combat queues until combat ends (and can be cancelled)
+    -- /looks tank in combat queues until combat ends (without moving frames in combat)
     looksEnv.InCombatLockdown = function() return true end
     said = {}
     ns.looksSlash("tank")
-    check(said[#said], "Palettes: Tank role looks queued until combat ends.", "#35 /looks tank queues in combat")
+    check(said[#said], "Palettes: Tank role layout & looks queued until combat ends.", "#35 /looks tank queues in combat")
     check(ns.looksWaiting(), true, "#35 combat-queued Tank sets looksWaiting")
     check(ns.exactRole() and ns.exactRole().id, "dps", "#35 combat-queued Tank does not write during combat")
+    check(mockPositions["unitframes.player"][1], -268, "#35 combat-queued Tank does not move frames during combat")
     check(ns.cancelStylePending(), true, "#35 Undo/cancelStylePending cancels combat-queued role swap")
     check(ns.looksWaiting(), false, "#35 looksWaiting cleared after cancel")
     ns.looksSlash("tank")
@@ -3015,18 +3051,29 @@ do
     check(ns.readLookPick("party"), "framed", "#35 queued Tank applies framed Party")
     check(ns.readLookPick("raid"), "tiles", "#35 queued Tank applies tiles Raid")
     check(ns.readLookPick("actionbars"), "heavy", "#35 queued Tank applies heavy Action Bars")
+    check(mockPositions["unitframes.player"][1], -210, "#35 Tank anchors Player tight to center-left")
+    check(mockPositions["unitframes.targettarget"][1], 392, "#35 Tank clusters ToT beside Target")
+    check(mockPositions["unitframes.focus"][1], 392, "#35 Tank clusters Focus beside Target")
+    check(mockPositions["unitframes.party"][1], -730, "#35 Tank docks Party to left edge")
     check(ns.exactRole() and ns.exactRole().id, "tank", "#35 exactRole detects tank after combat")
     check(palDb.palette, "ember", "#35 queued Tank preserves Ember palette")
 
-    -- Reset Looks restores pre-Palettes settings across all layers while keeping Colours
+    -- Reset Looks restores pre-Palettes style keys AND mover positions while keeping Colours
     check(ns.restoreLooksOnly(), true, "#35 Reset Looks restores saved snapshot")
     check(userRestored(), true, "#35 Reset Looks restores Player/Target frame values")
     check(sets.UnitFrames["party.healthText"], "percent", "#35 Reset Looks restores party.healthText")
     check(sets.UnitFrames["party.height"], 30, "#35 Reset Looks restores party.height")
     check(sets.UnitFrames["raid.width"], 70, "#35 Reset Looks restores raid.width")
     check(sets.ActionBars["look.border"], 2, "#35 Reset Looks restores ActionBars look.border")
+    check(mockPositions["unitframes.player"] and mockPositions["unitframes.player"][1], -190, "#35 Reset Looks restores saved Player X position")
+    check(mockPositions["unitframes.player"] and mockPositions["unitframes.player"][2], -280, "#35 Reset Looks restores saved Player Y position")
+    check(mockPositions["unitframes.party"], nil, "#35 Reset Looks restores previously-unset Party position to default (nil)")
+    check(mockPositions["unitframes.raid"], nil, "#35 Reset Looks restores previously-unset Raid position to default (nil)")
     check(palDb.palette, "ember", "#35 Reset Looks preserves active Colour palette")
     check(ns.exactRole(), nil, "#35 exactRole is nil after Reset Looks")
+
+    ui.DB = prevDB
+    ui.Movers = prevMovers
 end
 
 if failures > 0 then
