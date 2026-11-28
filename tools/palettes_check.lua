@@ -3124,6 +3124,19 @@ do
     ns.finishLooksCombat()
     check(palDb.palette, "verdigris", "#53 finishLooksCombat applies queued canopy preset")
 
+    -- 6. Regression: selecting an already-live ToT look (slim_bar) while a preset with a different ToT (match) is staged
+    ns.stagePick("mypreset", "slot-1", function() end, false, "Snug 1", {
+        palette = "gilded", frame = "anvil", focus = "match", tot = "match",
+        party = "standard", raid = "tiles", castbars = "flow", actionbars = "circle", nameplates = "standard",
+    })
+    -- Clicking Slim Bar when Slim Bar is already live (live = true) must stage slim_bar as an override, not clear to match
+    ns.stagePick("look", "slim_bar", function() end, true, "Slim Bar", nil, "tot")
+    check(ns.staged and ns.staged.looks and ns.staged.looks.tot, "slim_bar", "#53 live look overrides staged preset recipe")
+    -- Clicking Match Player & Target (same as base preset) clears the redundant override cleanly
+    ns.stagePick("look", "match", function() end, false, "Match Player & Target", nil, "tot")
+    check(ns.staged and ns.staged.looks and ns.staged.looks.tot, nil, "#53 clicking base preset look clears override cleanly")
+    ns.cancelStaged()
+
     -- Clean restore
     ns.looksSlash("off")
     check(userRestored(), true, "#53 off restores original frame snapshot cleanly")
