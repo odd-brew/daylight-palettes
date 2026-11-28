@@ -1568,6 +1568,11 @@ function onSettingRun(scope, path)
         syncMicro()
         return
     end
+    if (scope == "UnitFrames" or scope == "ActionBars" or scope == "Nameplates")
+        and type(ns.onExternalSettingChanged) == "function" then
+        ns.onExternalSettingChanged(scope, path)
+        return
+    end
     if scope ~= "general" or not paintedId then return end
     if path == "accent" and snap and d:Get("general", "accent") == snap.accent then return end
     if path == "windowTint" and snap and d:Get("general", "windowTint") == snap.windowTint then return end
@@ -3671,7 +3676,7 @@ end
 
 -- A row click previews and accumulates into ns.staged across tabs & sub-menus.
 -- Apply commits every staged selection at once.
-function ns.stagePick(kind, id, commit, live, label, recipe, catKey)
+function ns.stagePick(kind, id, commit, live, label, recipe, catKey, overrides)
     local draft = type(ns.staged) == "table" and ns.staged or nil
 
     -- Presets, My Presets, and Resets replace the staged draft base.
@@ -3681,7 +3686,7 @@ function ns.stagePick(kind, id, commit, live, label, recipe, catKey)
         else
             ns.staged = rebuildStagedSummary({
                 baseKind = kind, baseId = id, baseLabel = label or id,
-                baseCommit = commit, recipe = recipe,
+                baseCommit = commit, recipe = recipe, overrides = overrides,
                 looks = {}, lookLabels = {}, lookCommits = {},
             })
         end

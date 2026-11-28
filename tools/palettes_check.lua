@@ -3137,7 +3137,158 @@ do
     check(ns.staged and ns.staged.looks and ns.staged.looks.tot, nil, "#53 clicking base preset look clears override cleanly")
     ns.cancelStaged()
 
-    -- Clean restore
+    -- Issue #56 (v0.9.5): Named My Presets, Recipe Pane Sync, (customized) External DaylightUI Edit Detection & Override Capture
+    -- 1. Build Presets & Looks pages on mock frames to verify live UI state end-to-end
+    local presetsPage = ns.themesPage()
+    local presetsRow = piece()
+    presetsRow.GetWidth = function() return 760 end
+    presetsPage.groups[1].items[1].build(presetsRow)
+
+    local looksPageObj = ns.looksPage()
+    local looksRow = piece()
+    looksRow.GetWidth = function() return 760 end
+    looksPageObj.groups[1].items[1].build(looksRow)
+
+    -- 2. Owned-key guardrails: anchors/positions and combat/class/reaction colors are strictly excluded
+    check(ns.isOwnedLookKey("player_target", "UnitFrames", "player.height"), true, "#56 player.height is Palettes-owned")
+    check(ns.isOwnedLookKey("castbars", "UnitFrames", "playerCastbar.height"), true, "#56 playerCastbar.height is Palettes-owned")
+    check(ns.isOwnedLookKey("actionbars", "ActionBars", "look.shape"), true, "#56 ActionBars look.shape is Palettes-owned")
+    check(ns.isOwnedLookKey("nameplates", "Nameplates", "height"), true, "#56 Nameplates height is Palettes-owned")
+    check(ns.isOwnedLookKey("player_target", "UnitFrames", "player.offsetX"), false, "#56 player.offsetX is excluded")
+    check(ns.isOwnedLookKey("player_target", "UnitFrames", "player.point"), false, "#56 player.point is excluded")
+    check(ns.isOwnedLookKey("player_target", "UnitFrames", "positions.player"), false, "#56 positions.player is excluded")
+    check(ns.isOwnedLookKey("player_target", "UnitFrames", "colors.health"), false, "#56 colors.health is excluded")
+    check(ns.isOwnedLookKey("nameplates", "Nameplates", "healthColor"), false, "#56 Nameplates healthColor is excluded")
+    check(ns.isOwnedLookKey("nameplates", "Nameplates", "threatAggro"), false, "#56 Nameplates threatAggro is excluded")
+    check(ns.isOwnedLookKey("player_target", "UnitFrames", "textOutline"), false, "#56 textOutline is excluded")
+    check(ns.isOwnedLookKey("player_target", "UnitFrames", "textShadow"), false, "#56 textShadow is excluded")
+
+    -- 3. Applying Hearthnight records applied fingerprint and starts clean (not customized)
+    ns.looksSlash("hearthnight")
+    local fp = ns.readAppliedFingerprint()
+    check(type(fp) == "table" and type(fp.player_target) == "table" and type(fp.player_target.UnitFrames) == "table", true, "#56 Hearthnight records player_target fingerprint")
+    check(type(fp.castbars) == "table" and type(fp.castbars.UnitFrames) == "table", true, "#56 Hearthnight records castbars fingerprint")
+    local cust0, custList0 = ns.detectCustomizedLayers()
+    check(#custList0, 0, "#56 freshly applied Hearthnight has 0 customized layers")
+    check(presetsRow.recipeTitle.words, "Hearthnight Recipe", "#56 clean Hearthnight recipe header")
+    check(presetsRow.recipeReapply.shown, false, "#56 Re-apply button hidden when clean")
+
+    -- 4. External edit to a forbidden/unmanaged key (position/combat color) must NOT trigger (customized)
+    ui:Set("UnitFrames", "player.offsetX", 42)
+    ui:Set("UnitFrames", "colors.health", "class")
+    local _, custListForbidden = ns.detectCustomizedLayers()
+    check(#custListForbidden, 0, "#56 external edits to positions/combat colors do not trigger customized")
+    check(presetsRow.recipeTitle.words, "Hearthnight Recipe", "#56 recipe header stays clean after non-owned edit")
+
+    -- 5. External DaylightUI edits to Palettes-owned keys trigger (customized) on Presets, Recipe, Looks sub-tabs & show Re-apply
+    ui:Set("UnitFrames", "player.height", 58)
+    ui:Set("UnitFrames", "playerCastbar.height", 24)
+    local cust1, custList1 = ns.detectCustomizedLayers()
+    check(cust1.player_target, true, "#56 external player.height edit marks player_target customized")
+    check(cust1.castbars, true, "#56 external playerCastbar.height edit marks castbars customized")
+    check(#custList1, 2, "#56 two layers detected as externally customized")
+    check(presetsRow.recipeTitle.words, "Hearthnight (customized)", "#56 Recipe header appends (customized)")
+    check(string.find(presetsRow.recipeDesc.words or "", "Player/Target", 1, true) ~= nil, true, "#56 Recipe desc notes Player/Target modified")
+    check(string.find(presetsRow.recipeDesc.words or "", "Cast Bars", 1, true) ~= nil, true, "#56 Recipe desc notes Cast Bars modified")
+    check(presetsRow.recipeReapply.shown, true, "#56 Re-apply button shown when externally customized")
+    check(presetsRow.recipeReapplyFs.words, "Re-apply Hearthnight", "#56 Re-apply button text matches active preset")
+
+    -- Verify Looks sub-tab labels diverged base looks as [Look Name] (customized)
+    local beamLine, moltenLine
+    for i = 1, #looksRow.lines do
+        local ln = looksRow.lines[i]
+        if ln.catKey == "player_target" and ln.id == "beam" then beamLine = ln end
+        if ln.catKey == "castbars" and ln.id == "molten" then moltenLine = ln end
+    end
+    check(beamLine and beamLine.name.words, "Beam (customized)", "#56 Looks Player/Target labels diverged base look")
+    check(moltenLine and moltenLine.name.words, "Molten Ember (customized)", "#56 Looks Cast Bars labels diverged base look")
+
+    -- 6. Capture live custom DaylightUI overrides in + Save Current via inline EditBox
+    check(ns.smartMyPresetName(1), "Hearthnight 1", "#56 smart default name uses active preset + 1")
+    local slot1 = presetsRow.mySlots[1]
+    slot1.editBox.GetText = function(self) return self.words or "" end
+    -- Clicking empty slot opens inline EditBox pre-filled with smart default name; Esc cancels without saving
+    slot1.btn.scripts.OnClick()
+    check(slot1.editBox.shown, true, "#56 clicking + Save Current shows inline EditBox")
+    check(slot1.editBox.words, "Hearthnight 1", "#56 inline EditBox pre-filled with smart default name")
+    slot1.editBox.scripts.OnEscapePressed()
+    check(slot1.editBox.shown, false, "#56 Esc closes inline EditBox")
+    check(ns.readMyPresets()[1], nil, "#56 Esc cancels save without creating slot")
+
+    -- Re-open inline EditBox, type custom name, press Enter to save with live overrides
+    slot1.btn.scripts.OnClick()
+    slot1.editBox:SetText("Snug Raid")
+    slot1.editBox.scripts.OnEnterPressed()
+    check(slot1.editBox.shown, false, "#56 Enter closes inline EditBox")
+    local saved1 = ns.readMyPresets()[1]
+    check(type(saved1) == "table" and saved1.name, "Snug Raid", "#56 Enter saves named My Preset")
+    check(type(saved1.overrides) == "table" and saved1.overrides.player_target.UnitFrames["player.height"], 58, "#56 save captures live player.height override")
+    check(saved1.overrides.castbars.UnitFrames["playerCastbar.height"], 24, "#56 save captures live playerCastbar.height override")
+    check(saved1.overrides.player_target.UnitFrames["player.offsetX"], nil, "#56 save never captures frame offsetX")
+    check(saved1.overrides.player_target.UnitFrames["colors.health"], nil, "#56 save never captures colors.health")
+
+    -- 7. Inline rename via rename button AND via double-click
+    slot1.renBtn.scripts.OnClick()
+    check(slot1.editBox.shown, true, "#56 rename icon opens inline EditBox")
+    check(slot1.editBox.words, "Snug Raid", "#56 rename EditBox pre-filled with existing name")
+    slot1.editBox:SetText("Dungeon Main")
+    slot1.editBox.scripts.OnEnterPressed()
+    check(ns.readMyPresets()[1].name, "Dungeon Main", "#56 rename icon Enter renames slot")
+
+    slot1.btn.scripts.OnDoubleClick()
+    check(slot1.editBox.shown, true, "#56 double-click opens inline rename EditBox")
+    slot1.editBox:SetText("Raid Main")
+    slot1.editBox.scripts.OnEnterPressed()
+    check(ns.readMyPresets()[1].name, "Raid Main", "#56 double-click Enter renames slot")
+
+    -- 8. Clicking Re-apply Hearthnight restores clean values and clears (customized)
+    presetsRow.recipeReapply.scripts.OnClick()
+    local _, custListAfterReapply = ns.detectCustomizedLayers()
+    check(#custListAfterReapply, 0, "#56 Re-apply Hearthnight clears all customized layers")
+    check(presetsRow.recipeTitle.words, "Hearthnight Recipe", "#56 Recipe header clean after Re-apply")
+    check(beamLine.name.words, "Beam", "#56 Looks sub-tab label clean after Re-apply")
+    check(moltenLine.name.words, "Molten Ember", "#56 Cast Bars sub-tab label clean after Re-apply")
+
+    -- 9. Selecting My Preset syncs Recipe pane header, auto-summary, and all 9 cells (marking overridden layers)
+    ns.looksSlash("snug")
+    slot1.btn.scripts.OnClick()
+    check(presetsRow.recipeTitle.words, "Raid Main Recipe", "#56 selecting My Preset updates Recipe header to [Slot Name] Recipe")
+    check(string.find(presetsRow.recipeDesc.words or "", "Ember", 1, true) ~= nil, true, "#56 My Preset Recipe desc includes colour summary")
+    check(presetsRow.layerButtons[1].valFs.words, "Ember", "#56 Recipe cell 1 shows saved Colour")
+    check(presetsRow.layerButtons[2].valFs.words, "Beam (customized)", "#56 Recipe cell 2 marks overridden Player/Target as (customized)")
+    check(presetsRow.layerButtons[7].valFs.words, "Molten Ember (customized)", "#56 Recipe cell 7 marks overridden Cast Bars as (customized)")
+    check(presetsRow.layerButtons[8].valFs.words, "Daylight Classic", "#56 Recipe cell 8 shows clean Action Bars look")
+    check(presetsRow.layerButtons[9].valFs.words, "Sculpted Plate", "#56 Recipe cell 9 shows clean Nameplates look")
+
+    -- 10. Applying My Preset restores both base layers and saved custom overrides cleanly
+    ns.commitStaged()
+    check(palDb.palette, "ember", "#56 applying My Preset restores base palette")
+    check(sets.UnitFrames["player.height"], 58, "#56 applying My Preset restores saved player.height override")
+    check(sets.UnitFrames["playerCastbar.height"], 24, "#56 applying My Preset restores saved playerCastbar.height override")
+    local _, custListAfterMyApply = ns.detectCustomizedLayers()
+    check(#custListAfterMyApply, 0, "#56 freshly applied My Preset matches its own applied fingerprint")
+    check(presetsRow.recipeTitle.words, "Raid Main Recipe", "#56 active My Preset shows [Slot Name] Recipe")
+
+    -- External edit on top of active My Preset flags [Slot Name] (customized) and offers Re-apply [Slot Name]
+    ui:Set("ActionBars", "look.shape", "hexagon")
+    local custMy, custMyList = ns.detectCustomizedLayers()
+    check(custMy.actionbars, true, "#56 external ActionBars edit on active My Preset detected")
+    check(#custMyList, 1, "#56 1 customized layer on active My Preset")
+    check(presetsRow.recipeTitle.words, "Raid Main (customized)", "#56 active My Preset header appends (customized)")
+    check(presetsRow.recipeReapplyFs.words, "Re-apply Raid Main", "#56 Re-apply link offers Re-apply Raid Main")
+
+    -- 11. Combat lockdown queuing for My Preset apply + finishLooksCombat
+    ns.looksSlash("snug")
+    looksEnv.InCombatLockdown = function() return true end
+    ns.applyMyPreset(ns.readMyPresets()[1], 1)
+    check(palDb.palette, "gilded", "#56 combat lockdown queues My Preset instead of writing immediately")
+    looksEnv.InCombatLockdown = function() return false end
+    ns.finishLooksCombat()
+    check(palDb.palette, "ember", "#56 finishLooksCombat applies queued My Preset palette")
+    check(sets.UnitFrames["player.height"], 58, "#56 finishLooksCombat restores queued My Preset custom override")
+
+    -- Clean up slot 1 and restore
+    ns.deleteMyPreset(1)
     ns.looksSlash("off")
     check(userRestored(), true, "#53 off restores original frame snapshot cleanly")
 end
