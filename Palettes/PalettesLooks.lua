@@ -23,7 +23,7 @@ local LOOK_SPECS = {
         tabWidth = "fit", tabSlant = "frame", tabCorner = 6, tabShadow = 2,
         bigNumber = false, playerHealth = "both", targetHealth = "percentboth",
         showPowerText = false, powerFormat = "value", targetLevel = "foot",
-        percent = 11, big = 18,
+        percent = 11, big = 18, barFxStyle = "flow",
     },
     trestle = {
         style = "ribbon", width = 187, height = 24, powerHeight = 5, ribbonGap = 2, tabHeight = 16, slant = true,
@@ -85,6 +85,26 @@ local LOOK_SPECS = {
         showPowerText = false, powerFormat = "value", targetLevel = "foot",
         percent = 11, big = 18,
     },
+    anvil = {
+        style = "daylight", width = 196, height = 32, powerHeight = 8, ribbonGap = 2, tabHeight = 0, slant = false,
+        border = 5, corner = 0, shadow = 4,
+        portrait = "3d", portraitLook = "classic", portraitShape = "square", ring = "dark", ringWidth = "thick", scale = 0.95,
+        dragon = false, nameOnBar = true, namePos = "bar",
+        tabWidth = "fit", tabSlant = "off", tabCorner = 0, tabShadow = 0,
+        bigNumber = false, playerHealth = "both", targetHealth = "percent",
+        showPowerText = false, powerFormat = "value", targetLevel = "foot",
+        percent = 11, big = 18,
+    },
+    channel = {
+        style = "ribbon", width = 200, height = 28, powerHeight = 7, ribbonGap = 3, tabHeight = 15, slant = false,
+        border = 2, corner = 6, shadow = 3,
+        portrait = "class", portraitLook = "socket", portraitShape = "round", ring = "class", ringWidth = "thin", scale = 0.85,
+        dragon = false, nameOnBar = false, namePos = "above",
+        tabWidth = "fit", tabSlant = "off", tabCorner = 4, tabShadow = 2,
+        bigNumber = false, playerHealth = "both", targetHealth = "percentboth",
+        showPowerText = true, powerFormat = "percent", targetLevel = "foot",
+        percent = 11, big = 18, barFxStyle = "tide",
+    },
     daylight_standard = {
         style = "daylight", width = 187, height = 43, powerHeight = 11, ribbonGap = 4, tabHeight = 16, slant = true,
         shellOwn = false, border = 8, corner = 6, shadow = 4,
@@ -106,6 +126,8 @@ local FRAMES = {
     { id = "ledger", name = "Ledger", desc = "Square portrait-free bar with dual health and power readouts for clean resource tracking.", bestFor = "Mana Management, Raiding" },
     { id = "crest", name = "Crest", desc = "Tall hero bar with 3D portrait, thick class ring, and big numbers for classic presence.", bestFor = "Solo Questing, Tanking" },
     { id = "slate", name = "Slate", desc = "Flat 22px portrait-free strip with hairline power bar for the smallest combat footprint.", bestFor = "20/40-Man Raiding, Minimalists" },
+    { id = "anvil", name = "Anvil", desc = "Flat 32px squared bar with square 3D portrait and thick dark rim for sturdy tank/melee reads.", bestFor = "Tanking, Melee DPS, Solo Questing" },
+    { id = "channel", name = "Channel", desc = "Rounded 28px ribbon with separated power rail, power numbers, and gentle tide fill FX.", bestFor = "Casters, Healing, All-Rounder" },
 }
 
 -- Only these two frames are ever written. Everything else DaylightUI keeps is the player's.
@@ -291,6 +313,46 @@ local THEMES = {
         mood = "Gilded trim with animated flow bars and round buttons.",
         rationale = "Matches Gilded's warm metallic accents with Flagon's flowing health bars, Daylight Standard nameplates, Living Flow casts, and Rounded Medallion buttons for a cohesive, animated everyday setup.",
     },
+    {
+        id = "bastionline", name = "Bastion Line",
+        palette = "sightline", frame = "anvil", focus = "watch_plate", tot = "crisp_square",
+        party = "ward_stack", raid = "tight", castbars = "interrupt_flare", actionbars = "chamfer_oct",
+        nameplates = "flat",
+        tags = { "Anvil", "Crisp Flat" },
+        bestFor = "PvP, Arena, Melee Cleave",
+        mood = "Squared 3D steel, flat plates, and high-contrast trim for fast target swaps.",
+        rationale = "Pairs Sightline's color-blind safe contrast with Anvil's squared 3D portraits, Watch Plate focus, Interrupt Flare casts, and Crisp Flat nameplates so kicks and target swaps read instantly in chaotic PvP.",
+    },
+    {
+        id = "arcanum", name = "Dalaran Arcanum",
+        palette = "kirintor", frame = "channel", focus = "slim_ribbon", tot = "slim_bar",
+        party = "squad_ribbon", raid = "tiles", castbars = "arcane_comet", actionbars = "hex_cell",
+        nameplates = "razor",
+        tags = { "Channel", "Comet" },
+        bestFor = "Casters, Mana Management, Raiding",
+        mood = "Runic violet stone, separated power rails, and comet-trailed spell casts.",
+        rationale = "Unites Dalaran's royal amethyst palette with Channel's separated power numbers, Arcane Comet glass casts, and Hex Cell buttons—giving mana-dependent casters clear resource pacing and spell rhythm feedback.",
+    },
+    {
+        id = "canopy", name = "Verdant Canopy",
+        palette = "verdigris", frame = "trestle", focus = "compact_beam", tot = "angled_chip",
+        party = "squad_ribbon", raid = "triage_cells", castbars = "silk", actionbars = "shield",
+        nameplates = "angled_blade",
+        tags = { "Trestle", "Angled Blade" },
+        bestFor = "5-Man Dungeons, Hybrid Triage, Questing",
+        mood = "Oxidized verdigris slate, slanted blades, and agile dungeon-ready frames.",
+        rationale = "Showcases Verdier's oxidized bronze-green slate alongside Trestle's slim hung-power bar, Angled Chip ToT, Triage Cells raid grid, and Angled Blade nameplates for fast-paced 5-man and 20-man runs.",
+    },
+    {
+        id = "blackrockledger", name = "Blackrock Ledger",
+        palette = "blackrock", frame = "ledger", focus = "minimal_slate", tot = "slim_bar",
+        party = "compact", raid = "triage_cells", castbars = "matte", actionbars = "borderless",
+        nameplates = "razor",
+        tags = { "Ledger", "Clean Matte" },
+        bestFor = "20/40-Man Raiding, Resource Discipline",
+        mood = "Volcanic basalt darks, portrait-free dual readouts, and zero-distraction matte bars.",
+        rationale = "Pairs Blackrock's soot-dark volcanic palette with Ledger's dual health/power numbers, Clean Matte iconless casts, and Borderless Zoom action bars to eliminate visual clutter across multi-hour raid nights.",
+    },
 }
 ns.themes = THEMES
 
@@ -358,6 +420,18 @@ local EXTRA_LOOKS = {
               showPower = true, showPowerText = false, showLevel = false,
               ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 0,
           } },
+        { id = "watch_plate", name = "Watch Plate",
+          desc = "Squared 24px portrait-free bar with full top name tab and crisp 2px rim for PvP/arena focus.",
+          bestFor = "PvP, Arena, Co-Tank Tracking",
+          settings = {
+              style = "daylight", width = 180, height = 24, powerHeight = 5, ribbonGap = 2, tabHeight = 15, slant = false,
+              portrait = "none", portraitLook = "socket", portraitShape = "square",
+              portraitRing = "dark", portraitRingWidth = "thin", portraitScale = 0.9,
+              nameOnBar = false, namePos = "above", bigNumber = false,
+              showPower = true, showPowerText = false, showLevel = false,
+              ["tab.own"] = true, ["tab.width"] = "full", ["tab.slant"] = "off", ["tab.cornerPx"] = 0, ["tab.shadowPx"] = 2,
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 3,
+          } },
     },
     tot = {
         { id = "standard", name = "Daylight Standard",
@@ -394,6 +468,14 @@ local EXTRA_LOOKS = {
               width = 124, height = 22, slant = false, showPower = false, powerHeight = 4,
               portrait = "class", namePos = "bar", showPercent = true,
               ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 2,
+          } },
+        { id = "angled_chip", name = "Angled Chip",
+          desc = "Slanted 20px chip with a hairline power strip and % HP to match slanted unit clusters.",
+          bestFor = "Dungeons, Melee DPS",
+          settings = {
+              width = 120, height = 20, slant = true, showPower = true, powerHeight = 3,
+              portrait = "none", namePos = "bar", showPercent = true,
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 3, ["shell.shadowPx"] = 2,
           } },
     },
     party = {
@@ -442,6 +524,34 @@ local EXTRA_LOOKS = {
               showRole = true, predictHeals = true, predictAbsorbs = true, showThreat = true,
               ["tab.own"] = true, ["tab.width"] = "full", ["tab.slant"] = "frame", ["tab.cornerPx"] = 3, ["tab.shadowPx"] = 3,
               ["shell.own"] = true, ["shell.borderPx"] = 3, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 6,
+          } },
+        { id = "squad_ribbon", name = "Squad Ribbon",
+          desc = "Separated health/power ribbons with round portraits and floating names for airy 5-man groups.",
+          bestFor = "5-Man Dungeons, Group Questing",
+          settings = {
+              style = "ribbon", width = 188, height = 28, powerHeight = 5, ribbonGap = 2, spacing = 8, tabHeight = 15, slant = false,
+              portrait = "class", portraitLook = "socket", portraitShape = "round",
+              portraitRing = "class", portraitRingWidth = "thin", portraitScale = 0.9,
+              nameOnBar = false, namePos = "above", bigNumber = false,
+              showPower = true, showPowerText = false, showLevel = false,
+              showRole = true, predictHeals = true, predictAbsorbs = true, showThreat = true,
+              ["media.health"] = "silk", ["media.power"] = "silk",
+              ["tab.own"] = true, ["tab.width"] = "fit", ["tab.slant"] = "off", ["tab.cornerPx"] = 3, ["tab.shadowPx"] = 1,
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 3, ["shell.shadowPx"] = 2,
+          } },
+        { id = "ward_stack", name = "Ward Stack",
+          desc = "Squared 32px bars with left class icons, % HP, and crisp 2px borders for compact triage.",
+          bestFor = "Healing & Triage, PvP",
+          settings = {
+              style = "daylight", width = 176, height = 32, powerHeight = 5, ribbonGap = 1, spacing = 4, tabHeight = 0, slant = false,
+              portrait = "class", portraitLook = "socket", portraitShape = "square",
+              portraitRing = "dark", portraitRingWidth = "thin", portraitScale = 0.85,
+              nameOnBar = true, namePos = "bar", bigNumber = false, showPercent = true,
+              showPower = true, showPowerText = false, showLevel = false,
+              showRole = true, predictHeals = true, predictAbsorbs = true, showThreat = true,
+              ["media.health"] = "daylight", ["media.power"] = "daylight",
+              ["tab.own"] = false,
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 2,
           } },
     },
     raid = {
@@ -494,6 +604,16 @@ local EXTRA_LOOKS = {
               showPercent = true, showRole = true, predictHeals = true, predictAbsorbs = true,
               showThreat = true, showDispel = true, ["media.health"] = "brushed",
               ["shell.own"] = true, ["shell.borderPx"] = 3, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 5,
+          } },
+        { id = "triage_cells", name = "Triage Cells",
+          desc = "Compact 72x28 horizontal cells with power strip, % HP, and dispel borders for 20-man triage.",
+          bestFor = "20-Man Raiding, Hybrid Healers",
+          settings = {
+              width = 72, height = 28, spacing = 2, groupSpacing = 6, slant = false, fillVertical = false,
+              showPower = true, powerHeight = 3, namePos = "bar", nameAlign = "center",
+              showPercent = true, showRole = true, predictHeals = true, predictAbsorbs = true,
+              showThreat = true, showDispel = true, ["media.health"] = "silk", ["media.power"] = "silk",
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 2, ["shell.shadowPx"] = 1,
           } },
     },
     castbars = {
@@ -553,6 +673,22 @@ local EXTRA_LOOKS = {
               ["barFx.style"] = "embers", ["barFx.speed"] = 1.15, ["barFx.strength"] = 1.1, ["barFx.colors"] = "accent",
               ["shell.own"] = true, ["shell.borderPx"] = 4, ["shell.cornerPx"] = 4, ["shell.shadowPx"] = 6,
           } },
+        { id = "arcane_comet", name = "Arcane Comet",
+          desc = "Rounded 20px glass cast bar with trailing comet FX and spell icon for smooth caster rhythms.",
+          bestFor = "Casters, Ranged DPS",
+          settings = {
+              height = 20, slant = false, showIcon = true, ["media.bar"] = "glass",
+              ["barFx.style"] = "comet", ["barFx.speed"] = 1.1, ["barFx.strength"] = 0.85, ["barFx.colors"] = "accent",
+              ["shell.own"] = true, ["shell.borderPx"] = 1, ["shell.cornerPx"] = 8, ["shell.shadowPx"] = 3,
+          } },
+        { id = "interrupt_flare", name = "Interrupt Flare",
+          desc = "Sharp 24px squared bar with crisp pixel-spark leading edge and icon for fast kick reactions.",
+          bestFor = "Melee DPS, Tanks, PvP Interrupts",
+          settings = {
+              height = 24, slant = false, showIcon = true, ["media.bar"] = "matte",
+              ["barFx.style"] = "pixelsparks", ["barFx.speed"] = 1.3, ["barFx.strength"] = 1.0, ["barFx.colors"] = "accent",
+              ["shell.own"] = true, ["shell.borderPx"] = 2, ["shell.cornerPx"] = 0, ["shell.shadowPx"] = 4,
+          } },
     },
     actionbars = {
         { id = "standard", name = "Daylight Standard",
@@ -603,6 +739,20 @@ local EXTRA_LOOKS = {
           settings = {
               ["look.shape"] = "shield", ["look.borderStyle"] = "daylight", ["look.border"] = 2,
               ["look.corners"] = "round", ["look.shadow"] = true, ["look.zoom"] = 0.10,
+          } },
+        { id = "hex_cell", name = "Hex Cell",
+          desc = "Hexagonal masked action buttons with crisp 2px rim for a distinct geometric bar silhouette.",
+          bestFor = "Arcane / Tech Themes, All-Rounder",
+          settings = {
+              ["look.shape"] = "hexagon", ["look.borderStyle"] = "flat", ["look.border"] = 2,
+              ["look.corners"] = "square", ["look.shadow"] = true, ["look.zoom"] = 0.12,
+          } },
+        { id = "chamfer_oct", name = "Chamfered Octagon",
+          desc = "Beveled octagonal buttons with 3px Daylight rim for armored, cut-corner keybind framing.",
+          bestFor = "Tanking, PvP, Heavy UIs",
+          settings = {
+              ["look.shape"] = "octagon", ["look.borderStyle"] = "daylight", ["look.border"] = 3,
+              ["look.corners"] = "square", ["look.shadow"] = true, ["look.zoom"] = 0.08,
           } },
     },
     nameplates = {
@@ -667,6 +817,18 @@ local EXTRA_LOOKS = {
               targetStyle = "outline", targetAccent = true, targetScale = true, ["target.scale"] = 1.15, targetArrows = "top",
               ["friendly.height"] = 14, ["friendly.percent"] = true,
           } },
+        { id = "angled_blade", name = "Angled Blade",
+          desc = "Slanted 152x12 matte combat plate with compact icon cast bar for fast dungeon cleave.",
+          bestFor = "Melee DPS, 5-Man Dungeons",
+          preview = { borderPx = 2, corner = "round", shadow = true },
+          settings = {
+              width = 152, height = 12, slant = true, backAlpha = 0.90,
+              ["media.health"] = "matte", ["media.cast"] = "matte",
+              castHeight = 11, castIcon = true, castIconPos = "outleft",
+              nameSize = 12, percent = true, healthFormat = "percent", percentSign = true,
+              level = false, eliteDragon = false,
+              targetStyle = "outline", targetAccent = true, targetScale = true, ["target.scale"] = 1.15, targetArrows = "none",
+          } },
     },
 }
 ns.extraLooks = EXTRA_LOOKS
@@ -690,7 +852,7 @@ end
 
 local ICONS = {
     flagon = {}, trestle = {}, beam = {}, stream = {}, ledger = {}, crest = {}, slate = {},
-    daylight_standard = {},
+    anvil = {}, channel = {}, daylight_standard = {},
 }
 
 -- Flagon: a small boss at the cup, the name on the lip.
@@ -725,6 +887,16 @@ addBox(ICONS.crest, 18, 6, 16, 9)
 addEdge(ICONS.slate, 1, 4, 20, 1)
 addBox(ICONS.slate, 1, 6, 34, 5)
 addEdge(ICONS.slate, 1, 13, 34, 2)
+-- Anvil: thick squared portrait and flat heavy-rimmed bar with name on bar.
+addBox(ICONS.anvil, 1, 3, 12, 12)
+addBox(ICONS.anvil, 15, 4, 19, 11)
+addEdge(ICONS.anvil, 17, 8, 11, 1)
+addEdge(ICONS.anvil, 16, 12, 17, 1)
+-- Channel: round socket, floating name above, rounded ribbon and separated power rail.
+addBox(ICONS.channel, 1, 3, 11, 11)
+addEdge(ICONS.channel, 15, 2, 14, 1)
+addBox(ICONS.channel, 15, 5, 19, 6)
+addEdge(ICONS.channel, 15, 13, 19, 2)
 -- Daylight Standard: native round portrait socket, fitted tab, and balanced health/power bar.
 addBox(ICONS.daylight_standard, 1, 3, 11, 11)
 addBox(ICONS.daylight_standard, 14, 2, 12, 4)
@@ -1073,19 +1245,38 @@ local function lookPairs(id)
     return list
 end
 
--- Flagon writes the extras. Any other look puts back the ones Flagon left on
--- the frames, from the saved values. A key the player changed since stays theirs.
+-- Flagon (flow) and Channel (tide) write the extras. Any other look puts back
+-- the ones left on the frames, from the saved values. A key the player changed since stays theirs.
+local function isBarFxStyleValue(v)
+    if v == nil then return false end
+    for _, sp in pairs(LOOK_SPECS) do
+        if sp.barFxStyle and sp.barFxStyle == v then return true end
+    end
+    return false
+end
+
 local function extraPairs(id, saved)
     local list = {}
-    if id == "flagon" then
-        for i = 1, #EXTRA_KEYS do list[#list + 1] = { EXTRA_KEYS[i], EXTRA_VALUES[EXTRA_KEYS[i]] } end
+    local spec = LOOK_SPECS[id]
+    if spec and spec.barFxStyle then
+        for i = 1, #EXTRA_KEYS do
+            local key = EXTRA_KEYS[i]
+            local val = EXTRA_VALUES[key]
+            if string.sub(key, -19) == ".barFx.health.style" then
+                val = spec.barFxStyle
+            end
+            list[#list + 1] = { key, val }
+        end
         return list
     end
     if type(saved) ~= "table" then return list end
     for i = 1, #EXTRA_KEYS do
         local key = EXTRA_KEYS[i]
         local was = saved[key]
-        if was ~= nil and was ~= EXTRA_VALUES[key] and readSetting("UnitFrames", key) == EXTRA_VALUES[key] then
+        local cur = readSetting("UnitFrames", key)
+        local isFxStyleKey = (string.sub(key, -19) == ".barFx.health.style")
+        local matchesWritten = (cur == EXTRA_VALUES[key]) or (isFxStyleKey and isBarFxStyleValue(cur))
+        if was ~= nil and was ~= cur and matchesWritten then
             list[#list + 1] = { key, was }
         end
     end
@@ -1481,7 +1672,7 @@ local function previewPairs(id, targets)
         end
     end
     local all = lookPairs(id)
-    if id == "flagon" then
+    if LOOK_SPECS[id] and LOOK_SPECS[id].barFxStyle then
         local extras = extraPairs(id)
         for i = 1, #extras do all[#all + 1] = extras[i] end
     end
@@ -2387,6 +2578,66 @@ function ns.lookMark()
     return frame .. "/" .. pending
 end
 
+local EXTRA_SLASH_CATS = {
+    { key = "nameplates", label = "Nameplates" },
+    { key = "focus", label = "Focus" },
+    { key = "tot", label = "Target of Target" },
+    { key = "party", label = "Party" },
+    { key = "raid", label = "Raid" },
+    { key = "castbars", label = "Cast Bars" },
+    { key = "actionbars", label = "Action Bars" },
+}
+
+local function normSlash(s)
+    if type(s) ~= "string" then return "" end
+    local t = string.lower(trim(s))
+    return (string.gsub(t, "[%s_%-]+", " "))
+end
+
+local function resolveFrameSlash(raw)
+    local id = resolveFrame(raw)
+    if id then return id end
+    local want = normSlash(raw)
+    if want == "" then return nil end
+    for i = 1, #FRAMES do
+        local f = FRAMES[i]
+        if not f.isDefault and normSlash(f.name) == want then
+            return f.id
+        end
+    end
+end
+
+local function resolveThemeSlash(raw)
+    local t = themeById(raw)
+    if t then return t end
+    local want = normSlash(raw)
+    if want == "" then return nil end
+    for i = 1, #THEMES do
+        if normSlash(THEMES[i].name) == want then
+            return THEMES[i]
+        end
+    end
+end
+
+local function resolveExtraSlash(raw)
+    local want = normSlash(raw)
+    if want == "" or want == "standard" or want == "match" then return nil end
+    for c = 1, #EXTRA_SLASH_CATS do
+        local cat = EXTRA_SLASH_CATS[c]
+        local list = EXTRA_LOOKS[cat.key]
+        if type(list) == "table" then
+            for i = 1, #list do
+                local opt = list[i]
+                if opt.id ~= "standard" and not opt.isMatch then
+                    if opt.id == raw or normSlash(opt.id) == want or normSlash(opt.name) == want then
+                        return cat.key, cat.label, opt
+                    end
+                end
+            end
+        end
+    end
+end
+
 local looksSlashRun
 
 function ns.looksSlash(msg)
@@ -2400,9 +2651,10 @@ function ns.looksSlash(msg)
     end
     local beforeLook = ns.lookMark()
     local beforePal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
-    -- A frame or nameplate look repaints live. A Preset or off changes colours.
+    -- A frame or extra category look repaints live. A Preset or off changes colours.
     local arg = string.lower(trim(msg or ""))
-    local looksOnly = resolveFrame(arg) ~= nil or extraLookById("nameplates", arg) ~= nil
+    local extraCat = select(1, resolveExtraSlash(arg))
+    local looksOnly = resolveFrameSlash(arg) ~= nil or extraCat ~= nil
     ns.withReloadAction(function()
         run()
         local afterPal = type(ns.screenPalette) == "function" and ns.screenPalette() or nil
@@ -2423,7 +2675,7 @@ function looksSlashRun(msg)
         return
     end
     local arg = string.lower(trim(msg or ""))
-    if arg == "" or string.find(arg, "%s") then
+    if arg == "" then
         say(statusLine())
         return
     end
@@ -2440,20 +2692,20 @@ function looksSlashRun(msg)
         end
         return
     end
-    local frameId = resolveFrame(arg)
+    local frameId = resolveFrameSlash(arg)
     if frameId then
         applyFrame(frameId)
         return
     end
-    local theme = themeById(arg)
+    local theme = resolveThemeSlash(arg)
     if theme then
         applyTheme(theme)
         return
     end
-    local npOpt = extraLookById("nameplates", arg)
-    if npOpt then
-        if ns.applyCategoryLook("nameplates", npOpt.id, false) then
-            say("Looks: Nameplates set to " .. npOpt.name .. ".")
+    local catKey, catLabel, extraOpt = resolveExtraSlash(arg)
+    if extraOpt then
+        if ns.applyCategoryLook(catKey, extraOpt.id, false) then
+            say("Looks: " .. catLabel .. " set to " .. extraOpt.name .. ".")
         end
         return
     end
@@ -3045,8 +3297,8 @@ function ns.jumpToTab(tabName, subTabKey)
     refreshLooks()
 end
 
--- Issue #41: Presets Tab — 6 core themes in 3x2 grid + split Recipe / My Presets footer.
-local PRESET_GRID_CARD_H = 86
+-- Issue #41 / #53: Presets Tab — 10 core themes in compact 5x2 grid + split Recipe / My Presets footer.
+local PRESET_GRID_CARD_H = 82
 local PRESET_FOOTER_H = 186
 
 local function buildPresetsPage(row)
@@ -3064,32 +3316,32 @@ local function buildPresetsPage(row)
         local card = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(hold) or nil
 
         -- Top row: Preset Name + status badge (Applied / Preview)
-        local nameFs = uiFont(hold, 12, CREAM)
+        local nameFs = uiFont(hold, 11, CREAM)
         nameFs:SetText(theme.name)
         if type(nameFs.SetWordWrap) == "function" then nameFs:SetWordWrap(false) end
 
         local badge = CreateFrame("Frame", nil, hold)
-        badge:SetHeight(16)
+        badge:SetHeight(15)
         local badgeCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(badge) or nil
-        local badgeFs = uiFont(badge, 9, AMBER_INK)
+        local badgeFs = uiFont(badge, 8, AMBER_INK)
         badgeFs:SetText("")
         badgeFs:SetPoint("CENTER", badge, "CENTER", 0, 0)
         setShownSafe(badge, false)
 
         local check = drawCheck(hold)
-        local onText = uiFont(hold, 10, ON_INK)
+        local onText = uiFont(hold, 9, ON_INK)
         onText:SetText("")
         setShownSafe(onText, false)
 
         -- Middle row: 3-stop swatch bar + 2 hero layer tags
         local swatch, preview = paletteSwatches(hold, theme.palette)
         local tagText = (type(theme.tags) == "table" and table.concat(theme.tags, " · ")) or (paletteName .. " · " .. lookName)
-        local tagsFs = uiFont(hold, 10, DIM)
+        local tagsFs = uiFont(hold, 9, DIM)
         tagsFs:SetText(tagText)
         if type(tagsFs.SetWordWrap) == "function" then tagsFs:SetWordWrap(false) end
 
         -- Bottom row: 1-line mood phrase
-        local moodFs = uiFont(hold, 10, DIM)
+        local moodFs = uiFont(hold, 9, DIM)
         moodFs:SetText(theme.mood)
         if type(moodFs.SetWordWrap) == "function" then moodFs:SetWordWrap(false) end
 
@@ -3368,35 +3620,36 @@ local function buildPresetsPage(row)
     local function layout()
         local w = type(row.GetWidth) == "function" and row:GetWidth() or 0
         if type(w) ~= "number" or w < 240 then w = 760 end
-        local cols = w >= 540 and 3 or 2
-        local cardW = math.floor((w - 8 - (cols - 1) * CARD_GAP_X) / cols)
+        local cols = w >= 600 and 5 or (w >= 400 and 3 or 2)
+        local gapX = cols >= 5 and 6 or CARD_GAP_X
+        local cardW = math.floor((w - 8 - (cols - 1) * gapX) / cols)
         for i = 1, #cards do
             local s = cards[i]
             local idx = i - 1
             local r = math.floor(idx / cols)
             local c = idx - r * cols
-            local x = 4 + c * (cardW + CARD_GAP_X)
+            local x = 4 + c * (cardW + gapX)
             local y = 4 + r * (PRESET_GRID_CARD_H + CARD_GAP_Y)
             s.button:ClearAllPoints()
             s.button:SetPoint("TOPLEFT", row, "TOPLEFT", x, -y)
             s.button:SetWidth(cardW)
             s.name:ClearAllPoints()
-            s.name:SetPoint("TOPLEFT", s.button, "TOPLEFT", 10, -8)
-            s.name:SetWidth(math.max(60, cardW - 76))
+            s.name:SetPoint("TOPLEFT", s.button, "TOPLEFT", 8, -7)
+            s.name:SetWidth(math.max(52, cardW - 50))
             s.badge:ClearAllPoints()
-            s.badge:SetPoint("TOPRIGHT", s.button, "TOPRIGHT", -8, -7)
+            s.badge:SetPoint("TOPRIGHT", s.button, "TOPRIGHT", -6, -6)
             s.check:ClearAllPoints()
-            s.check:SetPoint("RIGHT", s.badge, "LEFT", -3, 0)
+            s.check:SetPoint("RIGHT", s.badge, "LEFT", -2, 0)
             s.onText:ClearAllPoints()
-            s.onText:SetPoint("TOPRIGHT", s.button, "TOPRIGHT", -8, -8)
+            s.onText:SetPoint("TOPRIGHT", s.button, "TOPRIGHT", -6, -7)
             s.swatch:ClearAllPoints()
-            s.swatch:SetPoint("TOPLEFT", s.button, "TOPLEFT", 10, -32)
+            s.swatch:SetPoint("TOPLEFT", s.button, "TOPLEFT", 8, -28)
             s.tagsFs:ClearAllPoints()
-            s.tagsFs:SetPoint("LEFT", s.swatch, "RIGHT", 8, 0)
-            s.tagsFs:SetPoint("RIGHT", s.button, "RIGHT", -8, 0)
+            s.tagsFs:SetPoint("LEFT", s.swatch, "RIGHT", 6, 0)
+            s.tagsFs:SetPoint("RIGHT", s.button, "RIGHT", -6, 0)
             s.desc:ClearAllPoints()
-            s.desc:SetPoint("BOTTOMLEFT", s.button, "BOTTOMLEFT", 10, 8)
-            s.desc:SetPoint("RIGHT", s.button, "RIGHT", -10, 0)
+            s.desc:SetPoint("BOTTOMLEFT", s.button, "BOTTOMLEFT", 8, 7)
+            s.desc:SetPoint("RIGHT", s.button, "RIGHT", -8, 0)
         end
 
         local gridRows = math.ceil(#cards / cols)
@@ -3836,7 +4089,8 @@ local function buildLooksTabPage(row)
             topY = SUBTAB_H + 30
         end
 
-        local cols = w >= 520 and 2 or 1
+        local activeList = catCards[activeLooksSubTab] or {}
+        local cols = (#activeList == 9 and w >= 600) and 3 or (w >= 520 and 2 or 1)
         local cardW = math.floor((w - 8 - (cols - 1) * CARD_GAP_X) / cols)
         local shownCount = 0
         for ck, list in pairs(catCards) do
@@ -3964,7 +4218,7 @@ function ns.looksPage()
                             if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
                         end,
                         height = function()
-                            return SUBTAB_H + 14 + 4 * (LOOK_OPTION_H + CARD_GAP_Y) + 20
+                            return SUBTAB_H + 14 + 5 * (LOOK_OPTION_H + CARD_GAP_Y) + 20
                         end,
                     },
                 },

@@ -1,20 +1,30 @@
-## Palettes v0.8.0
+## Palettes v0.9.0
 
-Nameplates join Palettes as the 8th Looks category and 9th Preset layer, alongside a **Daylight Standard** reset option at the top of every Looks category.
+A major content expansion adding **10 new dark colour palettes** (45 total), **12 new Looks across all 8 categories** (58 total), and **4 new 9-layer Core Presets** (10 total in a compact 5×2 grid).
 
 ### Added
-- **Nameplates Looks (5 Curated Silhouettes):** New **Nameplates** sub-tab on the **Looks** tab featuring **Daylight Standard**, **Razor Strip**, **Sculpted Plate**, **Crisp Flat**, and **Triage Bar**. All 5 looks preserve DaylightUI's semantic combat, reaction, threat, and cast colors.
-- **9-Layer Presets & My Presets:** Every core preset now includes a matching Nameplate look, the **Preset Recipe** card expands cleanly to a 3×3 grid (9 layers), and **My Presets** saves and restores all 9 layers.
-- **Live DaylightUI Nameplates Preview:** Switch the Preview Deck to **Nameplates** (or click the **Nameplates** sub-tab) to preview DaylightUI's real live Enemy Target and Friendly nameplates side-by-side before clicking Apply.
-- **Daylight Standard on Every Looks Sub-Tab:** Every Looks category (**Player/Target**, **Focus**, **ToT**, **Party**, **Raid**, **Cast Bars**, **Action Bars**, **Nameplates**) now begins with **Daylight Standard** so you can return any single layer to DaylightUI's native defaults without touching the rest of your UI.
-- **Full Safety & `/looks` Support:** Non-destructive live preview overrides, pre-write snapshots for **Undo**, **Reset Looks**, and **Restore Daylight**, combat lockdown queuing, safe skipping if `DaylightUI_Nameplates` is disabled, and `/looks` support for nameplate look names.
+- **+10 Colour Palettes (35 → 45 Total):**
+  - **Dark (+5 → 20):** **Verdier** (`verdigris`), **Abyssal** (`abyssal`), **Cinderclay** (`cinderclay`), **Lichen** (`lichen`), and **Twilight** (`twilight`).
+  - **Realm (+5 → 16):** **Dalaran** (`kirintor`), **Silvermoon** (`sunspire`), **Blackrock** (`blackrock`), **Stranglethorn** (`stranglethorn`), and **Winterspring** (`winterspring`).
+  - All 10 palettes use dark base surfaces (`L* <= 28`), pass all WCAG contrast floors, preserve combat-color immunity, and include precomputed class chrome shades.
+- **+12 Looks Across All 8 Categories (46 → 58 Total):**
+  - **Player/Target (8 → 10, 5×2):** **Anvil** (`anvil`) and **Channel** (`channel`, with gentle tide health FX and clean snapshot restore).
+  - **Focus (5 → 6, 3×2):** **Watch Plate** (`watch_plate`).
+  - **ToT (5 → 6, 3×2):** **Angled Chip** (`angled_chip`).
+  - **Party (4 → 6, 3×2):** **Squad Ribbon** (`squad_ribbon`) and **Ward Stack** (`ward_stack`).
+  - **Raid (5 → 6, 3×2):** **Triage Cells** (`triage_cells`).
+  - **Cast Bars (7 → 9, 3×3):** **Arcane Comet** (`arcane_comet`) and **Interrupt Flare** (`interrupt_flare`), with `partyCastbar` height safely clamped `<= 14px`.
+  - **Action Bars (7 → 9, 3×3):** **Hex Cell** (`hex_cell`) and **Chamfered Octagon** (`chamfer_oct`) with live hexagonal/octagonal masks in the Preview Deck.
+  - **Nameplates (5 → 6, 3×2):** **Angled Blade** (`angled_blade`).
+- **+4 Core Presets & Compact 5×2 Grid (6 → 10 Total):** Added **Bastion Line** (`bastionline`), **Dalaran Arcanum** (`arcanum`), **Verdant Canopy** (`canopy`), and **Blackrock Ledger** (`blackrockledger`), arranged in a compact 5×2 grid so the **Preset Recipe** and **My Presets** cards remain cleanly in frame.
+- **Expanded Slash Commands:** `/palettes` and `/looks` now resolve all new palette, look, and preset IDs and display names (including multi-word names) and respect combat lockdown queuing.
 
 ### Fixed
-- **Preview Deck footer spacing:** Shortened the Preview Deck helper text so it stays cleanly clear of the `Zoom` slider.
+- **Staged preset overrides:** Selecting an already-applied palette, frame, or extra look (such as ToT **Slim Bar** or Cast Bars **Brushed Metal**) while a preset with a different recipe value is staged now highlights, previews, and applies your override instead of falling back to the preset's recipe.
 
 ### Install or update
 1. You need DaylightUI installed first.
-2. Download **Palettes-v0.8.0.zip** below.
+2. Download **Palettes-v0.9.0.zip** below.
 3. Unzip it into `Interface/AddOns`, replacing your old `Palettes` folder.
 4. In game, type `/reload`.
 

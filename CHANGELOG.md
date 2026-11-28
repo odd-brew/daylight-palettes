@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.9.0] - 2026-11-27
+
+### Added
+- **+10 Colour Palettes (35 → 45 Total):** Added 5 **Dark** palettes (**Verdier**, **Abyssal**, **Cinderclay**, **Lichen**, **Twilight** — 20 total) and 5 **Realm** palettes (**Dalaran**, **Silvermoon**, **Blackrock**, **Stranglethorn**, **Winterspring** — 16 total), all dark-only (`L* <= 28`), WCAG-verified, combat-color immune, and with precomputed class chrome shades.
+- **+12 Looks Across All 8 Categories (46 → 58 Total):**
+  - **Player/Target (10, 5×2):** **Anvil** and **Channel** (with `tide` health bar FX and full snapshot restore).
+  - **Focus (6, 3×2):** **Watch Plate**.
+  - **ToT (6, 3×2):** **Angled Chip**.
+  - **Party (6, 3×2):** **Squad Ribbon** and **Ward Stack**.
+  - **Raid (6, 3×2):** **Triage Cells**.
+  - **Cast Bars (9, 3×3):** **Arcane Comet** (`comet` FX) and **Interrupt Flare** (`pixelsparks` FX), keeping `partyCastbar` height clamped `<= 14px`.
+  - **Action Bars (9, 3×3):** **Hex Cell** (`hexagon` mask) and **Chamfered Octagon** (`octagon` mask) with live Preview Deck masks.
+  - **Nameplates (6, 3×2):** **Angled Blade**.
+- **+4 Core Presets & 5×2 Grid (6 → 10 Total):** Added **Bastion Line**, **Dalaran Arcanum**, **Verdant Canopy**, and **Blackrock Ledger** in a compact 5×2 Presets grid so the **Preset Recipe** and **My Presets** cards stay cleanly in frame.
+- **Slash Commands:** `/palettes` and `/looks` now recognize all new palette, look, and preset IDs and display names across all 8 categories, with full combat lockdown queuing.
+
+### Fixed
+- **Staged preset overrides:** Selecting an already-applied palette, frame, or extra look while a base preset with a different recipe value is staged now highlights, previews, and applies the override cleanly instead of reverting to the base preset's recipe.
+
 ## [0.8.0] - 2026-11-27
 
 ### Added

@@ -55,16 +55,18 @@ local function hex(id, key)
 end
 
 check(type(ns.byId), "table", "byId")
-check(ns.order and #ns.order or 0, 35, "palette count")
+check(ns.order and #ns.order or 0, 45, "palette count")
 
 local ids = {
     "ember", "tide", "dusk", "ash", "pine",
     "forgeglow", "nightglass", "vesper", "carmine-night", "gilded", "phosphor", "ink", "sightline",
     "vanilla", "forever",
+    "verdigris", "abyssal", "cinderclay", "lichen", "twilight",
     "warrior", "mage", "paladin", "priest",
     "hunter", "rogue", "shaman", "warlock", "druid",
     "keepstone", "ironbanner", "sapphire-crown", "crownwall", "deepforge",
     "starshade", "cogspark", "rustbrand", "gravelight", "plainsong", "junglefire",
+    "kirintor", "sunspire", "blackrock", "stranglethorn", "winterspring",
 }
 for i = 1, #ids do
     check(ns.order[i], ids[i], "order " .. i)
@@ -136,7 +138,7 @@ for id, want in pairs(v2) do
     end
 end
 
-for i = 1, 15 do
+for i = 1, 20 do
     local p = ns.byId[ids[i]]
     if p.group ~= "dark" then fail(ids[i] .. " should be a dark palette") end
     if p.windowAlpha ~= nil then fail(ids[i] .. " should not force window opacity") end
@@ -157,11 +159,11 @@ end
 
 check(ns.groups and #ns.groups, 3, "palette groups")
 check(ns.groups and ns.groups[1].label, "Dark", "dark group")
-check(ns.groups and #ns.groups[1].ids, 15, "dark count")
+check(ns.groups and #ns.groups[1].ids, 20, "dark count")
 check(ns.groups and ns.groups[2].label, "Class themes", "class group")
 check(ns.groups and #ns.groups[2].ids, 9, "class theme count")
 check(ns.groups and ns.groups[3].label, "Realm themes", "realm group")
-check(ns.groups and #ns.groups[3].ids, 11, "realm theme count")
+check(ns.groups and #ns.groups[3].ids, 16, "realm theme count")
 check(ns.off and ns.off.name, "Daylight (off)", "restore name")
 
 -- v3 sheet. Priest and Rustbrand accent stops are the nudged values.
@@ -525,7 +527,7 @@ else
         fail("PalettesCustom.lua failed: " .. tostring(customRunErr))
     end
 end
-check(ns.order and #ns.order or 0, 35, "custom does not add a thirty-sixth palette")
+check(ns.order and #ns.order or 0, 45, "custom does not add a forty-sixth palette")
 check(ns.byId.custom and ns.byId.custom.name, "Custom", "custom palette name")
 check(ns.byId.custom and ns.byId.custom.mood, "Your own background, band and accent, saved at this character.", "custom palette description")
 
@@ -1310,8 +1312,8 @@ do
     end
 end
 
-if not toc:find("## Version: 0.8.0", 1, true) then
-    fail("version stays 0.8.0")
+if not toc:find("## Version: 0.9.0", 1, true) then
+    fail("version stays 0.9.0")
 end
 if not toc:find("frame looks", 1, true) or toc:find("glow styles", 1, true) then
     fail("toc notes must cover frame looks and not glow styles")
@@ -1393,9 +1395,9 @@ local moods = {
 for i = 1, #moods do
     if not looksSource:find(moods[i], 1, true) then fail("missing preset mood: " .. moods[i]) end
 end
-local OFF_LINE = "Looks: off. Type /looks flagon, trestle, beam, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off."
-local BEAM_LINE = "Looks: Beam is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off."
-local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks flagon, trestle, stream, ledger, crest, slate, harvestide, tidemark, oldroad, vigil, snug, or off."
+local OFF_LINE = "Looks: off. Type /looks flagon, trestle, beam, stream, ledger, crest, slate, anvil, channel, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bastionline, arcanum, canopy, blackrockledger, or off."
+local BEAM_LINE = "Looks: Beam is on. Type /looks flagon, trestle, stream, ledger, crest, slate, anvil, channel, hearthnight, harvestide, tidemark, oldroad, vigil, snug, bastionline, arcanum, canopy, blackrockledger, or off."
+local HEARTH_LINE = "Looks: Hearthnight is on. Type /looks flagon, trestle, stream, ledger, crest, slate, anvil, channel, harvestide, tidemark, oldroad, vigil, snug, bastionline, arcanum, canopy, blackrockledger, or off."
 local CHANGED_LINE = "Looks: Hearthnight (changed) is on. Type /looks flagon, trestle, stream, ledger, crest, slate, hearthnight, harvestide, tidemark, oldroad, vigil, snug, or off."
 
 local function piece()
@@ -1991,7 +1993,7 @@ ns.looksGuard = nil
 if type(body) == "table" and type(body.build) == "function" then
     local built, buildErr = pcall(body.build, row)
     if not built then fail("looks tab did not build: " .. tostring(buildErr)) end
-    check(type(row.lines) == "table" and #row.lines or 0, 46, "all 8 Looks categories register 46 option cards")
+    check(type(row.lines) == "table" and #row.lines or 0, 58, "all 8 Looks categories register 58 option cards")
     check(row.lines[1] and row.lines[1].id, "daylight_standard", "frame row 1 is daylight_standard")
     check(row.lines[1] and row.lines[1].kind, "frame", "frame row 1 is a frame")
     for i = 1, #FRAME_IDS do
@@ -2312,7 +2314,7 @@ local themeBody = themeGroups[1].items[1]
 if type(themeBody) == "table" and type(themeBody.build) == "function" then
     local builtTheme, themeErr = pcall(themeBody.build, themeRow)
     if not builtTheme then fail("themes tab did not build: " .. tostring(themeErr)) end
-    check(type(themeRow.lines) == "table" and #themeRow.lines or 0, 6, "six core theme rows")
+    check(type(themeRow.lines) == "table" and #themeRow.lines or 0, 10, "ten core theme rows")
     local hearth = themeRow.lines[1]
     local lastTheme = themeRow.lines[6]
     check(hearth.baseName, "Hearthnight", "theme order still starts with Hearthnight")
@@ -2834,8 +2836,8 @@ end
 
 -- Issues #34, #41-#44 regression checks
 do
-    -- #41 & #34: 6 core presets exact 9-layer recipes
-    check(#ns.themes, 6, "#41 six core presets")
+    -- #41, #34 & #53: 10 core presets exact 9-layer recipes
+    check(#ns.themes, 10, "#41 ten core presets")
     local wantRecipes = {
         hearthnight = { "ember", "beam", "compact_beam", "compact_pill", "framed", "framed", "molten", "classic", "sculpted" },
         harvestide = { "vanilla", "stream", "slim_ribbon", "compact_pill", "standard", "tiles", "silk", "classic", "standard" },
@@ -2843,6 +2845,10 @@ do
         oldroad = { "forever", "crest", "compact_beam", "crisp_square", "framed", "framed", "brushed", "heavy", "sculpted" },
         vigil = { "paladin", "stream", "slim_ribbon", "compact_pill", "healer", "matte", "silk", "circle", "triage" },
         snug = { "gilded", "flagon", "match", "compact_pill", "standard", "tiles", "flow", "circle", "standard" },
+        bastionline = { "sightline", "anvil", "watch_plate", "crisp_square", "ward_stack", "tight", "interrupt_flare", "chamfer_oct", "flat" },
+        arcanum = { "kirintor", "channel", "slim_ribbon", "slim_bar", "squad_ribbon", "tiles", "arcane_comet", "hex_cell", "razor" },
+        canopy = { "verdigris", "trestle", "compact_beam", "angled_chip", "squad_ribbon", "triage_cells", "silk", "shield", "angled_blade" },
+        blackrockledger = { "blackrock", "ledger", "minimal_slate", "slim_bar", "compact", "triage_cells", "matte", "borderless", "razor" },
     }
     for i = 1, #ns.themes do
         local t = ns.themes[i]
@@ -2893,9 +2899,9 @@ do
         check(list[1] and list[1].name, "Daylight Standard", ck .. " first option is Daylight Standard")
     end
 
-    -- #34: 5 curated Nameplate looks & strict Combat-Color Immunity
+    -- #34 & #53: 6 curated Nameplate looks & strict Combat-Color Immunity
     local npList = ns.extraLooks and ns.extraLooks.nameplates or {}
-    check(#npList, 5, "#34 five curated Nameplate looks")
+    check(#npList, 6, "#34 six curated Nameplate looks")
     local forbiddenCombatKeys = {
         healthColor = true, healthCustom = true, healthGradient = true,
         threat = true, threatFill = true, threatAggro = true, threatWarn = true, threatLost = true,
@@ -2904,7 +2910,7 @@ do
         nameColor = true, bossBar = true, rareBar = true, questBar = true, casterBar = true,
         ["friendly.healthColor"] = true, ["friendly.healthCustom"] = true, ["friendly.healthGradient"] = true,
     }
-    local wantNpIds = { "standard", "razor", "sculpted", "flat", "triage" }
+    local wantNpIds = { "standard", "razor", "sculpted", "flat", "triage", "angled_blade" }
     for i = 1, #wantNpIds do
         local opt = npList[i]
         check(opt and opt.id, wantNpIds[i], "#34 nameplate look " .. i .. " is " .. wantNpIds[i])
@@ -3014,6 +3020,126 @@ do
     check(ns.commitStaged(), true, "commitStaged applies all accumulated selections")
     check(#ran, 4, "all 4 staged commits executed on Apply")
     check(ns.staged, nil, "ns.staged cleared after commit")
+end
+
+-- Issue #53: v0.9.0 Content Expansion checks
+do
+    -- 1. All 10 new palettes pass WCAG floors and L* <= 28
+    local v09Pals = {
+        "verdigris", "abyssal", "cinderclay", "lichen", "twilight",
+        "kirintor", "sunspire", "blackrock", "stranglethorn", "winterspring",
+    }
+    local function lin(c) return c <= 0.04045 and c / 12.92 or ((c + 0.055) / 1.055) ^ 2.4 end
+    local function lstar(col)
+        local Y = 0.2126 * lin(col[1]) + 0.7152 * lin(col[2]) + 0.0722 * lin(col[3])
+        return Y > 0.008856 and (116 * (Y ^ (1 / 3)) - 16) or (903.3 * Y)
+    end
+    for i = 1, #v09Pals do
+        local id = v09Pals[i]
+        local p = ns.byId[id]
+        check(type(p), "table", "#53 palette exists: " .. id)
+        if p then
+            check(lstar(p.background) <= 28, true, "#53 " .. id .. " background L* <= 28")
+            check(lstar(p.window) <= 28, true, "#53 " .. id .. " window L* <= 28")
+            check(ns.ratio(p.text, p.background) >= 6.6, true, "#53 " .. id .. " text/bg >= 6.6")
+            check(ns.ratio(p.title, p.background) >= 4.5, true, "#53 " .. id .. " title/bg >= 4.5")
+            check(ns.ratio(p.title, p.band) >= 4.5, true, "#53 " .. id .. " title/band >= 4.5")
+            check(ns.ratio(p.text, p.band) >= 4.5, true, "#53 " .. id .. " text/band >= 4.5")
+            check(ns.ratio(p.label, p.background) >= 4.5, true, "#53 " .. id .. " label/bg >= 4.5")
+            check(ns.ratio(p.label, p.band) >= 4.5, true, "#53 " .. id .. " label/band >= 4.5")
+            check(ns.ratio(p.c2, p.background) >= 3.0, true, "#53 " .. id .. " c2/bg >= 3.0")
+            check(ns.ratio(p.c2, p.band) >= 3.0, true, "#53 " .. id .. " c2/band >= 3.0")
+            check(ns.ratio(p.off, p.background) >= 3.0, true, "#53 " .. id .. " off/bg >= 3.0")
+            check(ns.ratio(p.off, p.band) >= 3.0, true, "#53 " .. id .. " off/band >= 3.0")
+        end
+    end
+
+    -- 2. All 8 Looks categories have balanced counts (10, 6, 6, 6, 6, 9, 9, 6 = 58)
+    check(#ns.extraLooks.focus, 6, "#53 focus has 6 looks (3x2)")
+    check(#ns.extraLooks.tot, 6, "#53 tot has 6 looks (3x2)")
+    check(#ns.extraLooks.party, 6, "#53 party has 6 looks (3x2)")
+    check(#ns.extraLooks.raid, 6, "#53 raid has 6 looks (3x2)")
+    check(#ns.extraLooks.castbars, 9, "#53 castbars has 9 looks (3x3)")
+    check(#ns.extraLooks.actionbars, 9, "#53 actionbars has 9 looks (3x3)")
+    check(#ns.extraLooks.nameplates, 6, "#53 nameplates has 6 looks (3x2)")
+
+    -- 3. Channel writes tide barFx; switching to Anvil restores saved barFx; partyCastbar <= 14
+    seedFrames()
+    ns.looksSlash("channel")
+    check(sets.UnitFrames["player.barFx.health.style"], "tide", "#53 channel writes tide barFx")
+    check(sets.UnitFrames["player.showPowerText"], true, "#53 channel enables power text")
+    check(sets.UnitFrames["player.powerFormat"], "percent", "#53 channel uses percent powerFormat")
+    ns.looksSlash("anvil")
+    check(sets.UnitFrames["player.barFx.health.style"], userValue("player.barFx.health.style"), "#53 anvil restores saved barFx")
+    check(sets.UnitFrames["player.portrait"], "3d", "#53 anvil sets 3d portrait")
+    check(sets.UnitFrames["player.portraitShape"], "square", "#53 anvil sets square portrait")
+    check(sets.UnitFrames["player.shell.borderPx"], 5, "#53 anvil sets 5px border")
+
+    ns.looksSlash("interrupt_flare")
+    check(sets.UnitFrames["playerCastbar.height"], 24, "#53 interrupt_flare sets 24px playerCastbar")
+    check(sets.UnitFrames["partyCastbar.height"], 14, "#53 interrupt_flare clamps partyCastbar <= 14")
+    check(sets.UnitFrames["playerCastbar.barFx.style"], "pixelsparks", "#53 interrupt_flare sets pixelsparks FX")
+
+    ns.looksSlash("arcane_comet")
+    check(sets.UnitFrames["playerCastbar.height"], 20, "#53 arcane_comet sets 20px playerCastbar")
+    check(sets.UnitFrames["partyCastbar.height"], 14, "#53 arcane_comet clamps partyCastbar <= 14")
+    check(sets.UnitFrames["playerCastbar.barFx.style"], "comet", "#53 arcane_comet sets comet FX")
+
+    ns.looksSlash("hex_cell")
+    check(sets.ActionBars["look.shape"], "hexagon", "#53 hex_cell sets hexagon shape")
+    ns.looksSlash("chamfer_oct")
+    check(sets.ActionBars["look.shape"], "octagon", "#53 chamfer_oct sets octagon shape")
+
+    ns.looksSlash("angled_blade")
+    check(sets.Nameplates["width"], 152, "#53 angled_blade sets 152 width")
+    check(sets.Nameplates["height"], 12, "#53 angled_blade sets 12 height")
+    check(sets.Nameplates["slant"], true, "#53 angled_blade sets slant true")
+    check(sets.Nameplates["castHeight"], 11, "#53 angled_blade sets 11 castHeight")
+
+    -- 4. /palettes and /looks resolve both IDs and display names
+    looksEnv.SlashCmdList.PALETTES("dalaran")
+    check(palDb.palette, "kirintor", "#53 /palettes dalaran resolves kirintor")
+    looksEnv.SlashCmdList.PALETTES("silvermoon")
+    check(palDb.palette, "sunspire", "#53 /palettes silvermoon resolves sunspire")
+    looksEnv.SlashCmdList.PALETTES("verdier")
+    check(palDb.palette, "verdigris", "#53 /palettes verdier resolves verdigris")
+    looksEnv.SlashCmdList.PALETTES("winterspring")
+    check(palDb.palette, "winterspring", "#53 /palettes winterspring resolves winterspring")
+
+    ns.looksSlash("bastion line")
+    check(palDb.palette, "sightline", "#53 /looks 'bastion line' applies bastionline preset")
+    check(sets.UnitFrames["player.portraitShape"], "square", "#53 bastionline applies anvil frame")
+    ns.looksSlash("dalaran arcanum")
+    check(palDb.palette, "kirintor", "#53 /looks 'dalaran arcanum' applies arcanum preset")
+    ns.looksSlash("verdant canopy")
+    check(palDb.palette, "verdigris", "#53 /looks 'verdant canopy' applies canopy preset")
+    ns.looksSlash("blackrock ledger")
+    check(palDb.palette, "blackrock", "#53 /looks 'blackrock ledger' applies blackrockledger preset")
+
+    -- 5. Combat lockdown queuing for new presets/looks
+    looksEnv.InCombatLockdown = function() return true end
+    ns.looksSlash("canopy")
+    check(palDb.palette, "blackrock", "#53 combat lockdown queues canopy instead of writing immediately")
+    looksEnv.InCombatLockdown = function() return false end
+    ns.finishLooksCombat()
+    check(palDb.palette, "verdigris", "#53 finishLooksCombat applies queued canopy preset")
+
+    -- 6. Regression: selecting an already-live ToT look (slim_bar) while a preset with a different ToT (match) is staged
+    ns.stagePick("mypreset", "slot-1", function() end, false, "Snug 1", {
+        palette = "gilded", frame = "anvil", focus = "match", tot = "match",
+        party = "standard", raid = "tiles", castbars = "flow", actionbars = "circle", nameplates = "standard",
+    })
+    -- Clicking Slim Bar when Slim Bar is already live (live = true) must stage slim_bar as an override, not clear to match
+    ns.stagePick("look", "slim_bar", function() end, true, "Slim Bar", nil, "tot")
+    check(ns.staged and ns.staged.looks and ns.staged.looks.tot, "slim_bar", "#53 live look overrides staged preset recipe")
+    -- Clicking Match Player & Target (same as base preset) clears the redundant override cleanly
+    ns.stagePick("look", "match", function() end, false, "Match Player & Target", nil, "tot")
+    check(ns.staged and ns.staged.looks and ns.staged.looks.tot, nil, "#53 clicking base preset look clears override cleanly")
+    ns.cancelStaged()
+
+    -- Clean restore
+    ns.looksSlash("off")
+    check(userRestored(), true, "#53 off restores original frame snapshot cleanly")
 end
 
 if failures > 0 then

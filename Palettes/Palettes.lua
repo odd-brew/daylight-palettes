@@ -1661,6 +1661,20 @@ function slashRun(msg)
         return
     end
     if arg == "daylight" then arg = "off" end
+    if not known(arg) then
+        local normArg = string.gsub(arg, "%-", " ")
+        for i = 1, #(ns.order or {}) do
+            local pid = ns.order[i]
+            local p = ns.byId[pid]
+            if type(p) == "table" and type(p.name) == "string" then
+                local normName = string.gsub(string.lower(trim(p.name)), "[%s%-]+", " ")
+                if normName == normArg then
+                    arg = pid
+                    break
+                end
+            end
+        end
+    end
     if arg == "off" and type(ns.armLooksRestore) == "function" then ns.armLooksRestore() end
     if not known(arg) then
         say(statusLine())
@@ -3684,8 +3698,16 @@ function ns.stagePick(kind, id, commit, live, label, recipe, catKey)
         draft.lookCommits = draft.lookCommits or {}
     end
 
+    local hasBasePreset = (draft.baseKind == "theme" or draft.baseKind == "mypreset")
+    local baseTheme = (draft.baseKind == "theme" and type(ns.themeById) == "function")
+        and ns.themeById(draft.baseId) or nil
+    local baseRec = (draft.baseKind == "mypreset" and type(draft.recipe) == "table")
+        and draft.recipe or nil
+
     if kind == "palette" then
-        if live or draft.palette == id then
+        local baseVal = (baseTheme and baseTheme.palette) or (baseRec and baseRec.palette)
+        local isNoOp = hasBasePreset and (baseVal == id) or (not hasBasePreset and live)
+        if isNoOp or draft.palette == id then
             draft.palette = nil
             draft.paletteLabel = nil
             draft.paletteCommit = nil
@@ -3695,7 +3717,9 @@ function ns.stagePick(kind, id, commit, live, label, recipe, catKey)
             draft.paletteCommit = commit
         end
     elseif kind == "frame" then
-        if live or draft.frame == id then
+        local baseVal = (baseTheme and baseTheme.frame) or (baseRec and baseRec.frame)
+        local isNoOp = hasBasePreset and (baseVal == id) or (not hasBasePreset and live)
+        if isNoOp or draft.frame == id then
             draft.frame = nil
             draft.frameLabel = nil
             draft.frameCommit = nil
@@ -3705,7 +3729,9 @@ function ns.stagePick(kind, id, commit, live, label, recipe, catKey)
             draft.frameCommit = commit
         end
     elseif kind == "look" and type(catKey) == "string" then
-        if live or draft.looks[catKey] == id then
+        local baseVal = (baseTheme and baseTheme[catKey]) or (baseRec and baseRec[catKey])
+        local isNoOp = hasBasePreset and (baseVal == id) or (not hasBasePreset and live)
+        if isNoOp or draft.looks[catKey] == id then
             draft.looks[catKey] = nil
             draft.lookLabels[catKey] = nil
             draft.lookCommits[catKey] = nil
