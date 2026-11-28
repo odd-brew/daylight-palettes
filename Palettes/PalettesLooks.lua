@@ -1225,12 +1225,15 @@ local function writePairs(list)
     local d = DaylightUI
     if type(d) ~= "table" or type(d.Set) ~= "function" then return false end
     local failed = false
+    local prevWriting = ns.writingLooks
+    ns.writingLooks = true
     local ran = batch(function()
         for i = 1, #list do
             local ok, result = pcall(d.Set, d, "UnitFrames", list[i][1], list[i][2])
             if not ok or result == false then failed = true end
         end
     end)
+    ns.writingLooks = prevWriting
     return ran and not failed
 end
 
@@ -1558,16 +1561,165 @@ local function writeScopedPairs(list)
     local d = DaylightUI
     if type(d) ~= "table" or type(d.Set) ~= "function" then return false end
     local failed = false
+    local prevWriting = ns.writingLooks
+    ns.writingLooks = true
     local ran = batch(function()
         for i = 1, #list do
             local ok, res = pcall(d.Set, d, list[i][1], list[i][2], list[i][3])
             if not ok or res == false then failed = true end
         end
     end)
+    ns.writingLooks = prevWriting
     return ran and not failed
 end
 
+local ALL_LOOK_LAYERS = { "player_target", "focus", "tot", "party", "raid", "castbars", "actionbars", "nameplates" }
+local LAYER_DISPLAY_LABELS = {
+    player_target = "Player/Target",
+    focus = "Focus",
+    tot = "ToT",
+    party = "Party",
+    raid = "Raid",
+    castbars = "Cast Bars",
+    actionbars = "Action Bars",
+    nameplates = "Nameplates",
+}
+
+local function isForbiddenKeyPath(path)
+    if type(path) ~= "string" or path == "" then return true end
+    local low = string.lower(path)
+    if string.find(low, "position", 1, true)
+        or string.find(low, "anchor", 1, true)
+        or string.find(low, "offsetx", 1, true)
+        or string.find(low, "offsety", 1, true)
+        or string.find(low, "%.point$")
+        or low == "point"
+        or string.find(low, "%.x$")
+        or string.find(low, "%.y$")
+        or string.find(low, "colors%.")
+        or string.find(low, "classcolor", 1, true)
+        or string.find(low, "reaction", 1, true)
+        or string.find(low, "threat", 1, true)
+        or string.find(low, "healthcolor", 1, true)
+        or string.find(low, "healthcustom", 1, true)
+        or string.find(low, "healthgradient", 1, true)
+        or string.find(low, "castcolor", 1, true)
+        or string.find(low, "castfill", 1, true)
+        or string.find(low, "castgradient", 1, true)
+        or string.find(low, "namecolor", 1, true)
+        or string.find(low, "bossbar", 1, true)
+        or string.find(low, "rarebar", 1, true)
+        or string.find(low, "questbar", 1, true)
+        or string.find(low, "casterbar", 1, true)
+        or string.find(low, "textoutline", 1, true)
+        or string.find(low, "textshadow", 1, true) then
+        return true
+    end
+    return false
+end
+
+local OWNED_KEYS_BY_LAYER = {}
+local function addOwnedKey(layer, scope, path)
+    if isForbiddenKeyPath(path) then return end
+    OWNED_KEYS_BY_LAYER[layer] = OWNED_KEYS_BY_LAYER[layer] or {}
+    OWNED_KEYS_BY_LAYER[layer][scope] = OWNED_KEYS_BY_LAYER[layer][scope] or {}
+    OWNED_KEYS_BY_LAYER[layer][scope][path] = true
+end
+
+local function buildOwnedKeys()
+    for i = 1, #FRAME_KEYS do addOwnedKey("player_target", "UnitFrames", FRAME_KEYS[i]) end
+    for i = 1, #SIZE_KEYS do addOwnedKey("player_target", "UnitFrames", SIZE_KEYS[i]) end
+    for i = 1, #EXTRA_KEYS do addOwnedKey("player_target", "UnitFrames", EXTRA_KEYS[i]) end
+    local extraCats = { "focus", "tot", "party", "raid", "castbars", "actionbars", "nameplates" }
+    for c = 1, #extraCats do
+        local ck = extraCats[c]
+        local opts = EXTRA_LOOKS[ck] or {}
+        local function addSettings(settings)
+            if type(settings) ~= "table" then return end
+            if ck == "actionbars" then
+                for k in pairs(settings) do addOwnedKey(ck, "ActionBars", k) end
+            elseif ck == "nameplates" then
+                for k in pairs(settings) do addOwnedKey(ck, "Nameplates", k) end
+            elseif ck == "castbars" then
+                for u = 1, #CASTBAR_UNITS do
+                    for k in pairs(settings) do addOwnedKey(ck, "UnitFrames", CASTBAR_UNITS[u] .. "." .. k) end
+                end
+            else
+                local prefix = ck == "tot" and "targettarget" or ck
+                for k in pairs(settings) do addOwnedKey(ck, "UnitFrames", prefix .. "." .. k) end
+            end
+        end
+        for i = 1, #opts do addSettings(opts[i].settings) end
+        if ck == "focus" then addSettings(matchFocusSettings("beam"))
+        elseif ck == "tot" then addSettings(matchTotSettings("beam")) end
+    end
+end
+buildOwnedKeys()
+
+function ns.isOwnedLookKey(layerKey, scope, path)
+    if type(scope) ~= "string" or isForbiddenKeyPath(path) then return false end
+    if type(layerKey) == "string" then
+        local layerTbl = OWNED_KEYS_BY_LAYER[layerKey]
+        local scopeTbl = type(layerTbl) == "table" and layerTbl[scope] or nil
+        return type(scopeTbl) == "table" and scopeTbl[path] == true
+    end
+    for i = 1, #ALL_LOOK_LAYERS do
+        local lk = ALL_LOOK_LAYERS[i]
+        local layerTbl = OWNED_KEYS_BY_LAYER[lk]
+        local scopeTbl = type(layerTbl) == "table" and layerTbl[scope] or nil
+        if type(scopeTbl) == "table" and scopeTbl[path] == true then
+            return true, lk
+        end
+    end
+    return false
+end
+
+local function valuesDiffer(a, b)
+    if type(a) == "number" and type(b) == "number" then
+        return math.abs(a - b) > 1e-4
+    end
+    return a ~= b
+end
+
+local function copyScopedMap(src)
+    if type(src) ~= "table" then return nil end
+    local out, any = {}, false
+    for scope, paths in pairs(src) do
+        if type(scope) == "string" and type(paths) == "table" then
+            local sub, anySub = {}, false
+            for path, val in pairs(paths) do
+                local kind = type(val)
+                if type(path) == "string" and (kind == "number" or kind == "string" or kind == "boolean") then
+                    sub[path] = val
+                    anySub = true
+                end
+            end
+            if anySub then
+                out[scope] = sub
+                any = true
+            end
+        end
+    end
+    if any then return out end
+end
+
+local function copyLayerMap(src)
+    if type(src) ~= "table" then return nil end
+    local out, any = {}, false
+    for i = 1, #ALL_LOOK_LAYERS do
+        local lk = ALL_LOOK_LAYERS[i]
+        local sub = copyScopedMap(src[lk])
+        if sub then
+            out[lk] = sub
+            any = true
+        end
+    end
+    if any then return out end
+end
+
 local function captureExtraForPairs(list)
+    local have = readSnapshot()
+    local haveFrame = type(have) == "table" and type(have.frameValues) == "table" and have.frameValues or nil
     local addUnit, addAB, addNP = {}, {}, {}
     local anyU, anyA, anyN = false, false, false
     for i = 1, #list do
@@ -1576,8 +1728,10 @@ local function captureExtraForPairs(list)
         local kind = type(val)
         if ok and (kind == "number" or kind == "string" or kind == "boolean") then
             if scope == "UnitFrames" then
-                addUnit[path] = val
-                anyU = true
+                if not (haveFrame and haveFrame[path] ~= nil) then
+                    addUnit[path] = val
+                    anyU = true
+                end
             elseif scope == "ActionBars" then
                 addAB[path] = val
                 anyA = true
@@ -1820,6 +1974,39 @@ function ns.themePaletteId(id)
     return theme and theme.palette or nil
 end
 
+local recordLayerFingerprint
+local writeActiveMyPreset
+
+local function overlayLayerOverrides(pairsList, layerOverrides, layerKey)
+    if type(layerOverrides) ~= "table" then return pairsList, "" end
+    local out = {}
+    local idxByKey = {}
+    for i = 1, #pairsList do
+        local row = { pairsList[i][1], pairsList[i][2], pairsList[i][3] }
+        out[#out + 1] = row
+        idxByKey[row[1] .. ":" .. row[2]] = #out
+    end
+    local tagParts = {}
+    for scope, paths in pairs(layerOverrides) do
+        if type(scope) == "string" and type(paths) == "table" then
+            for path, val in pairs(paths) do
+                if ns.isOwnedLookKey(layerKey, scope, path) then
+                    local key = scope .. ":" .. path
+                    if idxByKey[key] then
+                        out[idxByKey[key]][3] = val
+                    else
+                        out[#out + 1] = { scope, path, val }
+                        idxByKey[key] = #out
+                    end
+                    tagParts[#tagParts + 1] = key .. "=" .. tostring(val)
+                end
+            end
+        end
+    end
+    table.sort(tagParts)
+    return out, table.concat(tagParts, "|")
+end
+
 -- The staged frame, category look, or preset pick is what shows while Palettes is open.
 -- Resolves multi-layer staged drafts (Preset + Colour/Look overrides) for the active Preview Deck mode.
 function ns.syncFramePreview()
@@ -1828,6 +2015,7 @@ function ns.syncFramePreview()
         local deckMode = type(ns.getPreviewDeckMode) == "function" and ns.getPreviewDeckMode() or "player_target"
         local baseTheme = (staged.baseKind == "theme" or staged.kind == "theme") and themeById(staged.baseId or staged.id) or nil
         local baseRec = (staged.baseKind == "mypreset" or staged.kind == "mypreset") and type(staged.recipe) == "table" and staged.recipe or nil
+        local baseOverrides = (staged.baseKind == "mypreset" or staged.kind == "mypreset") and type(staged.overrides) == "table" and staged.overrides or nil
 
         local effFrame = staged.frame
             or (staged.kind == "frame" and staged.id)
@@ -1835,11 +2023,25 @@ function ns.syncFramePreview()
             or (baseRec and baseRec.frame)
 
         if deckMode == "player_target" then
-            revertExtraPreview()
+            local ptOverrides = (staged.frame == nil and type(baseOverrides) == "table") and baseOverrides.player_target or nil
             if effFrame and frameById(effFrame) then
+                if type(ptOverrides) == "table" and next(ptOverrides) ~= nil then
+                    previewWant = nil
+                    previewSync()
+                    local rawPairs = previewPairs(effFrame, previewTargets)
+                    local scoped = {}
+                    for i = 1, #rawPairs do
+                        scoped[#scoped + 1] = { "UnitFrames", rawPairs[i][1], rawPairs[i][2] }
+                    end
+                    local merged, tag = overlayLayerOverrides(scoped, ptOverrides, "player_target")
+                    beginExtraPairs("player_target:" .. effFrame .. ":" .. tag, merged)
+                    return
+                end
+                revertExtraPreview()
                 ns.BeginPreview(effFrame)
                 return
             end
+            revertExtraPreview()
             previewWant = nil
             previewSync()
             return
@@ -1853,8 +2055,12 @@ function ns.syncFramePreview()
         if type(effExtra) == "string" then
             previewWant = nil
             previewSync()
-            local pKey = deckMode .. ":" .. effExtra .. ":" .. tostring(effFrame or wornFrame() or "")
-            beginExtraPairs(pKey, previewPairsForCategory(deckMode, effExtra, effFrame))
+            local pairsList = previewPairsForCategory(deckMode, effExtra, effFrame)
+            local catOverrides = (not (type(staged.looks) == "table" and staged.looks[deckMode] ~= nil) and type(baseOverrides) == "table")
+                and baseOverrides[deckMode] or nil
+            local merged, tag = overlayLayerOverrides(pairsList, catOverrides, deckMode)
+            local pKey = deckMode .. ":" .. effExtra .. ":" .. tostring(effFrame or wornFrame() or "") .. ":" .. tag
+            beginExtraPairs(pKey, merged)
             return
         end
     end
@@ -1877,17 +2083,24 @@ function ns.setLooksOpen(open)
     open = open == true
     if open == looksOpen then return end
     looksOpen = open
-    if not open then ns.dropFramePreview() end
+    if open then
+        refreshLooks()
+    else
+        ns.dropFramePreview()
+    end
 end
 
-local function queueLook(kind, id, name)
+local function queueLook(kind, id, name, extra)
     if type(looksPending) == "table" and looksPending.kind == kind and looksPending.id == id then
         looksPending = nil
         refreshLooks()
         return
     end
     looksPending = { kind = kind, id = id }
-    if kind == "theme" then
+    if type(extra) == "table" then
+        for k, v in pairs(extra) do looksPending[k] = v end
+    end
+    if kind == "theme" or kind == "mypreset" then
         say("Palettes: " .. name .. " queued until combat ends.")
     else
         say("Looks: " .. name .. " queued until combat ends.")
@@ -1912,6 +2125,7 @@ local function applyFrame(id, quiet)
         if ok then
             if undoShot and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
             if type(ns.storeLookPart) == "function" then ns.storeLookPart("frame", id) end
+            if not ns.applyingTheme and type(writeActiveMyPreset) == "function" then writeActiveMyPreset(nil) end
             if not ns.applyingTheme and type(ns.notePalette) == "function" then ns.notePalette(ns.screenPalette()) end
         end
         return ok
@@ -1926,6 +2140,11 @@ local function applyFrame(id, quiet)
     local extras = extraPairs(id, type(snapshot) == "table" and snapshot.frameValues or nil)
     for i = 1, #extras do list[#list + 1] = extras[i] end
     local ok = writePairs(list)
+    if ok and type(recordLayerFingerprint) == "function" then
+        local scoped = {}
+        for i = 1, #list do scoped[i] = { "UnitFrames", list[i][1], list[i][2] } end
+        recordLayerFingerprint("player_target", scoped, false)
+    end
     if shot then mergeSnapshot(shot) end
     refreshPage()
     refreshLooks()
@@ -2028,6 +2247,122 @@ end
 
 local EXTRA_CAT_KEYS = { "focus", "tot", "party", "raid", "castbars", "actionbars", "nameplates" }
 
+local function targetSlot()
+    local slot, account, onlyOn = activeSlot()
+    if onlyOn and type(slot) == "table" then return slot, account, true end
+    return account, account, false
+end
+
+local function readFingerprint()
+    local slot = activeSlot()
+    if type(slot) == "table" and type(slot.appliedFingerprint) == "table" then
+        return slot.appliedFingerprint
+    end
+    return nil
+end
+
+local function writeFingerprint(fp)
+    local slot, account, onlyOn = activeSlot()
+    local stored = copyLayerMap(fp)
+    if onlyOn and type(slot) == "table" then
+        slot.appliedFingerprint = stored
+    elseif type(account) == "table" then
+        account.appliedFingerprint = stored
+        local char = type(ns.charTable) == "function" and ns.charTable() or nil
+        if type(char) == "table" then char.appliedFingerprint = nil end
+    end
+end
+
+recordLayerFingerprint = function(layerKey, pairsList, mergeOnly)
+    if type(layerKey) ~= "string" or type(pairsList) ~= "table" then return end
+    local fp = copyLayerMap(readFingerprint()) or {}
+    local layerMap = (mergeOnly and type(fp[layerKey]) == "table") and fp[layerKey] or {}
+    for i = 1, #pairsList do
+        local scope, path, val = pairsList[i][1], pairsList[i][2], pairsList[i][3]
+        local kind = type(val)
+        if ns.isOwnedLookKey(layerKey, scope, path) and (kind == "number" or kind == "string" or kind == "boolean") then
+            layerMap[scope] = layerMap[scope] or {}
+            layerMap[scope][path] = val
+        end
+    end
+    if next(layerMap) ~= nil then
+        fp[layerKey] = layerMap
+    else
+        fp[layerKey] = nil
+    end
+    writeFingerprint(fp)
+end
+
+function ns.readAppliedFingerprint()
+    return copyLayerMap(readFingerprint())
+end
+
+function ns.detectCustomizedLayers()
+    local customized, ordered, diffs = {}, {}, {}
+    local fp = readFingerprint()
+    if type(fp) ~= "table" then return customized, ordered, diffs end
+    local d = DaylightUI
+    if type(d) ~= "table" or type(d.Get) ~= "function" then return customized, ordered, diffs end
+    for i = 1, #ALL_LOOK_LAYERS do
+        local lk = ALL_LOOK_LAYERS[i]
+        if lk ~= "nameplates" or nameplatesModuleLoaded() then
+            local layerFp = fp[lk]
+            if type(layerFp) == "table" then
+                local layerDiffs = nil
+                for scope, paths in pairs(layerFp) do
+                    if type(scope) == "string" and type(paths) == "table" then
+                        for path, expected in pairs(paths) do
+                            if ns.isOwnedLookKey(lk, scope, path) then
+                                local liveVal, ok = readSetting(scope, path)
+                                if ok and valuesDiffer(liveVal, expected) then
+                                    customized[lk] = true
+                                    layerDiffs = layerDiffs or {}
+                                    layerDiffs[scope] = layerDiffs[scope] or {}
+                                    layerDiffs[scope][path] = liveVal
+                                end
+                            end
+                        end
+                    end
+                end
+                if customized[lk] then
+                    ordered[#ordered + 1] = lk
+                    diffs[lk] = layerDiffs
+                end
+            end
+        end
+    end
+    return customized, ordered, diffs
+end
+
+function ns.isLayerCustomized(layerKey)
+    local customized = ns.detectCustomizedLayers()
+    return customized[layerKey] == true
+end
+
+function ns.onExternalSettingChanged(scope, path)
+    if ns.applyingTheme or ns.writingLooks then return end
+    if ns.isOwnedLookKey(nil, scope, path) then
+        refreshLooks()
+    end
+end
+
+local function appliedFrameId()
+    local w = wornFrame()
+    if w then return w end
+    local slot = activeSlot()
+    if type(slot) == "table" and type(slot.frame) == "string" then
+        local resolved = resolveFrame(slot.frame)
+        if resolved then
+            local fp = readFingerprint()
+            if type(fp) == "table" and type(fp.player_target) == "table" then
+                return resolved
+            end
+        end
+    end
+    return nil
+end
+ns.appliedFrameId = appliedFrameId
+
 local function readLookPicks()
     local slot = activeSlot()
     if type(slot) == "table" and type(slot.lookPicks) == "table" then
@@ -2037,15 +2372,14 @@ local function readLookPicks()
 end
 
 local function writeLookPick(catKey, optId)
-    local slot, account, onlyOn = activeSlot()
-    local target = (onlyOn and type(slot) == "table") and slot or account
+    local target = targetSlot()
     if type(target) ~= "table" then return end
     if type(target.lookPicks) ~= "table" then target.lookPicks = {} end
     target.lookPicks[catKey] = optId
 end
 
 function ns.readLookPick(catKey)
-    if catKey == "player_target" then return wornFrame() end
+    if catKey == "player_target" then return appliedFrameId() end
     local picks = readLookPicks()
     return picks[catKey]
 end
@@ -2124,8 +2458,10 @@ function ns.applyCategoryLook(catKey, optId, quiet)
     local ok = writeScopedPairs(list)
     if ok then
         writeLookPick(catKey, optId)
+        recordLayerFingerprint(catKey, list, false)
         if undoShot and type(ns.pushUndo) == "function" then ns.pushUndo(undoShot) end
         if not ns.applyingTheme then
+            writeActiveMyPreset(nil)
             local themeId = ns.readTheme()
             if themeId then
                 local theme = themeById(themeId)
@@ -2140,7 +2476,7 @@ function ns.applyCategoryLook(catKey, optId, quiet)
     return ok
 end
 
--- My Presets (4 slots, Issue #41). Stored on the active account/character slot.
+-- My Presets (4 slots, Issue #41 / #56). Stored on the active account/character slot.
 local MY_PRESET_SLOTS = 4
 
 function ns.readMyPresets()
@@ -2151,53 +2487,211 @@ function ns.readMyPresets()
     return {}
 end
 
+writeActiveMyPreset = function(slotIdx)
+    local slot, account, onlyOn = activeSlot()
+    local stored = (type(slotIdx) == "number" and slotIdx >= 1 and slotIdx <= MY_PRESET_SLOTS) and slotIdx or nil
+    if onlyOn and type(slot) == "table" then
+        slot.activeMyPreset = stored
+    elseif type(account) == "table" then
+        account.activeMyPreset = stored
+        local char = type(ns.charTable) == "function" and ns.charTable() or nil
+        if type(char) == "table" then char.activeMyPreset = nil end
+    end
+end
+
+function ns.readActiveMyPreset()
+    local slot = activeSlot()
+    if type(slot) ~= "table" or type(slot.activeMyPreset) ~= "number" then return nil, nil end
+    local idx = slot.activeMyPreset
+    local list = ns.readMyPresets()
+    if type(list[idx]) ~= "table" then return nil, nil end
+    return idx, list[idx]
+end
+
+function ns.smartMyPresetName(slotIdx)
+    local themeId = ns.readTheme()
+    local t = themeId and themeById(themeId) or nil
+    local base = (t and t.name) or "Custom"
+    local existing = ns.readMyPresets()
+    local taken = {}
+    for s = 1, MY_PRESET_SLOTS do
+        if type(existing[s]) == "table" and type(existing[s].name) == "string" then
+            taken[string.lower(trim(existing[s].name))] = true
+        end
+    end
+    for n = 1, MY_PRESET_SLOTS + 4 do
+        local candidate = base .. " " .. tostring(n)
+        if not taken[string.lower(candidate)] then
+            return candidate
+        end
+    end
+    return base .. " " .. tostring(slotIdx or 1)
+end
+
+local function layerHasOverrides(entry, layerKey)
+    if type(entry) ~= "table" or type(entry.overrides) ~= "table" then return false end
+    local layer = entry.overrides[layerKey]
+    if type(layer) ~= "table" then return false end
+    for _, paths in pairs(layer) do
+        if type(paths) == "table" and next(paths) ~= nil then return true end
+    end
+    return false
+end
+
+function ns.describeRecipe(rec, overrides)
+    if type(rec) ~= "table" then return THEME_INTRO end
+    local parts = {}
+    if type(rec.palette) == "string" then
+        parts[#parts + 1] = partLabel("palette", rec.palette)
+    end
+    if type(rec.frame) == "string" then
+        parts[#parts + 1] = partLabel("frame", rec.frame)
+    end
+    if type(rec.castbars) == "string" then
+        parts[#parts + 1] = ns.categoryLookName("castbars", rec.castbars) .. " casts"
+    end
+    if type(rec.actionbars) == "string" then
+        parts[#parts + 1] = ns.categoryLookName("actionbars", rec.actionbars) .. " bars"
+    end
+    if type(rec.nameplates) == "string" then
+        parts[#parts + 1] = ns.categoryLookName("nameplates", rec.nameplates) .. " plates"
+    end
+    local summary = table.concat(parts, " · ")
+    if type(overrides) == "table" then
+        local customLabels = {}
+        for i = 1, #ALL_LOOK_LAYERS do
+            local lk = ALL_LOOK_LAYERS[i]
+            if layerHasOverrides({ overrides = overrides }, lk) then
+                customLabels[#customLabels + 1] = LAYER_DISPLAY_LABELS[lk] or lk
+            end
+        end
+        if #customLabels > 0 then
+            summary = summary .. " (custom: " .. table.concat(customLabels, ", ") .. ")"
+        end
+    end
+    return summary ~= "" and summary or THEME_INTRO
+end
+
 function ns.currentRecipe()
     local picks = readLookPicks()
     local themeId = ns.readTheme()
     local theme = themeId and themeById(themeId) or nil
+    local _, activeMy = ns.readActiveMyPreset()
+    local myRec = type(activeMy) == "table" and type(activeMy.recipe) == "table" and activeMy.recipe or nil
     return {
         palette = ns.screenPalette() or "off",
-        frame = wornFrame() or (theme and theme.frame) or "beam",
-        focus = picks.focus or (theme and theme.focus) or "match",
-        tot = picks.tot or (theme and theme.tot) or "match",
-        party = picks.party or (theme and theme.party) or "standard",
-        raid = picks.raid or (theme and theme.raid) or "tiles",
-        castbars = picks.castbars or (theme and theme.castbars) or "silk",
-        actionbars = picks.actionbars or (theme and theme.actionbars) or "classic",
-        nameplates = picks.nameplates or (theme and theme.nameplates) or "standard",
+        frame = appliedFrameId() or (myRec and myRec.frame) or (theme and theme.frame) or "beam",
+        focus = picks.focus or (myRec and myRec.focus) or (theme and theme.focus) or "match",
+        tot = picks.tot or (myRec and myRec.tot) or (theme and theme.tot) or "match",
+        party = picks.party or (myRec and myRec.party) or (theme and theme.party) or "standard",
+        raid = picks.raid or (myRec and myRec.raid) or (theme and theme.raid) or "tiles",
+        castbars = picks.castbars or (myRec and myRec.castbars) or (theme and theme.castbars) or "silk",
+        actionbars = picks.actionbars or (myRec and myRec.actionbars) or (theme and theme.actionbars) or "classic",
+        nameplates = picks.nameplates or (myRec and myRec.nameplates) or (theme and theme.nameplates) or "standard",
     }
+end
+
+function ns.captureCustomOverrides(rec)
+    local d = DaylightUI
+    if type(d) ~= "table" or type(d.Get) ~= "function" then return nil end
+    rec = type(rec) == "table" and rec or ns.currentRecipe()
+    local snapshot = readSnapshot()
+    local overrides = {}
+    local anyLayer = false
+    for i = 1, #ALL_LOOK_LAYERS do
+        local lk = ALL_LOOK_LAYERS[i]
+        if lk ~= "nameplates" or nameplatesModuleLoaded() then
+            local basePairs
+            if lk == "player_target" then
+                basePairs = categoryPairs("player_target", rec.frame)
+                local extras = extraPairs(rec.frame, type(snapshot) == "table" and snapshot.frameValues or nil)
+                for e = 1, #extras do
+                    basePairs[#basePairs + 1] = { "UnitFrames", extras[e][1], extras[e][2] }
+                end
+            else
+                basePairs = categoryPairs(lk, rec[lk], rec.frame)
+            end
+            local layerOver = nil
+            for p = 1, #basePairs do
+                local scope, path, baseVal = basePairs[p][1], basePairs[p][2], basePairs[p][3]
+                if ns.isOwnedLookKey(lk, scope, path) then
+                    local liveVal, ok = readSetting(scope, path)
+                    local kind = type(liveVal)
+                    if ok and (kind == "number" or kind == "string" or kind == "boolean") and valuesDiffer(liveVal, baseVal) then
+                        layerOver = layerOver or {}
+                        layerOver[scope] = layerOver[scope] or {}
+                        layerOver[scope][path] = liveVal
+                    end
+                end
+            end
+            if layerOver then
+                overrides[lk] = layerOver
+                anyLayer = true
+            end
+        end
+    end
+    if anyLayer then return overrides end
+    return nil
 end
 
 function ns.saveMyPreset(slotIdx, name)
     if type(slotIdx) ~= "number" or slotIdx < 1 or slotIdx > MY_PRESET_SLOTS then return false end
-    local slot, account, onlyOn = activeSlot()
-    local target = (onlyOn and type(slot) == "table") and slot or account
+    local target = targetSlot()
     if type(target) ~= "table" then return false end
     if type(target.myPresets) ~= "table" then target.myPresets = {} end
     local cleanName = trim(name or "")
-    if cleanName == "" then cleanName = "My Preset " .. tostring(slotIdx) end
+    if cleanName == "" then cleanName = ns.smartMyPresetName(slotIdx) end
+    local rec = ns.currentRecipe()
+    local overrides = ns.captureCustomOverrides(rec)
     target.myPresets[slotIdx] = {
         name = cleanName,
-        recipe = ns.currentRecipe(),
+        recipe = rec,
+        overrides = overrides,
     }
+    refreshLooks()
+    return true
+end
+
+function ns.renameMyPreset(slotIdx, newName)
+    if type(slotIdx) ~= "number" or slotIdx < 1 or slotIdx > MY_PRESET_SLOTS then return false end
+    local target = targetSlot()
+    if type(target) ~= "table" or type(target.myPresets) ~= "table" then return false end
+    local entry = target.myPresets[slotIdx]
+    if type(entry) ~= "table" then return false end
+    local cleanName = trim(newName or "")
+    if cleanName == "" then return false end
+    entry.name = cleanName
+    if type(ns.staged) == "table" and (ns.staged.baseKind == "mypreset" or ns.staged.kind == "mypreset")
+        and (ns.staged.baseId == ("slot-" .. slotIdx) or ns.staged.id == ("slot-" .. slotIdx)) then
+        ns.staged.baseLabel = cleanName
+        if ns.staged.count == 1 then ns.staged.label = cleanName end
+    end
     refreshLooks()
     return true
 end
 
 function ns.deleteMyPreset(slotIdx)
     if type(slotIdx) ~= "number" or slotIdx < 1 or slotIdx > MY_PRESET_SLOTS then return false end
-    local slot, account, onlyOn = activeSlot()
-    local target = (onlyOn and type(slot) == "table") and slot or account
+    local target = targetSlot()
     if type(target) ~= "table" or type(target.myPresets) ~= "table" then return false end
     target.myPresets[slotIdx] = nil
+    if target.activeMyPreset == slotIdx then
+        writeActiveMyPreset(nil)
+    end
     refreshLooks()
     return true
 end
 
-function ns.applyMyPreset(entry)
+function ns.applyMyPreset(entry, slotIdx)
     if type(entry) ~= "table" or type(entry.recipe) ~= "table" then return false end
     local rec = entry.recipe
-    if inCombat() then return false end
+    if inCombat() then
+        queueLook("mypreset", slotIdx and ("slot-" .. slotIdx) or "custom", entry.name or "My Preset", {
+            entry = entry,
+            slotIdx = slotIdx,
+        })
+        return false
+    end
     if type(ns.captureUndo) == "function" then
         ns.undoHold = ns.captureUndo("theme")
     end
@@ -2217,8 +2711,42 @@ function ns.applyMyPreset(entry)
                 pcall(ns.applyCategoryLook, ck, rec[ck], true)
             end
         end
+        if type(entry.overrides) == "table" then
+            local allOver = {}
+            local byLayer = {}
+            for i = 1, #ALL_LOOK_LAYERS do
+                local lk = ALL_LOOK_LAYERS[i]
+                if lk ~= "nameplates" or nameplatesModuleLoaded() then
+                    local layerOver = entry.overrides[lk]
+                    if type(layerOver) == "table" then
+                        for scope, paths in pairs(layerOver) do
+                            if type(scope) == "string" and type(paths) == "table" then
+                                for path, val in pairs(paths) do
+                                    local kind = type(val)
+                                    if ns.isOwnedLookKey(lk, scope, path) and (kind == "number" or kind == "string" or kind == "boolean") then
+                                        local pair = { scope, path, val }
+                                        allOver[#allOver + 1] = pair
+                                        byLayer[lk] = byLayer[lk] or {}
+                                        byLayer[lk][#byLayer[lk] + 1] = pair
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            if #allOver > 0 then
+                captureExtraForPairs(allOver)
+                if writeScopedPairs(allOver) then
+                    for lk, lPairs in pairs(byLayer) do
+                        recordLayerFingerprint(lk, lPairs, true)
+                    end
+                end
+            end
+        end
     end)
     writeThemeSlot(nil, false)
+    writeActiveMyPreset(slotIdx)
     ns.applyingTheme = false
     ns.quietPalette = false
     ns.undoHold = nil
@@ -2251,8 +2779,15 @@ function ns.notePalette(id)
     local exact = ns.exactTheme(id, wornFrame())
     if exact then
         writeThemeSlot(exact.id, false)
+        writeActiveMyPreset(nil)
         refreshLooks()
         return
+    end
+    local activeMyIdx, activeMyEntry = ns.readActiveMyPreset()
+    if activeMyIdx and type(activeMyEntry) == "table" and type(activeMyEntry.recipe) == "table" then
+        if activeMyEntry.recipe.palette ~= id then
+            writeActiveMyPreset(nil)
+        end
     end
     local themeId = ns.readTheme()
     if themeId then writeThemeSlot(themeId, true) end
@@ -2272,6 +2807,7 @@ end
 
 function ns.captureUndo(kind)
     local themeId, changed = ns.readTheme()
+    local activeMyIdx = select(1, ns.readActiveMyPreset())
     local extraU, extraAB, extraNP = readCurrentExtraValues()
     return {
         kind = kind,
@@ -2280,6 +2816,8 @@ function ns.captureUndo(kind)
         actionBarValues = extraAB,
         nameplateValues = extraNP,
         lookPicks = copyLookPicks(),
+        appliedFingerprint = copyLayerMap(readFingerprint()),
+        activeMyPreset = activeMyIdx,
         theme = themeId or false,
         themeChanged = changed == true,
     }
@@ -2291,10 +2829,11 @@ function ns.applyUndoShot(shot)
         if type(shot.frameValues) == "table" then writeFrameValues(shot.frameValues) end
         restoreExtraValues(shot.extraUnitValues, shot.actionBarValues, shot.nameplateValues)
         if type(shot.lookPicks) == "table" then
-            local slot, account, onlyOn = activeSlot()
-            local target = (onlyOn and type(slot) == "table") and slot or account
+            local target = targetSlot()
             if type(target) == "table" then target.lookPicks = shot.lookPicks end
         end
+        writeFingerprint(shot.appliedFingerprint)
+        writeActiveMyPreset(shot.activeMyPreset)
     end
     if shot.theme == false or type(shot.theme) == "string" then
         writeThemeSlot(shot.theme, shot.themeChanged == true)
@@ -2385,6 +2924,7 @@ local function applyTheme(theme)
         end
     end)
     writeThemeSlot(theme.id, false)
+    writeActiveMyPreset(nil)
     ns.applyingTheme = false
     ns.quietPalette = false
     ns.undoHold = nil
@@ -2411,9 +2951,12 @@ local function restoreSaved(saved)
         restoreExtraValues(saved.extraUnitValues, saved.actionBarValues, saved.nameplateValues)
     end
     if hadGlow then glowOk = writeGlowValue(saved.glow, saved.light) end
-    local slot, account, onlyOn = activeSlot()
-    local target = (onlyOn and type(slot) == "table") and slot or account
-    if type(target) == "table" then target.lookPicks = nil end
+    local target = targetSlot()
+    if type(target) == "table" then
+        target.lookPicks = nil
+    end
+    writeFingerprint(nil)
+    writeActiveMyPreset(nil)
     return frameOk, glowOk, hadFrames, hadGlow
 end
 
@@ -2555,6 +3098,8 @@ function ns.finishLooksCombat()
     elseif pending.kind == "theme" then
         local theme = themeById(pending.id)
         if theme then applyTheme(theme) end
+    elseif pending.kind == "mypreset" and type(pending.entry) == "table" then
+        ns.applyMyPreset(pending.entry, pending.slotIdx)
     elseif pending.kind == "look" and type(pending.id) == "string" then
         local catKey, optId = string.match(pending.id, "^([^:]+):(.+)$")
         if catKey and optId then
@@ -3472,7 +4017,10 @@ local function buildPresetsPage(row)
     recipeBox:SetHeight(PRESET_FOOTER_H)
     local recipeCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(recipeBox) or nil
     local recipeTitle = uiFont(recipeBox, 12, CREAM)
+    if type(recipeTitle.SetWordWrap) == "function" then recipeTitle:SetWordWrap(false) end
     row.recipeTitle = recipeTitle
+
+    local openSlotEditor
     local recipeQuickSave = CreateFrame("Button", nil, recipeBox)
     recipeQuickSave:SetSize(116, 18)
     local quickSaveCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(recipeQuickSave) or nil
@@ -3483,28 +4031,49 @@ local function buildPresetsPage(row)
         local existing = ns.readMyPresets()
         for s = 1, MY_PRESET_SLOTS do
             if existing[s] == nil then
-                local themeId = ns.readTheme()
-                local t = themeId and themeById(themeId) or nil
-                ns.saveMyPreset(s, t and (t.name .. " Custom") or ("My Setup " .. s))
+                if type(openSlotEditor) == "function" then
+                    openSlotEditor(s, "save", ns.smartMyPresetName(s))
+                else
+                    ns.saveMyPreset(s, ns.smartMyPresetName(s))
+                end
                 return
             end
         end
         say("Palettes: all 4 My Presets slots are full. Delete a slot to save a new one.")
     end)
 
+    local reapplyAction = nil
+    local recipeReapply = CreateFrame("Button", nil, recipeBox)
+    recipeReapply:SetSize(128, 18)
+    local reapplyCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(recipeReapply) or nil
+    local reapplyFs = uiFont(recipeReapply, 10, CREAM)
+    reapplyFs:SetPoint("CENTER", recipeReapply, "CENTER", 0, 0)
+    reapplyFs:SetText("")
+    setShownSafe(recipeReapply, false)
+    recipeReapply:SetScript("OnClick", function()
+        if type(reapplyAction) == "function" then reapplyAction() end
+    end)
+    recipeReapply:SetScript("OnEnter", function()
+        showTooltip(recipeReapply, "Reset modified DaylightUI settings back to this preset's clean values")
+    end)
+    recipeReapply:SetScript("OnLeave", hideTooltip)
+    row.recipeReapply = recipeReapply
+    row.recipeReapplyFs = reapplyFs
+
     local recipeDesc = uiFont(recipeBox, 10, DIM)
     if type(recipeDesc.SetWordWrap) == "function" then recipeDesc:SetWordWrap(true) end
+    row.recipeDesc = recipeDesc
 
     local LAYER_DEFS = {
         { key = "palette", label = "Colour", tab = "Colours" },
-        { key = "frame", label = "Player/Tgt", tab = "Looks", sub = "player_target" },
-        { key = "focus", label = "Focus", tab = "Looks", sub = "focus" },
-        { key = "tot", label = "ToT", tab = "Looks", sub = "tot" },
-        { key = "party", label = "Party", tab = "Looks", sub = "party" },
-        { key = "raid", label = "Raid", tab = "Looks", sub = "raid" },
-        { key = "castbars", label = "Cast Bars", tab = "Looks", sub = "castbars" },
-        { key = "actionbars", label = "Action Bars", tab = "Looks", sub = "actionbars" },
-        { key = "nameplates", label = "Nameplates", tab = "Looks", sub = "nameplates" },
+        { key = "frame", layer = "player_target", label = "Player/Tgt", tab = "Looks", sub = "player_target" },
+        { key = "focus", layer = "focus", label = "Focus", tab = "Looks", sub = "focus" },
+        { key = "tot", layer = "tot", label = "ToT", tab = "Looks", sub = "tot" },
+        { key = "party", layer = "party", label = "Party", tab = "Looks", sub = "party" },
+        { key = "raid", layer = "raid", label = "Raid", tab = "Looks", sub = "raid" },
+        { key = "castbars", layer = "castbars", label = "Cast Bars", tab = "Looks", sub = "castbars" },
+        { key = "actionbars", layer = "actionbars", label = "Action Bars", tab = "Looks", sub = "actionbars" },
+        { key = "nameplates", layer = "nameplates", label = "Nameplates", tab = "Looks", sub = "nameplates" },
     }
     local layerButtons = {}
     for i = 1, #LAYER_DEFS do
@@ -3528,6 +4097,7 @@ local function buildPresetsPage(row)
         b:SetScript("OnLeave", hideTooltip)
         layerButtons[#layerButtons + 1] = { def = def, btn = b, card = c, topFs = topFs, valFs = valFs }
     end
+    row.layerButtons = layerButtons
 
     -- Right Column: My Presets (2x2 grid, 4 slots)
     local myBox = CreateFrame("Frame", nil, row)
@@ -3538,6 +4108,63 @@ local function buildPresetsPage(row)
     local myCount = uiFont(myBox, 10, DIM)
 
     local mySlots = {}
+    local editingSlot = nil
+
+    local function cancelSlotEditor()
+        if not editingSlot then return end
+        local sl = mySlots[editingSlot.slot]
+        editingSlot = nil
+        if sl and sl.editBox then
+            if type(sl.editBox.ClearFocus) == "function" then pcall(sl.editBox.ClearFocus, sl.editBox) end
+            setShownSafe(sl.editBox, false)
+        end
+        if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+    end
+
+    local function commitSlotEditor()
+        if not editingSlot then return end
+        local state = editingSlot
+        local sl = mySlots[state.slot]
+        editingSlot = nil
+        local raw = ""
+        if sl and sl.editBox then
+            if type(sl.editBox.GetText) == "function" then
+                local ok, txt = pcall(sl.editBox.GetText, sl.editBox)
+                if ok and type(txt) == "string" then raw = txt end
+            end
+            if type(sl.editBox.ClearFocus) == "function" then pcall(sl.editBox.ClearFocus, sl.editBox) end
+            setShownSafe(sl.editBox, false)
+        end
+        local clean = trim(raw)
+        if state.mode == "save" then
+            ns.saveMyPreset(state.slot, clean ~= "" and clean or ns.smartMyPresetName(state.slot))
+        elseif state.mode == "rename" then
+            if clean ~= "" then
+                ns.renameMyPreset(state.slot, clean)
+            elseif type(row.UpdateLooks) == "function" then
+                row.UpdateLooks()
+            end
+        end
+    end
+
+    openSlotEditor = function(slotIdx, mode, initialText)
+        if editingSlot then cancelSlotEditor() end
+        local sl = mySlots[slotIdx]
+        if not sl or not sl.editBox then
+            if mode == "save" then ns.saveMyPreset(slotIdx, initialText) end
+            return
+        end
+        editingSlot = { slot = slotIdx, mode = mode }
+        if type(row.UpdateLooks) == "function" then row.UpdateLooks() end
+        if type(sl.editBox.SetText) == "function" then pcall(sl.editBox.SetText, sl.editBox, initialText or "") end
+        setShownSafe(sl.editBox, true)
+        if type(sl.editBox.SetFocus) == "function" then pcall(sl.editBox.SetFocus, sl.editBox) end
+        if type(sl.editBox.HighlightText) == "function" then pcall(sl.editBox.HighlightText, sl.editBox) end
+    end
+    row.openSlotEditor = openSlotEditor
+    row.commitSlotEditor = commitSlotEditor
+    row.cancelSlotEditor = cancelSlotEditor
+
     for s = 1, MY_PRESET_SLOTS do
         local slotBtn = CreateFrame("Button", nil, myBox)
         slotBtn:SetHeight(52)
@@ -3575,8 +4202,11 @@ local function buildPresetsPage(row)
 
         delBtn:SetScript("OnClick", function()
             hideTooltip()
-            if type(ns.staged) == "table" and ns.staged.kind == "mypreset" and ns.staged.id == ("slot-" .. s) then
+            if editingSlot and editingSlot.slot == s then cancelSlotEditor() end
+            if type(ns.staged) == "table" and (ns.staged.kind == "mypreset" or ns.staged.baseKind == "mypreset")
+                and (ns.staged.id == ("slot-" .. s) or ns.staged.baseId == ("slot-" .. s)) then
                 ns.RevertPreview()
+                ns.staged = nil
             end
             ns.deleteMyPreset(s)
         end)
@@ -3589,29 +4219,91 @@ local function buildPresetsPage(row)
             hideTooltip()
         end)
 
+        local renBtn = CreateFrame("Button", nil, slotBtn)
+        renBtn:SetSize(20, 20)
+        renBtn:SetPoint("RIGHT", delBtn, "LEFT", -1, 0)
+        if type(renBtn.SetFrameLevel) == "function" and type(slotBtn.GetFrameLevel) == "function" then
+            renBtn:SetFrameLevel(slotBtn:GetFrameLevel() + 2)
+        end
+        if type(renBtn.RegisterForClicks) == "function" then
+            renBtn:RegisterForClicks("LeftButtonUp")
+        end
+        local renFs = uiFont(renBtn, 9, DIM)
+        renFs:SetPoint("CENTER", renBtn, "CENTER", 0, 0)
+        renFs:SetText("Aa")
+        setShownSafe(renBtn, false)
+
+        renBtn:SetScript("OnClick", function()
+            hideTooltip()
+            local saved = ns.readMyPresets()[s]
+            if type(saved) == "table" then
+                openSlotEditor(s, "rename", saved.name or ("Preset " .. s))
+            end
+        end)
+        renBtn:SetScript("OnEnter", function()
+            tintText(renFs, CREAM)
+            showTooltip(renBtn, "Rename saved preset")
+        end)
+        renBtn:SetScript("OnLeave", function()
+            tintText(renFs, DIM)
+            hideTooltip()
+        end)
+
+        local editBox = CreateFrame("EditBox", nil, slotBtn)
+        editBox:SetHeight(24)
+        editBox:SetPoint("LEFT", slotBtn, "LEFT", 6, 0)
+        editBox:SetPoint("RIGHT", slotBtn, "RIGHT", -6, 0)
+        if type(editBox.SetFrameLevel) == "function" and type(slotBtn.GetFrameLevel) == "function" then
+            editBox:SetFrameLevel(slotBtn:GetFrameLevel() + 3)
+        end
+        if type(editBox.SetAutoFocus) == "function" then pcall(editBox.SetAutoFocus, editBox, false) end
+        if type(editBox.SetMaxLetters) == "function" then pcall(editBox.SetMaxLetters, editBox, 28) end
+        if type(editBox.SetTextInsets) == "function" then pcall(editBox.SetTextInsets, editBox, 5, 5, 0, 0) end
+        if type(editBox.SetFont) == "function" then
+            local face = type(ns.uiFontFace) == "function" and ns.uiFontFace() or "Fonts\\FRIZQT__.TTF"
+            pcall(editBox.SetFont, editBox, face, 11, "")
+        end
+        if type(editBox.SetTextColor) == "function" then
+            pcall(editBox.SetTextColor, editBox, CREAM[1], CREAM[2], CREAM[3], 1)
+        end
+        local editCard = type(ns.makeRoundCard) == "function" and ns.makeRoundCard(editBox) or nil
+        setShownSafe(editBox, false)
+        editBox:SetScript("OnEnterPressed", function() commitSlotEditor() end)
+        editBox:SetScript("OnEscapePressed", function() cancelSlotEditor() end)
+        editBox:SetScript("OnEditFocusLost", function()
+            if editingSlot and editingSlot.slot == s then cancelSlotEditor() end
+        end)
+
         slotBtn:SetScript("OnClick", function()
+            if editingSlot and editingSlot.slot == s then return end
             local saved = ns.readMyPresets()[s]
             if type(saved) ~= "table" then
-                local themeId = ns.readTheme()
-                local t = themeId and themeById(themeId) or nil
-                ns.saveMyPreset(s, t and (t.name .. " " .. s) or ("My Preset " .. s))
+                openSlotEditor(s, "save", ns.smartMyPresetName(s))
                 return
             end
             ns.RevertPreview()
             ns.setLooksOpen(true)
             if type(ns.stagePick) == "function" then
-                ns.stagePick("mypreset", "slot-" .. s, function() ns.applyMyPreset(saved) end, false, saved.name, saved.recipe)
+                ns.stagePick("mypreset", "slot-" .. s, function() ns.applyMyPreset(saved, s) end, false, saved.name, saved.recipe, nil, saved.overrides)
             else
-                ns.applyMyPreset(saved)
+                ns.applyMyPreset(saved, s)
             end
             refreshLooks()
+        end)
+        slotBtn:SetScript("OnDoubleClick", function()
+            local saved = ns.readMyPresets()[s]
+            if type(saved) == "table" then
+                openSlotEditor(s, "rename", saved.name or ("Preset " .. s))
+            end
         end)
 
         mySlots[s] = {
             btn = slotBtn, card = sCard, name = sName, sub = sSub,
-            swEdge = swEdge, swBg = swBg, swBand = swBand, swAcc = swAcc, delBtn = delBtn,
+            swEdge = swEdge, swBg = swBg, swBand = swBand, swAcc = swAcc,
+            delBtn = delBtn, renBtn = renBtn, editBox = editBox, editCard = editCard,
         }
     end
+    row.mySlots = mySlots
 
     local combatNote = uiFont(row, 11, ON_INK)
     combatNote:SetText("Applies when combat ends.")
@@ -3663,6 +4355,8 @@ local function buildPresetsPage(row)
         recipeTitle:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -8)
         recipeQuickSave:ClearAllPoints()
         recipeQuickSave:SetPoint("TOPRIGHT", recipeBox, "TOPRIGHT", -8, -6)
+        recipeReapply:ClearAllPoints()
+        recipeReapply:SetPoint("TOPRIGHT", recipeBox, "TOPRIGHT", -8, -6)
         recipeDesc:ClearAllPoints()
         recipeDesc:SetPoint("TOPLEFT", recipeBox, "TOPLEFT", 10, -26)
         recipeDesc:SetWidth(math.max(120, halfW - 20))
@@ -3710,41 +4404,151 @@ local function buildPresetsPage(row)
         local waiting = type(looksPending) == "table"
         setShownSafe(combatNote, waiting)
 
+        local customizedLayers, customizedOrder = ns.detectCustomizedLayers()
+        local anyExternalCustom = #customizedOrder > 0
+        local modLabels = {}
+        for i = 1, #customizedOrder do
+            modLabels[#modLabels + 1] = LAYER_DISPLAY_LABELS[customizedOrder[i]] or customizedOrder[i]
+        end
+
         local shownId, changed, pendingTheme = ns.shownTheme()
+        local exactWithApplied = ns.exactTheme(ns.screenPalette(), appliedFrameId())
+        local externalOnlyTheme = (shownId ~= nil and anyExternalCustom and exactWithApplied ~= nil and exactWithApplied.id == shownId)
+        local effectiveChanged = changed and not externalOnlyTheme
+
         local staged = ns.staged
         local stagedThemeId = (type(staged) == "table" and (staged.baseKind == "theme" or staged.kind == "theme"))
             and (staged.baseId or staged.id) or nil
+        local isStagedMy = (type(staged) == "table" and (staged.baseKind == "mypreset" or staged.kind == "mypreset"))
+        local stagedMyId = isStagedMy and (staged.baseId or staged.id) or nil
+        local stagedMySlot = type(stagedMyId) == "string" and tonumber(string.match(stagedMyId, "^slot%-(%d+)$")) or nil
+
+        local savedList = ns.readMyPresets()
+        local stagedMyEntry = nil
+        if isStagedMy then
+            if stagedMySlot and type(savedList[stagedMySlot]) == "table" then
+                stagedMyEntry = savedList[stagedMySlot]
+            elseif type(staged.recipe) == "table" then
+                stagedMyEntry = {
+                    name = staged.baseLabel or staged.label or "My Preset",
+                    recipe = staged.recipe,
+                    overrides = staged.overrides,
+                }
+            end
+        end
+        local activeMyIdx, activeMyEntry = ns.readActiveMyPreset()
 
         for i = 1, #cards do
             local line = cards[i]
             local pending = rowPending("theme", line.id)
-            local on = (shownId == line.id and not changed and not pendingTheme)
+            local on = (shownId == line.id and not effectiveChanged and not pendingTheme and activeMyEntry == nil)
             local isStaged = (stagedThemeId == line.id)
+            if on and externalOnlyTheme then
+                line.name:SetText(line.baseName .. " (customized)")
+            else
+                line.name:SetText(line.baseName)
+            end
             line.SetOn(on, pending, isStaged)
         end
 
         -- Update Preset Recipe card
         if recipeCard then recipeCard.paint(bg, 0.92, brd, 0.70) end
+        reapplyAction = nil
+        setShownSafe(recipeReapply, false)
+        setShownSafe(recipeQuickSave, false)
+
         local focusTheme = (stagedThemeId and themeById(stagedThemeId))
             or (shownId and themeById(shownId))
             or THEMES[1]
         local hasStagedTweaks = type(staged) == "table" and (staged.palette ~= nil or staged.frame ~= nil or (type(staged.looks) == "table" and next(staged.looks) ~= nil))
-        local isModified = (shownId ~= nil and changed == true and stagedThemeId == nil) or (stagedThemeId ~= nil and hasStagedTweaks)
-        if isModified then
-            recipeTitle:SetText("Custom (based on " .. (focusTheme and focusTheme.name or "Preset") .. ")")
-            recipeDesc:SetText("Modified from " .. (focusTheme and focusTheme.name or "Preset") .. ". Click any layer below to tweak or save to My Presets.")
-            setShownSafe(recipeQuickSave, true)
-            if quickSaveCard then quickSaveCard.paint(bnd, 0.95, acc, 0.85) end
-            tintText(quickSaveFs, acc)
+
+        local activeEntryForRecipe = nil
+        local showLiveCustomBadges = false
+        local baseRec
+
+        if stagedMyEntry then
+            activeEntryForRecipe = stagedMyEntry
+            baseRec = stagedMyEntry.recipe or ns.currentRecipe()
+            local slotName = stagedMyEntry.name or "My Preset"
+            if hasStagedTweaks then
+                recipeTitle:SetText("Custom (based on " .. slotName .. ")")
+                recipeDesc:SetText("Modified from " .. slotName .. ". Click any layer below to tweak or save to My Presets.")
+                setShownSafe(recipeQuickSave, true)
+                if quickSaveCard then quickSaveCard.paint(bnd, 0.95, acc, 0.85) end
+                tintText(quickSaveFs, acc)
+            else
+                recipeTitle:SetText(slotName .. " Recipe")
+                recipeDesc:SetText(ns.describeRecipe(baseRec, stagedMyEntry.overrides))
+            end
+        elseif stagedThemeId then
+            baseRec = focusTheme or ns.currentRecipe()
+            if hasStagedTweaks then
+                recipeTitle:SetText("Custom (based on " .. (focusTheme and focusTheme.name or "Preset") .. ")")
+                recipeDesc:SetText("Modified from " .. (focusTheme and focusTheme.name or "Preset") .. ". Click any layer below to tweak or save to My Presets.")
+                setShownSafe(recipeQuickSave, true)
+                if quickSaveCard then quickSaveCard.paint(bnd, 0.95, acc, 0.85) end
+                tintText(quickSaveFs, acc)
+            else
+                recipeTitle:SetText((focusTheme and focusTheme.name or "Preset") .. " Recipe")
+                recipeDesc:SetText(focusTheme and focusTheme.rationale or THEME_INTRO)
+            end
+        elseif activeMyEntry then
+            activeEntryForRecipe = activeMyEntry
+            showLiveCustomBadges = true
+            baseRec = activeMyEntry.recipe or ns.currentRecipe()
+            local slotName = activeMyEntry.name or "My Preset"
+            if anyExternalCustom then
+                recipeTitle:SetText(slotName .. " (customized)")
+                recipeDesc:SetText("Modified in DaylightUI: " .. table.concat(modLabels, ", ") .. ".")
+                local reapplyLabel = "Re-apply " .. slotName
+                reapplyFs:SetText(reapplyLabel)
+                recipeReapply:SetWidth(math.min(160, math.max(96, #reapplyLabel * 6 + 18)))
+                if reapplyCard then reapplyCard.paint(bnd, 0.95, acc, 0.85) end
+                tintText(reapplyFs, acc)
+                reapplyAction = function()
+                    ns.applyMyPreset(activeMyEntry, activeMyIdx)
+                end
+                setShownSafe(recipeReapply, true)
+            else
+                recipeTitle:SetText(slotName .. " Recipe")
+                recipeDesc:SetText(ns.describeRecipe(baseRec, activeMyEntry.overrides))
+            end
         else
-            recipeTitle:SetText((focusTheme and focusTheme.name or "Preset") .. " Recipe")
-            recipeDesc:SetText(focusTheme and focusTheme.rationale or THEME_INTRO)
-            setShownSafe(recipeQuickSave, false)
+            showLiveCustomBadges = true
+            local isModified = (shownId ~= nil and effectiveChanged == true)
+            if isModified then
+                baseRec = ns.currentRecipe()
+                recipeTitle:SetText("Custom (based on " .. (focusTheme and focusTheme.name or "Preset") .. ")")
+                if anyExternalCustom then
+                    recipeDesc:SetText("Modified in DaylightUI: " .. table.concat(modLabels, ", ") .. ".")
+                else
+                    recipeDesc:SetText("Modified from " .. (focusTheme and focusTheme.name or "Preset") .. ". Click any layer below to tweak or save to My Presets.")
+                end
+                setShownSafe(recipeQuickSave, true)
+                if quickSaveCard then quickSaveCard.paint(bnd, 0.95, acc, 0.85) end
+                tintText(quickSaveFs, acc)
+            elseif anyExternalCustom and shownId and focusTheme then
+                baseRec = focusTheme
+                recipeTitle:SetText(focusTheme.name .. " (customized)")
+                recipeDesc:SetText("Modified in DaylightUI: " .. table.concat(modLabels, ", ") .. ".")
+                local reapplyLabel = "Re-apply " .. focusTheme.name
+                reapplyFs:SetText(reapplyLabel)
+                recipeReapply:SetWidth(math.min(160, math.max(96, #reapplyLabel * 6 + 18)))
+                if reapplyCard then reapplyCard.paint(bnd, 0.95, acc, 0.85) end
+                tintText(reapplyFs, acc)
+                reapplyAction = function()
+                    applyTheme(focusTheme)
+                end
+                setShownSafe(recipeReapply, true)
+            else
+                baseRec = focusTheme or ns.currentRecipe()
+                recipeTitle:SetText((focusTheme and focusTheme.name or "Preset") .. " Recipe")
+                recipeDesc:SetText(focusTheme and focusTheme.rationale or THEME_INTRO)
+            end
         end
         tintText(recipeTitle, txt)
         tintText(recipeDesc, lbl)
 
-        local baseRec = (stagedThemeId and focusTheme) or (isModified and ns.currentRecipe()) or focusTheme or ns.currentRecipe()
         local rec = {
             palette = (type(staged) == "table" and staged.palette) or baseRec.palette,
             frame = (type(staged) == "table" and staged.frame) or baseRec.frame,
@@ -3762,6 +4566,7 @@ local function buildPresetsPage(row)
             tintText(lb.topFs, lbl)
             tintText(lb.valFs, txt)
             local key = lb.def.key
+            local layerKey = lb.def.layer
             local valText = "—"
             if key == "palette" then
                 valText = partLabel("palette", rec.palette)
@@ -3770,6 +4575,13 @@ local function buildPresetsPage(row)
             else
                 valText = ns.categoryLookName(key, rec[key])
             end
+            if layerKey then
+                local isOverridden = (activeEntryForRecipe ~= nil and layerHasOverrides(activeEntryForRecipe, layerKey))
+                    or (showLiveCustomBadges and customizedLayers[layerKey] == true)
+                if isOverridden then
+                    valText = valText .. " (customized)"
+                end
+            end
             lb.valFs:SetText(valText)
         end
 
@@ -3777,26 +4589,47 @@ local function buildPresetsPage(row)
         if myCard then myCard.paint(bg, 0.92, brd, 0.70) end
         tintText(myTitle, txt)
         tintText(myCount, lbl)
-        local savedList = ns.readMyPresets()
         local used = 0
         for s = 1, MY_PRESET_SLOTS do
             local sl = mySlots[s]
             local entry = savedList[s]
-            local isStagedSlot = (type(staged) == "table" and staged.kind == "mypreset" and staged.id == ("slot-" .. s))
-            if type(entry) == "table" then
-                used = used + 1
+            local isEditing = (editingSlot ~= nil and editingSlot.slot == s)
+            local isStagedSlot = (isStagedMy and stagedMySlot == s)
+            local isActiveSlot = (activeMyIdx == s and not isStagedMy and stagedThemeId == nil)
+            local isPendingSlot = rowPending("mypreset", "slot-" .. s)
+            if type(entry) == "table" then used = used + 1 end
+            if isEditing then
+                if sl.card then sl.card.paint(blend(win, acc, 0.14), 0.96, acc, 0.95) end
+                if sl.editCard then sl.editCard.paint(bg, 0.98, acc, 0.90) end
+                setShownSafe(sl.editBox, true)
+                setShownSafe(sl.name, false)
+                setShownSafe(sl.sub, false)
+                setShownSafe(sl.swEdge, false)
+                setShownSafe(sl.swBg, false)
+                setShownSafe(sl.swBand, false)
+                setShownSafe(sl.swAcc, false)
+                setShownSafe(sl.delBtn, false)
+                setShownSafe(sl.renBtn, false)
+            elseif type(entry) == "table" then
+                setShownSafe(sl.editBox, false)
+                setShownSafe(sl.name, true)
                 if sl.card then
+                    local lit = isStagedSlot or isActiveSlot or isPendingSlot
                     sl.card.paint(
-                        isStagedSlot and blend(win, acc, 0.18) or blend(win, bnd, 0.35),
+                        lit and blend(win, acc, 0.18) or blend(win, bnd, 0.35),
                         0.94,
-                        isStagedSlot and acc or brd,
-                        isStagedSlot and 0.95 or 0.65
+                        lit and acc or brd,
+                        lit and 0.95 or 0.65
                     )
                 end
                 sl.name:ClearAllPoints()
                 sl.name:SetPoint("TOPLEFT", sl.btn, "TOPLEFT", 8, -7)
-                sl.name:SetPoint("RIGHT", sl.btn, "RIGHT", -22, 0)
-                sl.name:SetText(entry.name or ("Preset " .. s))
+                sl.name:SetPoint("RIGHT", sl.btn, "RIGHT", -44, 0)
+                local displayName = entry.name or ("Preset " .. s)
+                if isActiveSlot and anyExternalCustom then
+                    displayName = displayName .. " (customized)"
+                end
+                sl.name:SetText(displayName)
                 tintText(sl.name, txt)
 
                 sl.swEdge:ClearAllPoints()
@@ -3814,11 +4647,16 @@ local function buildPresetsPage(row)
                 sl.sub:ClearAllPoints()
                 sl.sub:SetPoint("LEFT", sl.swEdge, "RIGHT", 6, 0)
                 sl.sub:SetPoint("RIGHT", sl.btn, "RIGHT", -6, 0)
-                sl.sub:SetText(partLabel("frame", type(entry.recipe) == "table" and entry.recipe.frame or nil))
+                local subText = isPendingSlot and "Pending..."
+                    or partLabel("frame", type(entry.recipe) == "table" and entry.recipe.frame or nil)
+                sl.sub:SetText(subText)
                 tintText(sl.sub, lbl)
                 setShownSafe(sl.sub, true)
                 setShownSafe(sl.delBtn, true)
+                setShownSafe(sl.renBtn, true)
             else
+                setShownSafe(sl.editBox, false)
+                setShownSafe(sl.name, true)
                 if sl.card then sl.card.paint(blend(win, bnd, 0.16), 0.72, brd, 0.50) end
                 sl.name:ClearAllPoints()
                 sl.name:SetPoint("CENTER", sl.btn, "CENTER", 0, 0)
@@ -3830,6 +4668,7 @@ local function buildPresetsPage(row)
                 setShownSafe(sl.swBand, false)
                 setShownSafe(sl.swAcc, false)
                 setShownSafe(sl.delBtn, false)
+                setShownSafe(sl.renBtn, false)
             end
         end
         myCount:SetText(tostring(used) .. " / " .. tostring(MY_PRESET_SLOTS) .. " slots")
@@ -4152,6 +4991,7 @@ local function buildLooksTabPage(row)
             tintText(sb.fs, active and acc or txt)
         end
 
+        local customizedLayers = ns.detectCustomizedLayers()
         local staged = ns.staged
         local stagedTheme = (type(staged) == "table" and (staged.baseKind == "theme" or staged.kind == "theme"))
             and themeById(staged.baseId or staged.id) or nil
@@ -4161,11 +5001,11 @@ local function buildLooksTabPage(row)
             or (type(staged) == "table" and staged.kind == "frame" and staged.id)
             or (stagedTheme and stagedTheme.frame)
             or (stagedRec and stagedRec.frame)
-        local activePT = stagedPT or wornFrame() or "beam"
+        local activePT = stagedPT or appliedFrameId() or "beam"
         local activePTName = partLabel("frame", activePT)
 
         for ck, list in pairs(catCards) do
-            local activeId = (ck == "player_target") and wornFrame() or ns.readLookPick(ck)
+            local activeId = (ck == "player_target") and appliedFrameId() or ns.readLookPick(ck)
             local stagedForCat = nil
             if ck == "player_target" then
                 stagedForCat = stagedPT
@@ -4178,13 +5018,19 @@ local function buildLooksTabPage(row)
             for i = 1, #list do
                 local line = list[i]
                 local isStaged = (stagedForCat ~= nil and stagedForCat == line.id)
+                local isOn = (activeId == line.id)
+                if isOn and customizedLayers[ck] == true then
+                    line.name:SetText(line.baseName .. " (customized)")
+                else
+                    line.name:SetText(line.baseName)
+                end
                 if line.isMatch then
                     line.matchFs:SetText("Currently: " .. activePTName)
                     setShownSafe(line.matchFs, true)
                 else
                     setShownSafe(line.matchFs, false)
                 end
-                line.SetOn(activeId == line.id, rowPending(line.kind, line.id, line.catKey), isStaged)
+                line.SetOn(isOn, rowPending(line.kind, line.id, line.catKey), isStaged)
             end
         end
         layout()
